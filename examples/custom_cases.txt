@@ -1,14 +1,31 @@
-// Custom cases: replace what an existing case gives you when you open it.
-// Copy this file to csgo_gc/custom_cases.txt in your game folder to use it.
+// Custom cases. Copy this file to csgo_gc/custom_cases.txt in your game folder to use it.
 //
-// Each block is keyed by the def index of an existing case. Opening that case
-// rolls from the lists below instead. Pick an old case you don't care about.
+// Two kinds of block:
+//
+//   ADD a new case: the block's name is any word you like, and "based_on" is the def
+//   index of an existing case to copy the look and key from. The new case appears next
+//   to the originals, which stay as they are. It is listed first in the shop (see
+//   star_shop in config.txt) and its contents preview shows its own skins. The game's
+//   items_game.txt is edited to add it (restart the game twice the first time).
+//       "my_case"
+//       {
+//           "based_on"  "4001"
+//           "name"      "My Case"
+//           ...
+//       }
+//
+//   REPLACE an existing case: the block's name is the def index of that case. Opening
+//   it rolls from the lists below instead. Pick an old case you don't care about.
+//       "4001"
+//       {
+//           ...
+//       }
 //
 // "name" (optional) is shown on the case like a name tag, e.g. "Galaxy Case".
-// The case keeps its icon and key. The contents preview (inspecting the case)
-// comes from the game's own files, so it shows the original skins unless you
-// turn on "custom_case_previews" in config.txt (experimental, edits the game's
-// items_game.txt with a backup, restart the game after changes).
+// A replaced case's contents preview (inspecting the case) comes from the game's own
+// files, so it shows the original skins unless you turn on "custom_case_previews" in
+// config.txt (experimental, edits items_game.txt with a backup). An added case always
+// shows its own skins.
 //
 // Items are written like the game's loot lists: "[paint_kit_name]weapon_name".
 // Any paint kit can go on any weapon, including unused/unreleased paint kits,
@@ -34,9 +51,10 @@
 
 // "Galaxy Case": real finishes on weapons they never shipped on, checked against
 // the final CS:GO items_game.txt (all names exist, none of these combos are in
-// the game). Replaces the original CS:GO Weapon Case (def 4001).
-"4001"
+// the game). Looks like the CS:GO Weapon Case (def 4001) and uses its key.
+"galaxy"
 {
+	"based_on"	"4001"
 	"name"	"Galaxy Case"
 
 	"items"
@@ -88,9 +106,10 @@
 	}
 }
 
-// "Gold Rush Case": gold, bronze and orange. Replaces CS:GO Weapon Case 2 (def 4004).
-"4004"
+// "Gold Rush Case": gold, bronze and orange. Looks like CS:GO Weapon Case 2 (def 4004) and uses its key.
+"gold_rush"
 {
+	"based_on"	"4004"
 	"name"	"Gold Rush Case"
 
 	"items"
@@ -135,9 +154,10 @@
 	}
 }
 
-// "Deep Blue Case": blues. Replaces CS:GO Weapon Case 3 (def 4010).
-"4010"
+// "Deep Blue Case": blues. Looks like CS:GO Weapon Case 3 (def 4010) and uses its key.
+"deep_blue"
 {
+	"based_on"	"4010"
 	"name"	"Deep Blue Case"
 
 	"items"
@@ -180,9 +200,10 @@
 	}
 }
 
-// "Crimson Case": reds. Replaces the eSports 2013 Case (def 4002).
-"4002"
+// "Crimson Case": reds. Looks like the eSports 2013 Case (def 4002) and uses its key.
+"crimson"
 {
+	"based_on"	"4002"
 	"name"	"Crimson Case"
 
 	"items"
@@ -225,9 +246,10 @@
 	}
 }
 
-// "Emerald Case": greens. Replaces the eSports 2013 Winter Case (def 4005).
-"4005"
+// "Emerald Case": greens. Looks like the eSports 2013 Winter Case (def 4005) and uses its key.
+"emerald"
 {
+	"based_on"	"4005"
 	"name"	"Emerald Case"
 
 	"items"
@@ -267,5 +289,174 @@
 		"[am_crystallized_dark_green]weapon_knife_karambit"		""
 		"[am_crystallized_dark_green]weapon_knife_falchion"		""
 		"[am_crystallized_dark_green]weapon_knife_gut"		""
+	}
+}
+
+// "Phantom Blade Case": the newer knives (Survival, Paracord, Nomad, Skeleton, Classic,
+// Bowie, Ursus, Navaja, Stiletto, Talon) in Doppler, Marble Fade, Tiger Tooth, Fade and
+// Crimson Web, which they never shipped with. Looks like Community Case 2 (def 4011) and uses its key.
+"phantom_blade"
+{
+	"based_on"	"4011"
+	"name"	"Phantom Blade Case"
+
+	"items"
+	{
+		// Mil-Spec
+		"[am_marble_fade]weapon_famas"		"rare"
+		"[aa_fade]weapon_p250"		"rare"
+		"[am_doppler_phase1]weapon_mp9"		"rare"
+		"[an_tiger_orange]weapon_mp7"		"rare"
+		"[hy_webs]weapon_galilar"		"rare"
+
+		// Restricted
+		"[am_doppler_phase4]weapon_m4a1_silencer"		"mythical"
+		"[am_marble_fade]weapon_ak47"		"mythical"
+		"[aa_fade]weapon_deagle"		"mythical"
+		"[am_doppler_phase2]weapon_awp"		"mythical"
+		"[aa_fade_metallic]weapon_usp_silencer"		"mythical"
+
+		// Classified
+		"[am_doppler_phase1]weapon_ak47"		"legendary"
+		"[am_marble_fade]weapon_awp"		"legendary"
+		"[aa_fade]weapon_m4a1"		"legendary"
+
+		// Covert
+		"[am_doppler_phase3]weapon_awp"		"ancient"
+		"[am_marble_fade]weapon_m4a1_silencer"		"ancient"
+	}
+
+	"golds"
+	{
+		// Survival Knife
+		"[am_doppler_phase1]weapon_knife_canis"		""
+		"[am_doppler_phase2]weapon_knife_canis"		""
+		"[am_doppler_phase3]weapon_knife_canis"		""
+		"[am_doppler_phase4]weapon_knife_canis"		""
+		"[am_marble_fade]weapon_knife_canis"		""
+		"[am_ruby_marbleized]weapon_knife_canis"		""
+		"[am_sapphire_marbleized]weapon_knife_canis"		""
+		"[am_blackpearl_marbleized]weapon_knife_canis"		""
+		"[am_emerald_marbleized]weapon_knife_canis"		""
+		"[an_tiger_orange]weapon_knife_canis"		""
+		"[aa_fade]weapon_knife_canis"		""
+		"[hy_webs]weapon_knife_canis"		""
+		// Paracord Knife
+		"[am_doppler_phase1]weapon_knife_cord"		""
+		"[am_doppler_phase2]weapon_knife_cord"		""
+		"[am_doppler_phase3]weapon_knife_cord"		""
+		"[am_doppler_phase4]weapon_knife_cord"		""
+		"[am_marble_fade]weapon_knife_cord"		""
+		"[am_ruby_marbleized]weapon_knife_cord"		""
+		"[am_sapphire_marbleized]weapon_knife_cord"		""
+		"[am_blackpearl_marbleized]weapon_knife_cord"		""
+		"[am_emerald_marbleized]weapon_knife_cord"		""
+		"[an_tiger_orange]weapon_knife_cord"		""
+		"[aa_fade]weapon_knife_cord"		""
+		"[hy_webs]weapon_knife_cord"		""
+		// Nomad Knife
+		"[am_doppler_phase1]weapon_knife_outdoor"		""
+		"[am_doppler_phase2]weapon_knife_outdoor"		""
+		"[am_doppler_phase3]weapon_knife_outdoor"		""
+		"[am_doppler_phase4]weapon_knife_outdoor"		""
+		"[am_marble_fade]weapon_knife_outdoor"		""
+		"[am_ruby_marbleized]weapon_knife_outdoor"		""
+		"[am_sapphire_marbleized]weapon_knife_outdoor"		""
+		"[am_blackpearl_marbleized]weapon_knife_outdoor"		""
+		"[am_emerald_marbleized]weapon_knife_outdoor"		""
+		"[an_tiger_orange]weapon_knife_outdoor"		""
+		"[aa_fade]weapon_knife_outdoor"		""
+		"[hy_webs]weapon_knife_outdoor"		""
+		// Skeleton Knife
+		"[am_doppler_phase1]weapon_knife_skeleton"		""
+		"[am_doppler_phase2]weapon_knife_skeleton"		""
+		"[am_doppler_phase3]weapon_knife_skeleton"		""
+		"[am_doppler_phase4]weapon_knife_skeleton"		""
+		"[am_marble_fade]weapon_knife_skeleton"		""
+		"[am_ruby_marbleized]weapon_knife_skeleton"		""
+		"[am_sapphire_marbleized]weapon_knife_skeleton"		""
+		"[am_blackpearl_marbleized]weapon_knife_skeleton"		""
+		"[am_emerald_marbleized]weapon_knife_skeleton"		""
+		"[an_tiger_orange]weapon_knife_skeleton"		""
+		"[aa_fade]weapon_knife_skeleton"		""
+		"[hy_webs]weapon_knife_skeleton"		""
+		// Classic Knife
+		"[am_doppler_phase1]weapon_knife_css"		""
+		"[am_doppler_phase2]weapon_knife_css"		""
+		"[am_doppler_phase3]weapon_knife_css"		""
+		"[am_doppler_phase4]weapon_knife_css"		""
+		"[am_marble_fade]weapon_knife_css"		""
+		"[am_ruby_marbleized]weapon_knife_css"		""
+		"[am_sapphire_marbleized]weapon_knife_css"		""
+		"[am_blackpearl_marbleized]weapon_knife_css"		""
+		"[am_emerald_marbleized]weapon_knife_css"		""
+		"[an_tiger_orange]weapon_knife_css"		""
+		"[aa_fade]weapon_knife_css"		""
+		"[hy_webs]weapon_knife_css"		""
+		// Bowie Knife
+		"[am_doppler_phase1]weapon_knife_survival_bowie"		""
+		"[am_doppler_phase2]weapon_knife_survival_bowie"		""
+		"[am_doppler_phase3]weapon_knife_survival_bowie"		""
+		"[am_doppler_phase4]weapon_knife_survival_bowie"		""
+		"[am_marble_fade]weapon_knife_survival_bowie"		""
+		"[am_ruby_marbleized]weapon_knife_survival_bowie"		""
+		"[am_sapphire_marbleized]weapon_knife_survival_bowie"		""
+		"[am_blackpearl_marbleized]weapon_knife_survival_bowie"		""
+		"[am_emerald_marbleized]weapon_knife_survival_bowie"		""
+		"[an_tiger_orange]weapon_knife_survival_bowie"		""
+		"[aa_fade]weapon_knife_survival_bowie"		""
+		"[hy_webs]weapon_knife_survival_bowie"		""
+		// Ursus Knife
+		"[am_doppler_phase1]weapon_knife_ursus"		""
+		"[am_doppler_phase2]weapon_knife_ursus"		""
+		"[am_doppler_phase3]weapon_knife_ursus"		""
+		"[am_doppler_phase4]weapon_knife_ursus"		""
+		"[am_marble_fade]weapon_knife_ursus"		""
+		"[am_ruby_marbleized]weapon_knife_ursus"		""
+		"[am_sapphire_marbleized]weapon_knife_ursus"		""
+		"[am_blackpearl_marbleized]weapon_knife_ursus"		""
+		"[am_emerald_marbleized]weapon_knife_ursus"		""
+		"[an_tiger_orange]weapon_knife_ursus"		""
+		"[aa_fade]weapon_knife_ursus"		""
+		"[hy_webs]weapon_knife_ursus"		""
+		// Navaja Knife
+		"[am_doppler_phase1]weapon_knife_gypsy_jackknife"		""
+		"[am_doppler_phase2]weapon_knife_gypsy_jackknife"		""
+		"[am_doppler_phase3]weapon_knife_gypsy_jackknife"		""
+		"[am_doppler_phase4]weapon_knife_gypsy_jackknife"		""
+		"[am_marble_fade]weapon_knife_gypsy_jackknife"		""
+		"[am_ruby_marbleized]weapon_knife_gypsy_jackknife"		""
+		"[am_sapphire_marbleized]weapon_knife_gypsy_jackknife"		""
+		"[am_blackpearl_marbleized]weapon_knife_gypsy_jackknife"		""
+		"[am_emerald_marbleized]weapon_knife_gypsy_jackknife"		""
+		"[an_tiger_orange]weapon_knife_gypsy_jackknife"		""
+		"[aa_fade]weapon_knife_gypsy_jackknife"		""
+		"[hy_webs]weapon_knife_gypsy_jackknife"		""
+		// Stiletto Knife
+		"[am_doppler_phase1]weapon_knife_stiletto"		""
+		"[am_doppler_phase2]weapon_knife_stiletto"		""
+		"[am_doppler_phase3]weapon_knife_stiletto"		""
+		"[am_doppler_phase4]weapon_knife_stiletto"		""
+		"[am_marble_fade]weapon_knife_stiletto"		""
+		"[am_ruby_marbleized]weapon_knife_stiletto"		""
+		"[am_sapphire_marbleized]weapon_knife_stiletto"		""
+		"[am_blackpearl_marbleized]weapon_knife_stiletto"		""
+		"[am_emerald_marbleized]weapon_knife_stiletto"		""
+		"[an_tiger_orange]weapon_knife_stiletto"		""
+		"[aa_fade]weapon_knife_stiletto"		""
+		"[hy_webs]weapon_knife_stiletto"		""
+		// Talon Knife
+		"[am_doppler_phase1]weapon_knife_widowmaker"		""
+		"[am_doppler_phase2]weapon_knife_widowmaker"		""
+		"[am_doppler_phase3]weapon_knife_widowmaker"		""
+		"[am_doppler_phase4]weapon_knife_widowmaker"		""
+		"[am_marble_fade]weapon_knife_widowmaker"		""
+		"[am_ruby_marbleized]weapon_knife_widowmaker"		""
+		"[am_sapphire_marbleized]weapon_knife_widowmaker"		""
+		"[am_blackpearl_marbleized]weapon_knife_widowmaker"		""
+		"[am_emerald_marbleized]weapon_knife_widowmaker"		""
+		"[an_tiger_orange]weapon_knife_widowmaker"		""
+		"[aa_fade]weapon_knife_widowmaker"		""
+		"[hy_webs]weapon_knife_widowmaker"		""
 	}
 }

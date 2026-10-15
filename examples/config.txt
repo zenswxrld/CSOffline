@@ -145,6 +145,19 @@
 	"max_capsules"				"10"
 	"max_souvenir_packages"		"0"
 
+	// what deleting a skin pays (0 = nothing). only skins, knives and gloves
+	"sell"
+	{
+		"enabled"		"1"
+		"consumer"		"1"
+		"industrial"	"2"
+		"mil_spec"		"5"
+		"restricted"	"10"
+		"classified"	"25"
+		"covert"		"50"
+		"knife_glove"	"150"
+	}
+
 	// stars earned
 	"kill"				"1"
 	"headshot"			"1"	// on top of the kill
@@ -163,6 +176,9 @@
 "bot_skins"
 {
 	"enabled"	"0"
+	// also swap the bot's knife for a themed one (a Karambit, Butterfly, ...).
+	// 0 = weapon skins only, the bots keep their normal knife
+	"knives"	"1"
 }
 
 // for debugging the menus: saves the game's UI scripts to csgo_gc/panorama_dump/ and
