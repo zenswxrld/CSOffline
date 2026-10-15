@@ -4,6 +4,7 @@
 #include "gc_shared.h"
 #include "inventory.h"
 #include "star_shop.h"
+#include "career.h"
 
 class ClientGC final : public SharedGC
 {
@@ -66,6 +67,9 @@ private:
     std::string RconRemoveItem(const RconRequest &request);
     std::string RconSellItem(const RconRequest &request);
     std::string RconGiveStars(const RconRequest &request);
+    std::string RconCareer(const RconRequest &request);
+    std::string RconGoals(const RconRequest &request);
+    std::string RconAchievements(const RconRequest &request);
     std::string RconRefreshInventory(const RconRequest &request);
     std::string RconSaveInventory(const RconRequest &request);
     void PublishItemRemoval(const CMsgSOSingleObject &itemDestroy,
@@ -155,6 +159,12 @@ private:
     const uint32_t m_buildYear;
 
     Inventory m_inventory;
+
+    Career m_career{ "csgo_gc/career.txt" };
+    void RecordCaseOpened(uint32_t crateDefIndex, const CMsgSOSingleObject &newItem);
+    std::vector<std::pair<uint32_t, Career::CaseInfo>> CareerCases() const;
+    void PublishCareer();
+    void GrantCareerRewards(const std::vector<Career::Unlock> &unlocks);
     std::atomic<int32_t> m_localUserId{};
     std::atomic<int32_t> m_cachedMusicKitMVPs{ -1 };
 

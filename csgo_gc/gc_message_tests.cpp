@@ -3950,6 +3950,106 @@ static bool StoreListsAddedCustomCases()
 
 // finishes from a mod: the schema knows them, a custom case can use them, and the
 // game file gets entries for them
+static bool CareerTracksGoalsAchievementsAndPersists()
+{
+    constexpr const char *Path = "csgo_gc/career_test.txt";
+    TestFilesystem::RemoveFile(Path);
+
+    Career::CaseInfo info;
+    info.name = "Test Case";
+    info.custom = true;
+    info.goldItems = 1;
+    info.skins = { { 7, 100 }, { 9, 101 } };
+
+    const auto pull = [](uint32_t def, uint32_t kit, uint32_t rarity, bool gold, bool statTrak)
+    {
+        Career::Pull p;
+        p.skin = { def, kit };
+        p.rarity = rarity;
+        p.gold = gold;
+        p.statTrak = statTrak;
+        return p;
+    };
+
+    bool valid = true;
+    {
+        Career career{ Path };
+        career.Load();
+
+        // first opening: a skin of the case and the "first case" achievement, no goal yet
+        auto first = career.RecordCaseOpened(5001, info, pull(7, 100, ItemSchema::RarityMythical, false, false));
+        valid &= first.size() == 1 && first[0].stars == 100;
+
+        // the same skin again finds nothing new
+        valid &= career.RecordCaseOpened(5001, info, pull(7, 100, ItemSchema::RarityMythical, false, false)).empty();
+
+        // the second skin completes the collection goal
+        auto done = career.RecordCaseOpened(5001, info, pull(9, 101, ItemSchema::RarityAncient, false, true));
+        bool goal = false, covert = false, statTrak = false;
+        for (const Career::Unlock &unlock : done)
+        {
+            goal |= unlock.stars == Career::GoalReward;
+            covert |= unlock.title == "Red Alert";
+            statTrak |= unlock.title == "Counting Kills";
+        }
+        valid &= goal && covert && statTrak;
+
+        // a gold counts for achievements but not for the goal, and the goal pays once
+        auto gold = career.RecordCaseOpened(5001, info, pull(500, 0, ItemSchema::RarityUnusual, true, false));
+        valid &= gold.size() == 1 && gold[0].title == "Golden Moment";
+
+        valid &= career.RecordTradeUp(true).size() == 2; // first trade-up and the gold one
+        valid &= career.RecordTradeUp(false).empty();
+        valid &= career.RecordStarsEarned(10000).size() == 1; // Star Saver
+
+        valid &= career.Stat("cases_opened") == 4 && career.Stat("custom_cases_opened") == 4
+            && career.Stat("goals_done") == 1 && career.Stat("gold_pulls") == 1 && career.Stat("tradeups") == 2;
+    }
+
+    // everything comes back from the file, and nothing unlocks twice
+    {
+        Career career{ Path };
+        career.Load();
+        valid &= career.Stat("cases_opened") == 4 && career.Stat("stars_earned") == 10000;
+        valid &= career.RecordCaseOpened(5001, info, pull(9, 101, ItemSchema::RarityMythical, false, false)).empty();
+
+        const std::string goals = career.GoalsText({ { 5001, info } }, false);
+        valid &= goals.find("Test Case: 2/2 skins, gold found") != std::string::npos
+            && goals.find("[COMPLETE]") != std::string::npos;
+        valid &= career.GoalsText({ { 6002, info } }, false).find("no cases opened") != std::string::npos;
+        valid &= career.GoalsText({ { 6002, info } }, true).find("Test Case: 0/2 skins, gold not found")
+            != std::string::npos;
+        valid &= career.AchievementsText().find("[x] First Crack") != std::string::npos;
+
+        // the SkinStop tabs' data: the case's 2/2 skins and gold, a finished achievement, a stat
+        const std::string ui = career.UiData({ { 5001, info } });
+        valid &= ui.find("cases: [[5001,'Test Case',2,2,1,1,1,5]]") != std::string::npos
+            && ui.find("['first_case','First Crack','Open your first case.',100,1,1,1]") != std::string::npos
+            && ui.find("['Cases opened','5']") != std::string::npos
+            && ui.find("goalReward: 1500") != std::string::npos;
+    }
+
+    TestFilesystem::RemoveFile(Path);
+    return valid;
+}
+
+static bool LanguageTokensGoLastInTheTokensBlock()
+{
+    std::string language =
+        "\"lang\"\n{\n\t\"Language\"\t\"English\"\n\t\"Tokens\"\n\t{\n\t\t\"A\"\t\t\"a\"\n\t}\n}\n";
+    const GameSchemaPatch::LanguageTokens tokens{ { "PaintKit_x_Tag", "Ex" }, { "PaintKit_y_Tag", "Why" } };
+
+    bool valid = GameSchemaPatch::AddLanguageTokens(language, tokens);
+    const size_t first = language.find("\"PaintKit_x_Tag\"\t\t\"Ex\"");
+    const size_t second = language.find("\"PaintKit_y_Tag\"\t\t\"Why\"");
+    const size_t close = language.rfind("\t}\n}");
+    valid &= language.find("\"A\"") < first && first < second && second < close;
+
+    std::string noTokens = "\"lang\"\n{\n\t\"Language\"\t\"English\"\n}\n";
+    valid &= !GameSchemaPatch::AddLanguageTokens(noTokens, tokens);
+    return valid;
+}
+
 static bool CustomPaintKitsReachTheSchemaAndGameFile()
 {
     RemoveGoldTradeUpFixtures();
@@ -4017,6 +4117,63 @@ static bool CustomPaintKitsReachTheSchemaAndGameFile()
 
     RemoveGoldTradeUpFixtures();
     TestFilesystem::RemoveFile("csgo_gc/custom_paint_kits.txt");
+    return valid;
+}
+
+// a custom case with a price of its own is a special offer, the rest are custom cases
+static bool CaseStoreListsPricedCustomCasesAsSpecialOffers()
+{
+    RemoveGoldTradeUpFixtures();
+    KeyValue customCases{ "custom_cases" };
+    KeyValue &plainCase = customCases.AddSubkey("plain_case");
+    plainCase.AddString("based_on", "4001");
+    plainCase.AddSubkey("items").AddString("[custom_a]weapon_ak47", "rare");
+    KeyValue &pricedCase = customCases.AddSubkey("priced_case");
+    pricedCase.AddString("based_on", "4001");
+    pricedCase.AddString("price", "500");
+    pricedCase.AddSubkey("items").AddString("[custom_b]weapon_ak47", "rare");
+    if (!WriteGoldTradeUpFixtures() || !customCases.WriteToFile("csgo_gc/custom_cases.txt"))
+    {
+        RemoveGoldTradeUpFixtures();
+        return false;
+    }
+
+    bool valid = true;
+    {
+        ClientGC gc{ 76561197960265729ull };
+        const ItemSchema &schema = gc.GetItemSchema();
+        const std::string data = PanoramaHook::BuildCaseStoreData(schema);
+
+        auto find = [&](std::string_view key, uint32_t &outDef)
+        {
+            const uint32_t *found = nullptr;
+            for (uint32_t def : schema.GetCustomCaseDefIndexes())
+            {
+                const ItemInfo *info = schema.ItemInfoByDefIndex(def);
+                if (info && info->m_name == key)
+                {
+                    outDef = def;
+                    found = &outDef;
+                }
+            }
+            return found != nullptr;
+        };
+
+        uint32_t plainDef = 0, pricedDef = 0;
+        valid &= find("crate_csgogc_plain_case", plainDef) && find("crate_csgogc_priced_case", pricedDef);
+
+        auto entryFor = [&](uint32_t def)
+        {
+            const size_t at = data.find("[" + std::to_string(def) + ",");
+            return at == std::string::npos ? std::string{} : data.substr(at, data.find(']', at) - at);
+        };
+        const std::string plainEntry = entryFor(plainDef);
+        const std::string pricedEntry = entryFor(pricedDef);
+        valid &= plainEntry.find(",5,") != std::string::npos && plainEntry.find(",6,") == std::string::npos;
+        valid &= pricedEntry.find(",6,") != std::string::npos && pricedEntry.find(",5,") == std::string::npos;
+    }
+
+    RemoveGoldTradeUpFixtures();
     return valid;
 }
 
@@ -4623,6 +4780,37 @@ static bool StarShopMovesTheOperationScheduleToNow()
     return valid && GameSchemaPatch::ActivateOperation(none, now) == -1;
 }
 
+// the RCON give_stars command adds to the balance and tells the game
+static bool RconGiveStarsAddsToTheBalance()
+{
+    constexpr uint64_t SteamId = 76561197960265729ull;
+    RemoveStarShopFixtures();
+    if (!WriteStarShopFixtures())
+    {
+        RemoveStarShopFixtures();
+        return false;
+    }
+
+    bool valid = true;
+    {
+        ClientGC gc{ SteamId };
+        const std::string first = gc.RunRconCommand("give_stars 40");
+        valid &= first == "OK balance 40";
+
+        const std::string second = gc.RunRconCommand("GIVE_STARS 15");
+        valid &= second == "OK balance 55";
+
+        // bad amounts are refused and change nothing
+        valid &= gc.RunRconCommand("give_stars 0").rfind("ERR", 0) == 0;
+        valid &= gc.RunRconCommand("give_stars abc").rfind("ERR", 0) == 0;
+        valid &= gc.RunRconCommand("give_stars 5000000").rfind("ERR", 0) == 0;
+        valid &= gc.RunRconCommand("give_stars 1") == "OK balance 56";
+    }
+
+    RemoveStarShopFixtures();
+    return valid;
+}
+
 static bool StarShopEarnsStarsAndRedeemsARandomAgent()
 {
     constexpr uint64_t SteamId = 76561197960265729ull;
@@ -4793,7 +4981,11 @@ int main()
         { "MatchEndGivesOneDrop", MatchEndGivesOneDrop },
         { "StoreListsEveryWeaponCaseAndKey", StoreListsEveryWeaponCaseAndKey },
         { "CustomCaseReplacesContents", CustomCaseReplacesContents },
+        { "CaseStoreListsPricedCustomCasesAsSpecialOffers", CaseStoreListsPricedCustomCasesAsSpecialOffers },
+        { "RconGiveStarsAddsToTheBalance", RconGiveStarsAddsToTheBalance },
         { "CustomPaintKitsReachTheSchemaAndGameFile", CustomPaintKitsReachTheSchemaAndGameFile },
+        { "LanguageTokensGoLastInTheTokensBlock", LanguageTokensGoLastInTheTokensBlock },
+        { "CareerTracksGoalsAchievementsAndPersists", CareerTracksGoalsAchievementsAndPersists },
         { "StoreListsAddedCustomCases", StoreListsAddedCustomCases },
         { "AddedCaseSkinsTradeUp", AddedCaseSkinsTradeUp },
         { "CustomCasePreviewPatchesOnlyTargetLists", CustomCasePreviewPatchesOnlyTargetLists },
@@ -4837,6 +5029,7 @@ int main()
     bool allPassed = true;
     for (const TestCase &test : tests)
     {
+        TestFilesystem::RemoveFile("csgo_gc/career.txt");
         const bool passed = test.run();
         std::printf("%s: %s\n", test.name, passed ? "PASS" : "FAIL");
         allPassed &= passed;
