@@ -402,6 +402,11 @@ size_t GameSchemaPatch::AddCases(std::string &text, const std::vector<AddedCaseP
             std::regex{ R"re(("set supply crate series"\s*\{[^}]*?"value"\s+)"[^"]*")re" },
             "$1\"" + std::to_string(addedCase.series) + "\"", std::regex_constants::format_first_only);
 
+        // the base case's own gold tile (a Huntsman Knife on the Huntsman case, say) would claim every custom case
+        // that is built on it. without these the game shows its generic "Rare Special Item" tile
+        block = std::regex_replace(block,
+            std::regex{ R"re(\n[ \t]*"(?:loot_list_rare_item_footer|loot_list_rare_item_name|image_unusual_item)"[ \t]+"[^"\n]*")re" }, "");
+
         // its own picture, when there is one
         if (!addedCase.image.empty())
         {

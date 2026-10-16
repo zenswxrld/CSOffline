@@ -52,6 +52,9 @@ namespace PanoramaHook
     // ready-made picture of (every one in a custom case) stays a blank tile. returns the number of changes
     int PatchCasePopup(std::string &source);
 
+    // hides knives and gloves from the trade-up page's list of eligible items (appends a script to crafting.js)
+    void TidyTradeUpPage(std::string &source);
+
     // lets a context menu entry whose name starts with '!' show that text as it is (the menu would look the
     // name up as a language token). returns the number of changes
     int PatchContextMenuLabels(std::string &source);

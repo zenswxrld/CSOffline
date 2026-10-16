@@ -4020,6 +4020,13 @@ static bool ContextMenuGetsASellEntry()
         && menu.find("'#inv_context_' + displayName") != std::string::npos;
     std::string other = "var x = 1;";
     valid &= PanoramaHook::PatchContextMenuLabels(other) == 0;
+
+    // the trade-up page hides knives and gloves from its list and keeps the page's own script intact
+    std::string crafting = "var Crafting = 1;\n";
+    PanoramaHook::TidyTradeUpPage(crafting);
+    valid &= crafting.rfind("var Crafting = 1;\n", 0) == 0
+        && crafting.find("slot === 'melee' || slot === 'clothing_hands'") != std::string::npos
+        && crafting.find("'Crafting-Items'") != std::string::npos;
     return valid;
 }
 
@@ -4029,6 +4036,8 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
         "\"items_game\"\n{\n"
         "\t\"items\"\n\t{\n"
         "\t\t\"4001\"\n\t\t{\n\t\t\t\"name\"\t\t\"crate_base\"\n\t\t\t\"image_inventory\"\t\t\"econ/weapon_cases/crate_base\"\n"
+        "\t\t\t\"loot_list_rare_item_name\"\t\t\"#crate_base_unusual_itemname\"\n"
+        "\t\t\t\"image_unusual_item\"\t\t\"econ/weapon_cases/crate_base_rare_item\"\n"
         "\t\t\t\"attributes\"\n\t\t\t{\n\t\t\t\t\"set supply crate series\"\n\t\t\t\t{\n"
         "\t\t\t\t\t\"attribute_class\"\t\t\"supply_crate_series\"\n\t\t\t\t\t\"value\"\t\t\"4\"\n\t\t\t\t}\n\t\t\t}\n\t\t}\n"
         "\t}\n\t\"revolving_loot_lists\"\n\t{\n\t}\n\t\"client_loot_lists\"\n\t{\n\t}\n}\n";
@@ -4045,6 +4054,16 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
     added.image = "econ/weapon_cases/crate_t";
 
     bool valid = GameSchemaPatch::AddCases(text, { added }) == 1;
+
+    // the base case's own gold tile is left behind, so the generic "Rare Special Item" shows
+    {
+        // (the base case keeps its own; only the added case loses them)
+        const size_t block = text.find("\"5000\"\n");
+        const size_t blockEnd = text.find("\"revolving_loot_lists\"", block);
+        const std::string added5000 = text.substr(block, blockEnd - block);
+        valid &= block != std::string::npos && added5000.find("rare_item") == std::string::npos
+            && added5000.find("unusual_itemname") == std::string::npos;
+    }
 
     // its own picture replaces the base case's
     valid &= text.find("\"econ/weapon_cases/crate_t\"") != std::string::npos;

@@ -58,6 +58,68 @@ int PanoramaHook::PatchContextMenuLabels(std::string &source)
     return count;
 }
 
+// appended to the trade-up page (crafting.js): the game lists every item a contract recipe accepts, and the
+// top-tier recipe takes knives and gloves too. they can't be used here, so they are hidden from the list
+static const char *const TradeUpTidyScript = R"js(
+var CsgoGcTradeUpTidy = function ()
+{
+	try
+	{
+		var elList = $.GetContextPanel().FindChildTraverse( 'Crafting-Items' );
+		if ( !elList )
+		{
+			return;
+		}
+
+		var hidden = 0;
+		var visit = function ( el )
+		{
+			var id = el.GetAttributeString ? el.GetAttributeString( 'itemid', '0' ) : '0';
+			if ( id && id !== '0' )
+			{
+				var slot = '';
+				try { slot = ItemInfo.GetSlotSubPosition( id ); } catch ( e ) {}
+				if ( slot === 'melee' || slot === 'clothing_hands' )
+				{
+					el.visible = false;
+					hidden++;
+				}
+				return;
+			}
+
+			var children = el.Children();
+			for ( var i = 0; i < children.length; i++ )
+			{
+				visit( children[ i ] );
+			}
+		};
+		visit( elList );
+
+		var elLabel = $.GetContextPanel().FindChildTraverse( 'CraftingItemsText' );
+		if ( elLabel && hidden > 0 )
+		{
+			elLabel.SetDialogVariableInt( 'count', Math.max( 0, elList.count - hidden ) );
+		}
+	}
+	catch ( e ) {}
+};
+
+var CsgoGcTradeUpTidyLater = function ()
+{
+	[ 0.05, 0.3, 0.8, 1.6 ].forEach( function ( delay ) { $.Schedule( delay, CsgoGcTradeUpTidy ); } );
+};
+
+$.RegisterForUnhandledEvent( 'UpdateTradeUpPanel', CsgoGcTradeUpTidyLater );
+$.RegisterForUnhandledEvent( 'PanoramaComponent_Inventory_CraftIngredientAdded', CsgoGcTradeUpTidyLater );
+$.RegisterForUnhandledEvent( 'PanoramaComponent_Inventory_CraftIngredientRemoved', CsgoGcTradeUpTidyLater );
+CsgoGcTradeUpTidyLater();
+)js";
+
+void PanoramaHook::TidyTradeUpPage(std::string &source)
+{
+    source += TradeUpTidyScript;
+}
+
 // the price of an item, by its tier: knives and gloves, then painted weapons by rarity. what the GC really
 // pays is decided by the GC (star_shop sell in config.txt); these are the same numbers
 static std::string SellPriceScript(const PanoramaHook::SellPrices &prices)
@@ -1444,11 +1506,16 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
         Platform::Print("Panorama: context_menu_inventory_item.js didn't match, the Sell entry has no label\n");
     }
 
-    if (GetConfig().PanoramaDebug() && PathIsFile(path, "crafting.js"))
+    if (PathIsFile(path, "crafting.js"))
     {
-        std::string withDiagnostics = std::string{ source } + "\n" + CraftingDiagnosticScript;
-        s_originalRunScript(engine, edx, panel, withDiagnostics.c_str(), path, line, column, arg6, arg7);
-        Platform::Print("Panorama: trade-up page diagnostics added (panorama_debug)\n");
+        std::string patched = source;
+        PanoramaHook::TidyTradeUpPage(patched);
+        if (GetConfig().PanoramaDebug())
+        {
+            patched += std::string{ "\n" } + CraftingDiagnosticScript;
+            Platform::Print("Panorama: trade-up page diagnostics added (panorama_debug)\n");
+        }
+        s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
         return;
     }
 
