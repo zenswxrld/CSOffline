@@ -109,9 +109,10 @@
 // achievements that pay stars. RCON: career, goals [all], achievements. needs the star shop.
 "career_tracking"	"1"
 
-// EXPERIMENTAL: gives each custom case a collection of its own in items_game.txt, so the skins that no real collection
-// holds can be picked in the game's Trade Up screen. restart the game twice after changing it. if the game shows an
-// "Assert ... econ_item_system.cpp" box at start-up, set this back to 0 (clicking Ignore also gets you in)
+// KNOWN TO BREAK: gives each custom case a collection of its own in items_game.txt, meant to let their skins be
+// picked in the game's Trade Up screen. the game rejects it with an "Assert ... econ_item_system.cpp" box at
+// start-up. leave this at 0. if you turned it on: set it to 0, delete csgo/scripts/items/items_game.txt, and start the
+// game twice.
 "custom_case_collections"	"0"
 
 // lets StatTrak, normal and Souvenir skins of the same rarity go into one
