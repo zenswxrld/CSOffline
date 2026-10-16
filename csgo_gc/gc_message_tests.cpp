@@ -4025,7 +4025,7 @@ static bool ContextMenuGetsASellEntry()
     std::string crafting = "var Crafting = 1;\n";
     PanoramaHook::TidyTradeUpPage(crafting);
     valid &= crafting.rfind("var Crafting = 1;\n", 0) == 0
-        && crafting.find("slot === 'melee' || slot === 'clothing_hands'") != std::string::npos
+        && crafting.find("slot === 'melee' || slot === 'clothing_hands' || slot === 'customplayer'") != std::string::npos
         && crafting.find("'Crafting-Items'") != std::string::npos;
     return valid;
 }

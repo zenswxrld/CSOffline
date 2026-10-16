@@ -63,8 +63,8 @@ int PanoramaHook::PatchContextMenuLabels(std::string &source)
     return count;
 }
 
-// appended to the trade-up page (crafting.js): the game lists every item a contract recipe accepts, and the
-// top-tier recipe takes knives and gloves too. they can't be used here, so they are hidden from the list
+// appended to the trade-up page (crafting.js): the game lists every item a contract recipe accepts, and its
+// recipes take knives, gloves and agents too (by rarity). they can't be used here, so they are hidden from the list
 static const char *const TradeUpTidyScript = R"js(
 var CsgoGcTradeUpTidy = function ()
 {
@@ -84,9 +84,20 @@ var CsgoGcTradeUpTidy = function ()
 			{
 				var slot = '';
 				try { slot = ItemInfo.GetSlotSubPosition( id ); } catch ( e ) {}
-				if ( slot === 'melee' || slot === 'clothing_hands' )
+				// knives, gloves and agents can't be traded up. the tile is taken out of the grid, not just made
+				// invisible, so the others close up over its place
+				if ( slot === 'melee' || slot === 'clothing_hands' || slot === 'customplayer' )
 				{
 					el.visible = false;
+					try
+					{
+						el.style.visibility = 'collapse';
+						el.style.width = '0px';
+						el.style.height = '0px';
+						el.style.margin = '0px';
+						el.style.padding = '0px';
+					}
+					catch ( e ) {}
 					hidden++;
 				}
 				return;
