@@ -4906,6 +4906,12 @@ static bool StarShopSellsSkinsByRarity()
         knife.set_def_index(507);
         knife.set_quality(ItemSchema::QualityUnusual);
         valid &= StarShop::SellValue(schema, config, knife) == 150;
+
+        // a finished knife made with a plain quality still pays the knife price, as the menu says
+        CSOEconItem plainKnife = skin;
+        plainKnife.set_def_index(507);
+        plainKnife.set_quality(ItemSchema::QualityNormal);
+        valid &= StarShop::SellValue(schema, config, plainKnife) == 150;
     }
 
     RemoveGoldTradeUpFixtures();
