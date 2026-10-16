@@ -903,7 +903,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 	// a category (or the search results) as a grid of cards, a page at a time
 	function _RenderGrid( words )
 	{
-		var key = words.length ? 'home' : m_category;
+		var key = m_category; // a search stays inside the chosen category (Home searches everything)
 		var entries = _Entries( key, words );
 		var pages = Math.max( 1, Math.ceil( entries.length / PAGE_SIZE ) );
 		m_page = Math.max( 0, Math.min( m_page, pages - 1 ) );
