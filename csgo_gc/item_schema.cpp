@@ -316,7 +316,7 @@ ItemSchema::ItemSchema(bool loadFiles)
         for (const AddedCase &added : m_addedCases)
         {
             addedCases.push_back({ added.defIndex, added.basedOn, added.series, added.name, added.previewEntries,
-                added.previewRarities, added.hasGolds, added.image });
+                added.previewRarities, added.hasGolds, added.image, added.displayName });
         }
 
         GameSchemaPatch::PaintKitsPatch paintKits;
@@ -565,14 +565,17 @@ void ItemSchema::ParseCustomCases(const KeyValue &customCasesKey)
         }
 
         m_customCaseLootLists[crateDefIndex] = &root;
+        std::string_view customName = caseKey.GetString("name");
         if (addedBasedOn)
         {
+            // the name goes into items_game.txt in quotes
+            std::string displayName = customName.empty() ? addedName : std::string{ customName };
+            displayName.erase(std::remove(displayName.begin(), displayName.end(), '"'), displayName.end());
             m_addedCases.push_back({ crateDefIndex, addedBasedOn, crateDefIndex, addedName,
                 m_customCasePreviewEntries[crateDefIndex], m_customCasePreviewRarities[crateDefIndex],
-                !golds.items.empty(), CaseImageFor(addedName) });
+                !golds.items.empty(), CaseImageFor(addedName), displayName });
         }
 
-        std::string_view customName = caseKey.GetString("name");
         if (!customName.empty())
         {
             m_customCaseNames[crateDefIndex] = std::string{ customName };

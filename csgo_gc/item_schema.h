@@ -273,6 +273,7 @@ public:
         std::vector<uint32_t> previewRarities;   // the rarity each of them rolls as
         bool hasGolds{};                         // it can drop a knife or gloves
         std::string image;                       // its own inventory picture, if its png is in the game folder
+        std::string displayName;                 // what the case is called (its collection is named after it)
     };
     const std::vector<AddedCase> &AddedCases() const { return m_addedCases; }
 

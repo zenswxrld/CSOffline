@@ -4039,9 +4039,11 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
         "\t\t\"4001\"\n\t\t{\n\t\t\t\"name\"\t\t\"crate_base\"\n\t\t\t\"image_inventory\"\t\t\"econ/weapon_cases/crate_base\"\n"
         "\t\t\t\"loot_list_rare_item_name\"\t\t\"#crate_base_unusual_itemname\"\n"
         "\t\t\t\"image_unusual_item\"\t\t\"econ/weapon_cases/crate_base_rare_item\"\n"
+        "\t\t\t\"tags\"\n\t\t\t{\n\t\t\t\t\"ItemSet\"\n\t\t\t\t{\n\t\t\t\t\t\"tag_value\"\t\t\"set_base\"\n"
+        "\t\t\t\t\t\"tag_text\"\t\t\"#CSGO_set_base\"\n\t\t\t\t}\n\t\t\t}\n"
         "\t\t\t\"attributes\"\n\t\t\t{\n\t\t\t\t\"set supply crate series\"\n\t\t\t\t{\n"
         "\t\t\t\t\t\"attribute_class\"\t\t\"supply_crate_series\"\n\t\t\t\t\t\"value\"\t\t\"4\"\n\t\t\t\t}\n\t\t\t}\n\t\t}\n"
-        "\t}\n\t\"revolving_loot_lists\"\n\t{\n\t}\n\t\"client_loot_lists\"\n\t{\n\t}\n}\n";
+        "\t}\n\t\"revolving_loot_lists\"\n\t{\n\t}\n\t\"client_loot_lists\"\n\t{\n\t}\n\t\"item_sets\"\n\t{\n\t}\n}\n";
 
     GameSchemaPatch::AddedCasePatch added;
     added.defIndex = 5000;
@@ -4053,6 +4055,7 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
     added.previewRarities = { 6, 3, 5, 4, 3 };
     added.hasUnusual = true;
     added.image = "econ/weapon_cases/crate_t";
+    added.displayName = "T Case";
 
     bool valid = GameSchemaPatch::AddCases(text, { added }) == 1;
 
@@ -4065,6 +4068,13 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
         valid &= block != std::string::npos && added5000.find("rare_item") == std::string::npos
             && added5000.find("unusual_itemname") == std::string::npos;
     }
+
+    // the added case has a collection of its own, holding its regular skins, and its crate points at it
+    valid &= text.find("\"set_crate_t\"") != std::string::npos
+        && text.find("\"[b]weapon_awp\"\t\t\"1\"", text.find("\"set_crate_t\"\n")) != std::string::npos
+        && text.find("\"tag_value\"\t\t\"set_crate_t\"") != std::string::npos
+        && text.find("\"tag_text\"\t\t\"T Case\"") != std::string::npos
+        && text.find("\"tag_value\"\t\t\"set_base\"") != std::string::npos; // the base case keeps its own
 
     // its own picture replaces the base case's
     valid &= text.find("\"econ/weapon_cases/crate_t\"") != std::string::npos;

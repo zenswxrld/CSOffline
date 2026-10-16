@@ -374,7 +374,7 @@ size_t InsertionPoint(const std::string &text, size_t close)
 
 size_t GameSchemaPatch::AddCases(std::string &text, const std::vector<AddedCasePatch> &cases)
 {
-    std::string itemsText, revolvingText, listsText;
+    std::string itemsText, revolvingText, listsText, setsText;
     size_t added = 0;
 
     for (const AddedCasePatch &addedCase : cases)
@@ -406,6 +406,26 @@ size_t GameSchemaPatch::AddCases(std::string &text, const std::vector<AddedCaseP
         // that is built on it. without these the game shows its generic "Rare Special Item" tile
         block = std::regex_replace(block,
             std::regex{ R"re(\n[ \t]*"(?:loot_list_rare_item_footer|loot_list_rare_item_name|image_unusual_item)"[ \t]+"[^"\n]*")re" }, "");
+
+        // its own collection. the game only lets an item into a trade-up when it knows a collection that holds it, and
+        // a skin and weapon pair a custom case invents is in none of the game's, so the case gets one of its own
+        // (named and described in plain text, no language file needed) and its crate points at it
+        const std::string setName = "set_" + addedCase.name;
+        block = std::regex_replace(block, std::regex{ R"re(("tag_value"\s+)"[^"]*")re" },
+            "$1\"" + setName + "\"", std::regex_constants::format_first_only);
+        block = std::regex_replace(block, std::regex{ R"re(("tag_text"\s+)"[^"]*")re" },
+            "$1\"" + addedCase.displayName + "\"", std::regex_constants::format_first_only);
+        if (!addedCase.previewEntries.empty())
+        {
+            setsText += "\t\t\"" + setName + "\"\n\t\t{\n\t\t\t\"name\"\t\t\"" + addedCase.displayName
+                + "\"\n\t\t\t\"set_description\"\t\t\"" + addedCase.displayName
+                + "\"\n\t\t\t\"is_collection\"\t\t\"1\"\n\t\t\t\"items\"\n\t\t\t{\n";
+            for (const std::string &entry : addedCase.previewEntries)
+            {
+                setsText += "\t\t\t\t\"" + entry + "\"\t\t\"1\"\n";
+            }
+            setsText += "\t\t\t}\n\t\t}\n";
+        }
 
         // its own picture, when there is one
         if (!addedCase.image.empty())
@@ -465,8 +485,13 @@ size_t GameSchemaPatch::AddCases(std::string &text, const std::vector<AddedCaseP
         const std::string *text;
     };
     for (const Piece &piece : { Piece{ "items", &itemsText }, Piece{ "revolving_loot_lists", &revolvingText },
-             Piece{ "client_loot_lists", &listsText } })
+             Piece{ "client_loot_lists", &listsText }, Piece{ "item_sets", &setsText } })
     {
+        if (piece.text->empty())
+        {
+            continue;
+        }
+
         BlockRange section;
         if (!FindBlock(text, { "items_game", piece.section }, section))
         {
