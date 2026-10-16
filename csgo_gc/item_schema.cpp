@@ -443,8 +443,17 @@ void ItemSchema::ParseCustomCases(const KeyValue &customCasesKey)
             list.items.push_back(item);
             if (!golds)
             {
+                // the case's contents list draws each skin in the colour the game works out for the pair (the weapon's
+                // rarity and the finish's together), and that is what the lists are ordered by, not the rarity in
+                // custom_cases.txt
+                uint32_t shownRarity = item.rarity;
+                if (item.itemInfo && item.paintKitInfo)
+                {
+                    shownRarity = GetPaintedRarity(item.itemInfo->m_defIndex, item.paintKitInfo->m_defIndex, item.rarity);
+                }
+
                 m_customCasePreviewEntries[currentCrateDefIndex].emplace_back(name);
-                m_customCasePreviewRarities[currentCrateDefIndex].push_back(item.rarity);
+                m_customCasePreviewRarities[currentCrateDefIndex].push_back(shownRarity);
             }
         }
     };
