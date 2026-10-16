@@ -3964,7 +3964,7 @@ static bool CasePopupLoadsTexturesForEveryTile()
     const size_t getItem = source.find("GetLootListItemByIndex");
     const size_t precache = source.find("PrecacheCustomMaterials( itemid )");
     const size_t update = source.find("_UpdateLootListItemInfo(");
-    const size_t again = source.find("$.Schedule( 0.7");
+    const size_t again = source.find("$.Schedule( delay");
     valid &= getItem < precache && precache < update && update < again && again != std::string::npos;
 
     std::string other = "var x = 1;";

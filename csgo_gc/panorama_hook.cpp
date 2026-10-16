@@ -31,10 +31,15 @@ int PanoramaHook::PatchCasePopup(std::string &source)
 
     if (std::regex_search(source, update))
     {
-        // the textures load in the background: ask for the picture again a moment later
+        // the textures load in the background: ask for the picture again a few times, in case the first try is too
+        // early. the first tile logs what the game says about it, to tell why a picture stays blank
         source = std::regex_replace(source, update,
-            "$&\n\t\t\t\tif ( itemid !== '0' ) { ( function( image, id ) { $.Schedule( 0.7, function() "
-            "{ try { image.itemid = ''; image.itemid = id; } catch ( e ) {} } ); } )( elItem.FindChildInLayoutFile( 'ItemImage' ), itemid ); }");
+            "$&\n\t\t\t\tif ( itemid !== '0' ) { ( function( image, id, first ) {"
+            " [ 0.7, 1.5, 3.0, 6.0 ].forEach( function( delay ) { $.Schedule( delay, function()"
+            " { try { image.itemid = ''; image.itemid = id; } catch ( e ) {} } ); } );"
+            " if ( first ) { $.Schedule( 2.0, function() { try { $.Msg( '[csgo_gc] case popup tile ' + id + ': valid='"
+            " + InventoryAPI.IsValidItemID( id ) + ' name=' + ItemInfo.GetName( id ) ); } catch ( e ) {} } ); }"
+            " } )( elItem.FindChildInLayoutFile( 'ItemImage' ), itemid, i === 0 ); }");
         count++;
     }
     return count;
