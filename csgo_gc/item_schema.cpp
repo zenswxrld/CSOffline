@@ -441,20 +441,19 @@ void ItemSchema::ParseCustomCases(const KeyValue &customCasesKey)
                 item.rarity = golds ? RarityAncient : RarityCommon;
             }
 
+            // the game draws each skin of a case in the colour it works out for the pair (the weapon's rarity and
+            // the finish's together). a skin takes that rarity, not the one in custom_cases.txt, so the contents list,
+            // the odds and the item you unbox all agree. (before this a "Blue" tile could unbox as a Covert)
+            if (!golds && item.itemInfo && item.paintKitInfo)
+            {
+                item.rarity = GetPaintedRarity(item.itemInfo->m_defIndex, item.paintKitInfo->m_defIndex, item.rarity);
+            }
+
             list.items.push_back(item);
             if (!golds)
             {
-                // the case's contents list draws each skin in the colour the game works out for the pair (the weapon's
-                // rarity and the finish's together), and that is what the lists are ordered by, not the rarity in
-                // custom_cases.txt
-                uint32_t shownRarity = item.rarity;
-                if (item.itemInfo && item.paintKitInfo)
-                {
-                    shownRarity = GetPaintedRarity(item.itemInfo->m_defIndex, item.paintKitInfo->m_defIndex, item.rarity);
-                }
-
                 m_customCasePreviewEntries[currentCrateDefIndex].emplace_back(name);
-                m_customCasePreviewRarities[currentCrateDefIndex].push_back(shownRarity);
+                m_customCasePreviewRarities[currentCrateDefIndex].push_back(item.rarity);
             }
         }
     };

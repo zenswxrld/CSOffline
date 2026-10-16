@@ -1067,6 +1067,49 @@ static bool FindRecipesBlock(const std::string &text, size_t &begin, size_t &end
     return false;
 }
 
+// the recipe numbers in items_game/recipes, and the recipes of `recipesText` whose number is not among them. each recipe in
+// the text starts with a line  \t\t"<number>"  followed by a line  \t\t{
+static std::string DropExistingRecipes(const std::string &text, const std::string &recipesText)
+{
+    size_t begin = 0, end = 0;
+    std::unordered_set<std::string> existing;
+    if (FindRecipesBlock(text, begin, end))
+    {
+        const std::string body = text.substr(begin, end - begin);
+        static const std::regex key{ R"re(\n\t\t"(\d+)"\s*\n\t\t\{)re" };
+        for (auto it = std::sregex_iterator(body.begin(), body.end(), key); it != std::sregex_iterator(); ++it)
+        {
+            existing.insert((*it)[1].str());
+        }
+    }
+
+    // cut the text at each recipe start (the first starts the text itself)
+    static const std::regex start{ R"re((^|\n)\t\t"(\d+)"\s*\n\t\t\{)re" };
+    std::vector<std::pair<size_t, std::string>> parts; // position, number
+    for (auto it = std::sregex_iterator(recipesText.begin(), recipesText.end(), start); it != std::sregex_iterator(); ++it)
+    {
+        const size_t at = (*it)[1].length() ? static_cast<size_t>(it->position(0)) + 1 : static_cast<size_t>(it->position(0));
+        parts.emplace_back(at, (*it)[2].str());
+    }
+
+    if (parts.empty())
+    {
+        return recipesText;
+    }
+
+    std::string kept;
+    for (size_t i = 0; i < parts.size(); i++)
+    {
+        const size_t to = i + 1 < parts.size() ? parts[i + 1].first : recipesText.size();
+        if (!existing.contains(parts[i].second))
+        {
+            kept += recipesText.substr(parts[i].first, to - parts[i].first);
+        }
+    }
+    return kept;
+}
+
+
 size_t GameSchemaPatch::RelaxTradeUpQuality(std::string &text)
 {
     size_t begin = 0, end = 0;
@@ -1125,9 +1168,20 @@ bool GameSchemaPatch::Apply(const LootListPreviews &previews, const std::string 
         Platform::Print("custom_cases: found %zu of %zu case contents lists to update\n", replaced, previews.size());
     }
 
-    if (!recipesText.empty() && !InsertRecipes(patched, recipesText))
+    if (!recipesText.empty())
     {
-        Platform::Print("items_game.txt patch: no recipes block found, gold trade-up recipes not added\n");
+        // a recipe number may be in the file only once (the game's own file already has a 15, for StatTrak Covert
+        // skins), so a recipe whose number is taken is left out
+        std::string newRecipes = DropExistingRecipes(patched, recipesText);
+        if (newRecipes.size() != recipesText.size())
+        {
+            Platform::Print("items_game.txt patch: some trade-up recipe numbers already exist in the game's file and were not added again\n");
+        }
+
+        if (!newRecipes.empty() && !InsertRecipes(patched, newRecipes))
+        {
+            Platform::Print("items_game.txt patch: no recipes block found, gold trade-up recipes not added\n");
+        }
     }
 
     size_t relaxed = 0;
@@ -1160,6 +1214,15 @@ bool GameSchemaPatch::Apply(const LootListPreviews &previews, const std::string 
     {
         const size_t count = AddCases(patched, *addedCases);
         Platform::Print("items_game.txt patch: added %zu of %zu custom case(s) as new items\n", count, addedCases->size());
+
+        // how many of them got a collection of their own (custom_case_collections), so a log shows what was written
+        size_t collections = 0;
+        for (size_t at = patched.find("\n\t\t\"set_crate_csgogc_"); at != std::string::npos;
+             at = patched.find("\n\t\t\"set_crate_csgogc_", at + 1))
+        {
+            collections++;
+        }
+        Platform::Print("items_game.txt patch: %zu custom case collection(s) written (custom_case_collections)\n", collections);
     }
 
     if (paintKits && !paintKits->kitsText.empty())

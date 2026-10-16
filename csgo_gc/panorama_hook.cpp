@@ -31,15 +31,22 @@ int PanoramaHook::PatchCasePopup(std::string &source)
 
     if (std::regex_search(source, update))
     {
-        // the textures load in the background: ask for the picture again a few times, in case the first try is too
-        // early. the first tile logs what the game says about it, to tell why a picture stays blank
+        // a custom case's skins are mostly pairs of weapon and finish that the game ships no picture for (it looks for
+        // default_generated/<weapon>_<finish>_light_large.png and logs "Error reading file"), so the tile shows the
+        // plain weapon instead of a blank square. any other case keeps the game's own pictures. the first tile
+        // logs what the game says about it, in case a picture stays blank
         source = std::regex_replace(source, update,
-            "$&\n\t\t\t\tif ( itemid !== '0' ) { ( function( image, id, first ) {"
-            " [ 0.7, 1.5, 3.0, 6.0 ].forEach( function( delay ) { $.Schedule( delay, function()"
-            " { try { image.itemid = ''; image.itemid = id; } catch ( e ) {} } ); } );"
+            "$&\n\t\t\t\tif ( itemid !== '0' ) { ( function( image, id, first, custom ) {"
+            " var plain = function() { try { var weapon = InventoryAPI.GetItemDefinitionName( id );"
+            " if ( weapon ) { image.SetImage( 'file://{images_econ}/weapons/base_weapons/' + weapon + '.png' ); } } catch ( e ) {} };"
+            " if ( custom ) { plain(); [ 0.3, 1.0 ].forEach( function( delay ) { $.Schedule( delay, plain ); } ); }"
+            " else { [ 0.7, 1.5, 3.0, 6.0 ].forEach( function( delay ) { $.Schedule( delay, function()"
+            " { try { image.itemid = ''; image.itemid = id; } catch ( e ) {} } ); } ); }"
             " if ( first ) { $.Schedule( 2.0, function() { try { $.Msg( '[csgo_gc] case popup tile ' + id + ': valid='"
-            " + InventoryAPI.IsValidItemID( id ) + ' name=' + ItemInfo.GetName( id ) ); } catch ( e ) {} } ); }"
-            " } )( elItem.FindChildInLayoutFile( 'ItemImage' ), itemid, i === 0 ); }");
+            " + InventoryAPI.IsValidItemID( id ) + ' name=' + ItemInfo.GetName( id ) + ' custom=' + custom ); } catch ( e ) {} } ); }"
+            " } )( elItem.FindChildInLayoutFile( 'ItemImage' ), itemid, i === 0,"
+            " ( function() { try { return String( InventoryAPI.GetItemDefinitionName( caseId ) ).indexOf( 'crate_csgogc_' ) === 0; }"
+            " catch ( e ) { return false; } } )() ); }");
         count++;
     }
     return count;
