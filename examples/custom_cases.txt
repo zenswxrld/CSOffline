@@ -1602,7 +1602,7 @@
 
 		// Classified
 		"[am_ancient_warm]weapon_deagle"		"legendary"
-		"[am_nitrogen]weapon_aug"		"legendary"
+		"[rc_sp_star_bravo_teal]weapon_aug"		"legendary"
 		"[am_jorm_orange]weapon_glock"		"legendary"
 
 		// Covert
@@ -1659,7 +1659,7 @@
 		"[hy_ducts_yellow]weapon_mag7"		"mythical"
 		"[aq_steel_inferno]weapon_p250"		"mythical"
 		"[am_turqoise_halftone]weapon_revolver"		"mythical"
-		"[am_gyrate]weapon_glock"		"mythical"
+		"[rc_sp_zebracam_bw_rose]weapon_glock"		"mythical"
 
 		// Classified
 		"[hy_forest_night]weapon_ak47"		"legendary"
@@ -1778,13 +1778,13 @@
 		// Restricted
 		"[hy_forest_winter]weapon_sg556"		"mythical"
 		"[hy_ddpat_desert]weapon_ump45"		"mythical"
-		"[am_gyrate]weapon_awp"		"mythical"
+		"[rc_hy_varicamo_desert_rose]weapon_awp"		"mythical"
 		"[hy_red_hex]weapon_famas"		"mythical"
 		"[am_heist_plans_purple]weapon_fiveseven"		"mythical"
 
 		// Classified
 		"[am_crystallized_blue]weapon_m4a1"		"legendary"
-		"[am_nitrogen]weapon_usp_silencer"		"legendary"
+		"[rc_hy_ali_tile_bravo_cobalt]weapon_usp_silencer"		"legendary"
 		"[am_authority_brown]weapon_fiveseven"		"legendary"
 
 		// Covert
@@ -9267,12 +9267,12 @@
 	"items"
 	{
 		// Covert
-		"[rc_hy_lines_orange_teal]weapon_tec9"		"ancient"
+		"[rc_sp_skull_diagram_bravo_teal]weapon_tec9"		"ancient"
 		"[rc_hy_blam_simple_rose]weapon_mp9"		"ancient"
 		// Classified
 		"[rc_hy_ali_tile_bravo_cobalt]weapon_scar20"		"legendary"
 		"[rc_hy_arctic_contrast_cobalt]weapon_ak47"		"legendary"
-		"[rc_hy_marina_sunrise_ember]weapon_negev"		"legendary"
+		"[rc_hy_siege_bravo_ember]weapon_negev"		"legendary"
 		// Restricted
 		"[rc_hy_feathers_aug_teal]weapon_glock"		"mythical"
 		"[rc_hy_ddpat_urb_ash]weapon_sawedoff"		"mythical"
@@ -9329,7 +9329,7 @@
 		// Classified
 		"[rc_hy_copperhead_magenta]weapon_sawedoff"		"legendary"
 		"[rc_hy_splatter_rose]weapon_g3sg1"		"legendary"
-		"[rc_hy_marina_sunrise_rose]weapon_mag7"		"legendary"
+		"[rc_hy_siege_bravo_cobalt]weapon_mag7"		"legendary"
 		// Restricted
 		"[rc_hy_plaid1_ember]weapon_ump45"		"mythical"
 		"[rc_hy_bamboo_jungle_ink_violet]weapon_m4a1_silencer"		"mythical"
@@ -9382,7 +9382,7 @@
 	{
 		// Covert
 		"[rc_hy_kimono_diamonds_crimson]weapon_mp7"		"ancient"
-		"[rc_hy_marina_sunrise_violet]weapon_xm1014"		"ancient"
+		"[rc_hy_geometric_steps_green_violet]weapon_xm1014"		"ancient"
 		// Classified
 		"[rc_hy_gelpen_crimson]weapon_sg556"		"legendary"
 		"[rc_hy_siege_bravo_cobalt]weapon_g3sg1"		"legendary"
@@ -9439,13 +9439,13 @@
 	{
 		// Covert
 		"[rc_hy_geometric_steps_green_cobalt]weapon_sawedoff"		"ancient"
-		"[rc_hy_lines_orange_crimson]weapon_mp5sd"		"ancient"
+		"[rc_hy_kimono_diamonds_crimson]weapon_mp5sd"		"ancient"
 		// Classified
 		"[rc_hy_seaside_bravo_ember]weapon_galilar"		"legendary"
 		"[rc_sp_star_bravo_magenta]weapon_hkp2000"		"legendary"
 		"[rc_sp_zebracam_bw_lime]weapon_revolver"		"legendary"
 		// Restricted
-		"[rc_hy_marina_sunrise_ash]weapon_ak47"		"mythical"
+		"[rc_sp_tape_dots_urban_ash]weapon_ak47"		"mythical"
 		"[rc_hy_bamboo_jungle_violet]weapon_g3sg1"		"mythical"
 		"[rc_sp_tape_violet]weapon_mac10"		"mythical"
 		"[rc_hy_varicamo_desert_ash]weapon_glock"		"mythical"
@@ -9506,7 +9506,7 @@
 		"[rc_hy_arctic_ash]weapon_galilar"		"mythical"
 		"[rc_hy_varicamo_night_rose]weapon_deagle"		"mythical"
 		"[rc_hy_gelpen_ash]weapon_usp_silencer"		"mythical"
-		"[rc_hy_kami_emerald]weapon_scar20"		"mythical"
+		"[rc_sp_nukestripe_green_emerald]weapon_scar20"		"mythical"
 		// Mil-Spec
 		"[rc_sp_mesh_sand_crimson]weapon_bizon"		"rare"
 		"[rc_sp_palm_shadow_rose]weapon_aug"		"rare"
@@ -9558,7 +9558,7 @@
 		// Classified
 		"[rc_hy_seaside_bravo_ash]weapon_aug"		"legendary"
 		"[rc_sp_star_bravo_teal]weapon_sawedoff"		"legendary"
-		"[rc_hy_lines_orange_emerald]weapon_sg556"		"legendary"
+		"[rc_sp_twigs_emerald]weapon_sg556"		"legendary"
 		// Restricted
 		"[rc_hy_gelpen_lime]weapon_cz75a"		"mythical"
 		"[rc_hy_ali_tile_bravo_crimson]weapon_bizon"		"mythical"
@@ -9620,7 +9620,7 @@
 		// Restricted
 		"[rc_sp_mesh_glacier_ash]weapon_p250"		"mythical"
 		"[rc_hy_varicamo_desert_rose]weapon_hkp2000"		"mythical"
-		"[rc_hy_lines_orange_ember]weapon_ump45"		"mythical"
+		"[rc_hy_varicamo_urban_ember]weapon_ump45"		"mythical"
 		"[rc_hy_arctic_teal]weapon_mac10"		"mythical"
 		"[rc_hy_ddpat_urb_rose]weapon_galilar"		"mythical"
 		// Mil-Spec
@@ -9669,14 +9669,14 @@
 	"items"
 	{
 		// Covert
-		"[rc_hy_marina_sunrise_emerald]weapon_cz75a"		"ancient"
+		"[rc_hy_siege_bravo_emerald]weapon_cz75a"		"ancient"
 		"[rc_hy_hunter_modern_ember]weapon_mp7"		"ancient"
 		// Classified
 		"[rc_sp_palm_ash]weapon_negev"		"legendary"
 		"[rc_sp_nukestripe_green_azure]weapon_tec9"		"legendary"
 		"[rc_hy_splatter_magenta]weapon_glock"		"legendary"
 		// Restricted
-		"[rc_hy_lines_orange_lime]weapon_revolver"		"mythical"
+		"[rc_hy_gelpen_lime]weapon_revolver"		"mythical"
 		"[rc_hy_bamboo_jungle_azure]weapon_p250"		"mythical"
 		"[rc_hy_siege_bravo_lime]weapon_scar20"		"mythical"
 		"[rc_hy_hades_ash]weapon_m4a1"		"mythical"
@@ -9741,7 +9741,7 @@
 		"[rc_sp_tape_dots_urban_ash]weapon_ump45"		"mythical"
 		// Mil-Spec
 		"[rc_hy_kimono_diamonds_orange_lime]weapon_elite"		"rare"
-		"[rc_hy_marina_sunrise_magenta]weapon_ak47"		"rare"
+		"[rc_hy_bamboo_jungle_magenta]weapon_ak47"		"rare"
 		"[rc_hy_flowers_rose]weapon_fiveseven"		"rare"
 		"[rc_hy_v_tiger_cobalt]weapon_sg556"		"rare"
 		"[rc_sp_palm_rose]weapon_g3sg1"		"rare"
@@ -9786,7 +9786,7 @@
 	{
 		// Covert
 		"[rc_hy_hunter_modern_crimson]weapon_fiveseven"		"ancient"
-		"[rc_hy_kami_azure]weapon_galilar"		"ancient"
+		"[rc_hy_blam_simple_rose]weapon_galilar"		"ancient"
 		// Classified
 		"[rc_hy_geometric_steps_yellow_ash]weapon_ssg08"		"legendary"
 		"[rc_hy_ddpat_urb_ember]weapon_sg556"		"legendary"
