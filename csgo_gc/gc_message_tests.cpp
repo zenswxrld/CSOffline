@@ -4039,7 +4039,7 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
     valid &= text.find("\"econ/weapon_cases/crate_t\"") != std::string::npos;
 
     // the top list names the rarity lists in blue, purple, pink, red order and ends with the gold entry
-    const size_t top = text.find("\t\t\"crate_t\"\n");
+    const size_t top = text.find("\n\t\t\"crate_t\"\n\t\t{");
     const size_t rare = text.find("\"crate_t_rare\"\t\t\"1\"", top);
     const size_t mythical = text.find("\"crate_t_mythical\"\t\t\"1\"", top);
     const size_t legendary = text.find("\"crate_t_legendary\"\t\t\"1\"", top);
@@ -4055,6 +4055,8 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
     valid &= rareText.find("[b]weapon_awp") != std::string::npos && rareText.find("[e]weapon_mp9") != std::string::npos
         && rareText.find("[a]weapon_ak47") == std::string::npos;
     valid &= text.find("\t\t\"crate_t_unusual\"\n") == std::string::npos;
+    // like the game's own files, the rarity lists come before the list that names them
+    valid &= rareList < top;
 
     // a case without golds gets no gold tile
     std::string plain = text;

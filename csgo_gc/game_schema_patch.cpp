@@ -442,7 +442,8 @@ size_t GameSchemaPatch::AddCases(std::string &text, const std::vector<AddedCaseP
             topList += "\t\t\t\"" + addedCase.name + "_unusual\"\t\t\"1\"\n";
         }
 
-        listsText += "\t\t\"" + addedCase.name + "\"\n\t\t{\n" + topList + "\t\t}\n" + sublists;
+        // the game's own files define the per-rarity lists before the list that names them
+        listsText += sublists + "\t\t\"" + addedCase.name + "\"\n\t\t{\n" + topList + "\t\t}\n";
         added++;
     }
 
