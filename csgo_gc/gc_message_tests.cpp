@@ -3504,9 +3504,10 @@ static bool WriteGoldTradeUpFixtures()
     paintRarities.AddString("covert_b", "ancient");
     paintRarities.AddString("classified_a", "legendary");
     paintRarities.AddString("consumer_a", "common");
-    paintRarities.AddString("custom_a", "common");
-    paintRarities.AddString("custom_b", "common");
-    paintRarities.AddString("custom_c", "common");
+    // a custom case skin takes the rarity the game works out from its finish, so these differ
+    paintRarities.AddString("custom_a", "rare");
+    paintRarities.AddString("custom_b", "mythical");
+    paintRarities.AddString("custom_c", "ancient");
 
     KeyValue &set = itemsGame.AddSubkey("item_sets").AddSubkey("set_test");
     set.AddNumber("is_collection", 1);
@@ -4416,8 +4417,9 @@ static bool CustomCaseReplacesContents()
                 {
                     created++;
                     valid &= FindAttributeUint32(item, ItemSchema::AttributeTexturePrefab, paintKit);
+                    // the skin has the rarity of its finish (covert_b is Covert), not the "common" written in the file
                     const bool customSkin = item.def_index() == 7 && paintKit == 101
-                        && item.rarity() == ItemSchema::RarityCommon;
+                        && item.rarity() == ItemSchema::RarityAncient;
                     const bool customGold = item.def_index() == 507 && paintKit == 100
                         && item.quality() == ItemSchema::QualityUnusual;
                     valid &= customSkin || customGold;
