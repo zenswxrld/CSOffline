@@ -3964,7 +3964,7 @@ static bool CasePopupLoadsTexturesForEveryTile()
     const size_t getItem = source.find("GetLootListItemByIndex");
     const size_t precache = source.find("PrecacheCustomMaterials( itemid )");
     const size_t update = source.find("_UpdateLootListItemInfo(");
-    const size_t again = source.find("$.Schedule( 0.7");
+    const size_t again = source.find("$.Schedule( delay");
     valid &= getItem < precache && precache < update && update < again && again != std::string::npos;
 
     std::string other = "var x = 1;";
@@ -4025,7 +4025,8 @@ static bool ContextMenuGetsASellEntry()
     std::string crafting = "var Crafting = 1;\n";
     PanoramaHook::TidyTradeUpPage(crafting);
     valid &= crafting.rfind("var Crafting = 1;\n", 0) == 0
-        && crafting.find("slot === 'melee' || slot === 'clothing_hands'") != std::string::npos
+        && crafting.find("slot === 'melee' || slot === 'clothing_hands' || slot === 'customplayer'") != std::string::npos
+        && crafting.find("DeleteAsync") != std::string::npos
         && crafting.find("'Crafting-Items'") != std::string::npos;
     return valid;
 }
@@ -4038,9 +4039,11 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
         "\t\t\"4001\"\n\t\t{\n\t\t\t\"name\"\t\t\"crate_base\"\n\t\t\t\"image_inventory\"\t\t\"econ/weapon_cases/crate_base\"\n"
         "\t\t\t\"loot_list_rare_item_name\"\t\t\"#crate_base_unusual_itemname\"\n"
         "\t\t\t\"image_unusual_item\"\t\t\"econ/weapon_cases/crate_base_rare_item\"\n"
+        "\t\t\t\"tags\"\n\t\t\t{\n\t\t\t\t\"ItemSet\"\n\t\t\t\t{\n\t\t\t\t\t\"tag_value\"\t\t\"set_base\"\n"
+        "\t\t\t\t\t\"tag_text\"\t\t\"#CSGO_set_base\"\n\t\t\t\t}\n\t\t\t}\n"
         "\t\t\t\"attributes\"\n\t\t\t{\n\t\t\t\t\"set supply crate series\"\n\t\t\t\t{\n"
         "\t\t\t\t\t\"attribute_class\"\t\t\"supply_crate_series\"\n\t\t\t\t\t\"value\"\t\t\"4\"\n\t\t\t\t}\n\t\t\t}\n\t\t}\n"
-        "\t}\n\t\"revolving_loot_lists\"\n\t{\n\t}\n\t\"client_loot_lists\"\n\t{\n\t}\n}\n";
+        "\t}\n\t\"revolving_loot_lists\"\n\t{\n\t}\n\t\"client_loot_lists\"\n\t{\n\t}\n\t\"item_sets\"\n\t{\n\t}\n}\n";
 
     GameSchemaPatch::AddedCasePatch added;
     added.defIndex = 5000;
@@ -4052,6 +4055,7 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
     added.previewRarities = { 6, 3, 5, 4, 3 };
     added.hasUnusual = true;
     added.image = "econ/weapon_cases/crate_t";
+    added.displayName = "T Case";
 
     bool valid = GameSchemaPatch::AddCases(text, { added }) == 1;
 
@@ -4064,6 +4068,13 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
         valid &= block != std::string::npos && added5000.find("rare_item") == std::string::npos
             && added5000.find("unusual_itemname") == std::string::npos;
     }
+
+    // the added case has a collection of its own, holding its regular skins, and its crate points at it
+    valid &= text.find("\"set_crate_t\"") != std::string::npos
+        && text.find("\"[b]weapon_awp\"\t\t\"1\"", text.find("\"set_crate_t\"\n")) != std::string::npos
+        && text.find("\"tag_value\"\t\t\"set_crate_t\"") != std::string::npos
+        && text.find("\"tag_text\"\t\t\"T Case\"") != std::string::npos
+        && text.find("\"tag_value\"\t\t\"set_base\"") != std::string::npos; // the base case keeps its own
 
     // its own picture replaces the base case's
     valid &= text.find("\"econ/weapon_cases/crate_t\"") != std::string::npos;
@@ -4129,7 +4140,7 @@ static bool CareerTracksGoalsAchievementsAndPersists()
 
         // first opening: a skin of the case and the "first case" achievement, no goal yet
         auto first = career.RecordCaseOpened(5001, info, pull(7, 100, ItemSchema::RarityMythical, false, false));
-        valid &= first.size() == 1 && first[0].stars == 100;
+        valid &= first.size() == 1 && first[0].stars == 40;
 
         // the same skin again finds nothing new
         valid &= career.RecordCaseOpened(5001, info, pull(7, 100, ItemSchema::RarityMythical, false, false)).empty();
@@ -4204,7 +4215,7 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         // the SkinStop tabs' data: the case's 2/2 skins and gold, a finished achievement, a stat
         const std::string ui = career.UiData({ { 5001, info } });
         valid &= ui.find("cases: [[5001,'Test Case',2,2,1,1,1,5]]") != std::string::npos
-            && ui.find("['first_case','First Crack','Open your first case.',100,1,1,1,0]") != std::string::npos
+            && ui.find("['first_case','First Crack','Open your first case.',40,1,1,1,0]") != std::string::npos
             && ui.find("['Cases opened','6']") != std::string::npos
             && ui.find("goalReward: 1500") != std::string::npos;
     }
@@ -4906,6 +4917,12 @@ static bool StarShopSellsSkinsByRarity()
         knife.set_def_index(507);
         knife.set_quality(ItemSchema::QualityUnusual);
         valid &= StarShop::SellValue(schema, config, knife) == 150;
+
+        // a finished knife made with a plain quality still pays the knife price, as the menu says
+        CSOEconItem plainKnife = skin;
+        plainKnife.set_def_index(507);
+        plainKnife.set_quality(ItemSchema::QualityNormal);
+        valid &= StarShop::SellValue(schema, config, plainKnife) == 150;
     }
 
     RemoveGoldTradeUpFixtures();

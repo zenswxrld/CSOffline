@@ -345,6 +345,13 @@ uint32_t StarShop::SellValue(const ItemSchema &itemSchema, const StarShopConfig 
         return 0;
     }
 
+    // a finished knife or glove pays the knife and glove price whatever quality it was made with (one made by
+    // hand can be a plain quality), the same as the right-click menu says
+    if (gloves || info->m_name.find("knife") != std::string::npos || info->m_name.find("bayonet") != std::string::npos)
+    {
+        return config.sellKnifeOrGlove;
+    }
+
     switch (item.rarity())
     {
     case ItemSchema::RarityCommon: return config.sellConsumer;

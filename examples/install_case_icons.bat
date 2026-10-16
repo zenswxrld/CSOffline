@@ -12,6 +12,8 @@ set COUNT=0
 if not exist "%GAME%\csgo" goto nogame
 if not exist "%SRC%\*.png" goto nosrc
 if not exist "%DEST%" mkdir "%DEST%"
+rem remove the pictures of an earlier install first, so none of an old set is left behind
+del /q "%DEST%\crate_csgogc_*.png" >nul 2>nul
 
 for %%f in ("%SRC%\*.png") do call :copyone "%%f"
 

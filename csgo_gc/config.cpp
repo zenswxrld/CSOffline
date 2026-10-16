@@ -134,6 +134,7 @@ GCConfig::GCConfig()
         m_matchDrops.enabled = matchDrops->GetNumber("enabled", m_matchDrops.enabled);
         m_matchDrops.dropChance = std::clamp(matchDrops->GetNumber("drop_chance", m_matchDrops.dropChance), 0.0f, 1.0f);
         m_matchDrops.caseChance = std::clamp(matchDrops->GetNumber("case_chance", m_matchDrops.caseChance), 0.0f, 1.0f);
+        m_matchDrops.customCaseChance = std::clamp(matchDrops->GetNumber("custom_case_chance", m_matchDrops.customCaseChance), 0.0f, 1.0f);
         m_matchDrops.dropsPerMatch = std::clamp<uint32_t>(matchDrops->GetNumber("drops_per_match", m_matchDrops.dropsPerMatch), 1, 20);
 
         const KeyValue *skinWeights = matchDrops->GetSubkey("skin_rarity_weights");

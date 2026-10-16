@@ -31,10 +31,15 @@ int PanoramaHook::PatchCasePopup(std::string &source)
 
     if (std::regex_search(source, update))
     {
-        // the textures load in the background: ask for the picture again a moment later
+        // the textures load in the background: ask for the picture again a few times, in case the first try is too
+        // early. the first tile logs what the game says about it, to tell why a picture stays blank
         source = std::regex_replace(source, update,
-            "$&\n\t\t\t\tif ( itemid !== '0' ) { ( function( image, id ) { $.Schedule( 0.7, function() "
-            "{ try { image.itemid = ''; image.itemid = id; } catch ( e ) {} } ); } )( elItem.FindChildInLayoutFile( 'ItemImage' ), itemid ); }");
+            "$&\n\t\t\t\tif ( itemid !== '0' ) { ( function( image, id, first ) {"
+            " [ 0.7, 1.5, 3.0, 6.0 ].forEach( function( delay ) { $.Schedule( delay, function()"
+            " { try { image.itemid = ''; image.itemid = id; } catch ( e ) {} } ); } );"
+            " if ( first ) { $.Schedule( 2.0, function() { try { $.Msg( '[csgo_gc] case popup tile ' + id + ': valid='"
+            " + InventoryAPI.IsValidItemID( id ) + ' name=' + ItemInfo.GetName( id ) ); } catch ( e ) {} } ); }"
+            " } )( elItem.FindChildInLayoutFile( 'ItemImage' ), itemid, i === 0 ); }");
         count++;
     }
     return count;
@@ -58,8 +63,8 @@ int PanoramaHook::PatchContextMenuLabels(std::string &source)
     return count;
 }
 
-// appended to the trade-up page (crafting.js): the game lists every item a contract recipe accepts, and the
-// top-tier recipe takes knives and gloves too. they can't be used here, so they are hidden from the list
+// appended to the trade-up page (crafting.js): the game lists every item a contract recipe accepts, and its
+// recipes take knives, gloves and agents too (by rarity). they can't be used here, so they are hidden from the list
 static const char *const TradeUpTidyScript = R"js(
 var CsgoGcTradeUpTidy = function ()
 {
@@ -71,7 +76,9 @@ var CsgoGcTradeUpTidy = function ()
 			return;
 		}
 
-		var hidden = 0;
+		var removed = 0;
+		var shown = 0;
+		var doomed = [];
 		var visit = function ( el )
 		{
 			var id = el.GetAttributeString ? el.GetAttributeString( 'itemid', '0' ) : '0';
@@ -79,10 +86,14 @@ var CsgoGcTradeUpTidy = function ()
 			{
 				var slot = '';
 				try { slot = ItemInfo.GetSlotSubPosition( id ); } catch ( e ) {}
-				if ( slot === 'melee' || slot === 'clothing_hands' )
+				// knives, gloves and agents can't be traded up
+				if ( slot === 'melee' || slot === 'clothing_hands' || slot === 'customplayer' )
 				{
-					el.visible = false;
-					hidden++;
+					doomed.push( el );
+				}
+				else
+				{
+					shown++;
 				}
 				return;
 			}
@@ -95,10 +106,33 @@ var CsgoGcTradeUpTidy = function ()
 		};
 		visit( elList );
 
-		var elLabel = $.GetContextPanel().FindChildTraverse( 'CraftingItemsText' );
-		if ( elLabel && hidden > 0 )
+		// take the tiles out of the list, so nothing is left in their place and the others close up
+		doomed.forEach( function ( el )
 		{
-			elLabel.SetDialogVariableInt( 'count', Math.max( 0, elList.count - hidden ) );
+			try
+			{
+				el.visible = false;
+				el.DeleteAsync( 0.0 );
+				removed++;
+			}
+			catch ( e )
+			{
+				try
+				{
+					el.style.visibility = 'collapse';
+					el.style.width = '0px';
+					el.style.height = '0px';
+					el.style.margin = '0px';
+					removed++;
+				}
+				catch ( e2 ) {}
+			}
+		} );
+
+		var elLabel = $.GetContextPanel().FindChildTraverse( 'CraftingItemsText' );
+		if ( elLabel && removed > 0 )
+		{
+			elLabel.SetDialogVariableInt( 'count', shown );
 		}
 	}
 	catch ( e ) {}
@@ -106,7 +140,7 @@ var CsgoGcTradeUpTidy = function ()
 
 var CsgoGcTradeUpTidyLater = function ()
 {
-	[ 0.05, 0.3, 0.8, 1.6 ].forEach( function ( delay ) { $.Schedule( delay, CsgoGcTradeUpTidy ); } );
+	[ 0.02, 0.15, 0.4, 0.9, 1.8 ].forEach( function ( delay ) { $.Schedule( delay, CsgoGcTradeUpTidy ); } );
 };
 
 $.RegisterForUnhandledEvent( 'UpdateTradeUpPanel', CsgoGcTradeUpTidyLater );
