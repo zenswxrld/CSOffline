@@ -59,7 +59,8 @@ GCConfig::GCConfig()
         m_storeOtherContainers = storeContainers->GetNumber("other", m_storeOtherContainers);
     }
     m_customCasePreviews = config.GetNumber("custom_case_previews", m_customCasePreviews);
-    m_goldTradeUpRecipes = config.GetNumber("gold_tradeup_recipes", m_goldTradeUpRecipes);
+    // gold_tradeup_recipes is no longer read: the 5-item gold contracts put knives and gloves into the trade-up
+    // list and left gaps, so they stay off whatever an old config.txt says
     m_careerTracking = config.GetNumber("career_tracking", m_careerTracking);
     m_customCaseCollections = config.GetNumber("custom_case_collections", m_customCaseCollections);
     m_caseStoreMenu = config.GetNumber("case_store_menu", m_caseStoreMenu);

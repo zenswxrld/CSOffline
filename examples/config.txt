@@ -97,12 +97,8 @@
 // shows its contents.
 "case_store_menu"	"1"
 
-// OFF by default: knives and gloves left gaps in the trade-up list. 1 lets the trade-up screen accept 5 Coverts for a knife/glove (knives and gloves
-// themselves never show up on the trade-up screen). the game's own trade-up rules live in its items_game.txt and
-// have no recipe for this, so csgo_gc adds one to that file (the original is
-// kept as items_game.txt.csgo_gc_backup and put back when this and
-// custom_case_previews are both 0). restart the game after the first launch.
-"gold_tradeup_recipes"	"0"
+// (gold_tradeup_recipes was removed: the 5-item gold contracts put knives and gloves into the trade-up list
+// and left gaps. delete csgo/scripts/items/items_game.txt once and restart twice to drop the old recipe.)
 
 // keeps a career log in csgo_gc/career.txt: cases opened, covert and gold pulls, trade-ups,
 // which skins of each case you have found (finding every one pays a collection reward) and
