@@ -4056,6 +4056,7 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
     added.hasUnusual = true;
     added.image = "econ/weapon_cases/crate_t";
     added.displayName = "T Case";
+    added.ownCollection = true;
 
     bool valid = GameSchemaPatch::AddCases(text, { added }) == 1;
 

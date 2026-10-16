@@ -94,6 +94,7 @@ namespace GameSchemaPatch
         bool hasUnusual{};                       // add the gold "rare special item" tile
         std::string image;                       // inventory picture (e.g. econ/weapon_cases/crate_x), empty = the base case's
         std::string displayName;                 // the case's name, also used to name its collection
+        bool ownCollection{};                    // give it a collection of its own (for the game's trade-up screen)
     };
 
     // adds the cases to items_game/items (copied from the case they're based on),

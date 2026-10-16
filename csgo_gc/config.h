@@ -135,6 +135,7 @@ public:
     bool CustomCasePreviews() const { return m_customCasePreviews; }
     bool GoldTradeUpRecipes() const { return m_goldTradeUpRecipes; }
     bool CareerTracking() const { return m_careerTracking; }
+    bool CustomCaseCollections() const { return m_customCaseCollections; }
     bool CaseStoreMenu() const { return m_caseStoreMenu; }
     bool PanoramaDebug() const { return m_panoramaDebug; }
     float ViewmodelRange() const { return m_viewmodelRange; }
@@ -190,6 +191,7 @@ private:
     bool m_customCasePreviews{ false };
     bool m_goldTradeUpRecipes{ true };
     bool m_careerTracking{ true };
+    bool m_customCaseCollections{ false };
     bool m_caseStoreMenu{ true };
     bool m_panoramaDebug{ false };
     float m_viewmodelRange{ 1.0f };

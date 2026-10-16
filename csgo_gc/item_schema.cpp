@@ -316,7 +316,8 @@ ItemSchema::ItemSchema(bool loadFiles)
         for (const AddedCase &added : m_addedCases)
         {
             addedCases.push_back({ added.defIndex, added.basedOn, added.series, added.name, added.previewEntries,
-                added.previewRarities, added.hasGolds, added.image, added.displayName });
+                added.previewRarities, added.hasGolds, added.image, added.displayName,
+                GetConfig().CustomCaseCollections() });
         }
 
         GameSchemaPatch::PaintKitsPatch paintKits;

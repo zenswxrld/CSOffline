@@ -431,7 +431,7 @@ size_t GameSchemaPatch::AddCases(std::string &text, const std::vector<AddedCaseP
         std::vector<std::string> novel;
         for (const std::string &entry : addedCase.previewEntries)
         {
-            if (inCollection.insert(entry).second)
+            if (addedCase.ownCollection && inCollection.insert(entry).second)
             {
                 novel.push_back(entry);
             }
