@@ -109,6 +109,24 @@
 // achievements that pay stars. RCON: career, goals [all], achievements. needs the star shop.
 "career_tracking"	"1"
 
+// player level and experience. XP comes from kills, headshots, MVPs, bomb plants and defuses and
+// finishing a match, in bot games too. every per_level XP is one level (max 40). each level-up
+// drops a case or skin. at level 40 XP stops until you claim a service medal from your profile,
+// which resets you to level 1 and gives or upgrades the medal, like the real game.
+// the player_level and player_cur_xp settings above only set the starting point
+"xp"
+{
+	"enabled"		"1"
+	"per_kill"		"5"
+	"per_headshot"	"3"
+	"per_mvp"		"25"
+	"per_plant"		"25"
+	"per_defuse"	"25"
+	"per_match"		"600"
+	"per_level"		"5000"
+	"level_up_drops"	"1"
+}
+
 // KNOWN TO BREAK: gives each custom case a collection of its own in items_game.txt, meant to let their skins be
 // picked in the game's Trade Up screen. the game rejects it with an "Assert ... econ_item_system.cpp" box at
 // start-up. leave this at 0. if you turned it on: set it to 0, delete csgo/scripts/items/items_game.txt, and start the

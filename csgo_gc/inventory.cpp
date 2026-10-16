@@ -1482,15 +1482,49 @@ bool Inventory::UnlockCrate(uint64_t crateId,
     return true;
 }
 
-bool Inventory::CreateMatchDrop(CMsgSOSingleObject &newItem, std::string &itemDescription)
+bool Inventory::AddPlayerXp(uint32_t amount, uint32_t perLevel, bool save, XpChange &change)
 {
-    const MatchDropConfig &config = GetConfig().MatchDrops();
-    if (!config.enabled)
+    if (!amount || m_playerLevel >= CSGOMaxPlayerLevel)
     {
         return false;
     }
 
-    if (m_random.Float(0.0f, 1.0f) >= config.dropChance)
+    perLevel = std::max<uint32_t>(perLevel, 1);
+    uint64_t xp = static_cast<uint64_t>(std::max(m_playerXp, 0)) + amount;
+    while (xp >= perLevel && m_playerLevel < CSGOMaxPlayerLevel)
+    {
+        xp -= perLevel;
+        ++m_playerLevel;
+        ++change.levelsGained;
+    }
+    m_playerXp = m_playerLevel >= CSGOMaxPlayerLevel ? 0 : static_cast<int>(xp);
+
+    if (change.levelsGained)
+    {
+        CSOPersonaDataPublic personaData;
+        personaData.set_player_level(m_playerLevel);
+        personaData.set_elevated_state(GetConfig().PrimeStatus());
+        ToSingleObject(change.personaData, SOTypePersonaDataPublic, personaData);
+    }
+
+    if (change.levelsGained || save)
+    {
+        WriteToFile();
+    }
+    return true;
+}
+
+bool Inventory::CreateMatchDrop(CMsgSOSingleObject &newItem, std::string &itemDescription, bool levelUp)
+{
+    const MatchDropConfig &config = GetConfig().MatchDrops();
+    const ItemOrigin origin = levelUp ? ItemOriginLevelUpReward : ItemOriginDrop;
+    const UnacknowledgedType unacknowledged = levelUp ? UnacknowledgedLevelUpReward : UnacknowledgedDropped;
+    if (!levelUp && !config.enabled)
+    {
+        return false;
+    }
+
+    if (!levelUp && m_random.Float(0.0f, 1.0f) >= config.dropChance)
     {
         Platform::Print("Match drop: no drop this match\n");
         return false;
@@ -1573,7 +1607,7 @@ bool Inventory::CreateMatchDrop(CMsgSOSingleObject &newItem, std::string &itemDe
             return false;
         }
 
-        CSOEconItem &item = CreateItem(crateDefIndex, ItemOriginDrop, UnacknowledgedDropped);
+        CSOEconItem &item = CreateItem(crateDefIndex, origin, unacknowledged);
         ToSingleObject(newItem, item);
 
         const ItemInfo *info = m_itemSchema.ItemInfoByDefIndex(crateDefIndex);
@@ -1591,8 +1625,8 @@ bool Inventory::CreateMatchDrop(CMsgSOSingleObject &newItem, std::string &itemDe
     }
 
     CSOEconItem temp;
-    if (!m_itemSchema.CreateItemFromLootListItem(m_random, *skin, false, ItemOriginDrop,
-        UnacknowledgedDropped, temp))
+    if (!m_itemSchema.CreateItemFromLootListItem(m_random, *skin, false, origin,
+        unacknowledged, temp))
     {
         Platform::Print("Match drop: failed to create skin def %u\n", skin->itemInfo->m_defIndex);
         return false;

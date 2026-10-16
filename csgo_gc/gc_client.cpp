@@ -2550,6 +2550,14 @@ void ClientGC::LocalPlayerMatchEnd()
         textMsg.set_payload("You received a match drop: " + itemName);
         SendMessageToGame(false, k_EMsgGCCStrike15_v2_GC2ClientTextMsg, textMsg);
     }
+
+    if (m_matchXp)
+    {
+        SendStarsMessage("You earned " + std::to_string(m_matchXp) + " XP this match (level "
+            + std::to_string(m_inventory.PlayerLevel()) + ", " + std::to_string(m_inventory.PlayerXp())
+            + "/" + std::to_string(GetConfig().XpRewards().perLevel) + ")");
+        m_matchXp = 0;
+    }
 }
 
 std::optional<uint32_t> ClientGC::StarSeason() const
@@ -2581,8 +2589,71 @@ void ClientGC::PublishStarChange(const Inventory::StarChange &change)
     }
 }
 
+void ClientGC::LocalPlayerXp(StarShop::Reason reason)
+{
+    const XpConfig &xp = GetConfig().XpRewards();
+    if (!xp.enabled)
+    {
+        return;
+    }
+
+    uint32_t amount = 0;
+    switch (reason)
+    {
+    case StarShop::Reason::Kill: amount = xp.perKill; break;
+    case StarShop::Reason::Headshot: amount = xp.perHeadshot; break;
+    case StarShop::Reason::Mvp: amount = xp.perMvp; break;
+    case StarShop::Reason::Plant: amount = xp.perPlant; break;
+    case StarShop::Reason::Defuse: amount = xp.perDefuse; break;
+    case StarShop::Reason::MatchComplete: amount = xp.perMatch; break;
+    }
+
+    Inventory::XpChange change;
+    if (!m_inventory.AddPlayerXp(amount, xp.perLevel, reason == StarShop::Reason::MatchComplete, change))
+    {
+        return;
+    }
+    m_matchXp += amount;
+
+    if (!change.levelsGained)
+    {
+        return;
+    }
+
+    SendMessageToGame(true, k_ESOMsg_Update, change.personaData);
+
+    CMsgGCCStrike15_v2_MatchmakingGC2ClientHello matchmakingHello;
+    BuildMatchmakingHello(matchmakingHello);
+    SendMessageToGame(false, k_EMsgGCCStrike15_v2_MatchmakingGC2ClientHello, matchmakingHello);
+
+    std::string text = "LEVEL UP! You are now level " + std::to_string(m_inventory.PlayerLevel());
+    for (int level = 0; level < change.levelsGained && xp.levelUpDrops; ++level)
+    {
+        CMsgSOSingleObject newItem;
+        std::string itemName;
+        if (m_inventory.CreateMatchDrop(newItem, itemName, true))
+        {
+            SendMessageToGame(true, k_ESOMsg_Create, newItem);
+            text += " - reward: " + itemName;
+        }
+    }
+
+    if (m_inventory.PlayerLevel() >= CSGOMaxPlayerLevel)
+    {
+        text += ". Max level! Claim your service medal from your profile to reset";
+    }
+
+    CMsgGCCStrike15_v2_GC2ClientTextMsg textMsg;
+    textMsg.set_id(0);
+    textMsg.set_type(0);
+    textMsg.set_payload(text);
+    SendMessageToGame(false, k_EMsgGCCStrike15_v2_GC2ClientTextMsg, textMsg);
+}
+
 void ClientGC::LocalPlayerStars(StarShop::Reason reason)
 {
+    LocalPlayerXp(reason);
+
     // the career counts what happened whether or not it pays stars
     static constexpr Career::MatchEvent Events[] = {
         Career::MatchEvent::Kill, Career::MatchEvent::Headshot, Career::MatchEvent::Mvp,
