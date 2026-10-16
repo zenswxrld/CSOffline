@@ -76,7 +76,9 @@ var CsgoGcTradeUpTidy = function ()
 			return;
 		}
 
-		var hidden = 0;
+		var removed = 0;
+		var shown = 0;
+		var doomed = [];
 		var visit = function ( el )
 		{
 			var id = el.GetAttributeString ? el.GetAttributeString( 'itemid', '0' ) : '0';
@@ -84,21 +86,14 @@ var CsgoGcTradeUpTidy = function ()
 			{
 				var slot = '';
 				try { slot = ItemInfo.GetSlotSubPosition( id ); } catch ( e ) {}
-				// knives, gloves and agents can't be traded up. the tile is taken out of the grid, not just made
-				// invisible, so the others close up over its place
+				// knives, gloves and agents can't be traded up
 				if ( slot === 'melee' || slot === 'clothing_hands' || slot === 'customplayer' )
 				{
-					el.visible = false;
-					try
-					{
-						el.style.visibility = 'collapse';
-						el.style.width = '0px';
-						el.style.height = '0px';
-						el.style.margin = '0px';
-						el.style.padding = '0px';
-					}
-					catch ( e ) {}
-					hidden++;
+					doomed.push( el );
+				}
+				else
+				{
+					shown++;
 				}
 				return;
 			}
@@ -111,10 +106,33 @@ var CsgoGcTradeUpTidy = function ()
 		};
 		visit( elList );
 
-		var elLabel = $.GetContextPanel().FindChildTraverse( 'CraftingItemsText' );
-		if ( elLabel && hidden > 0 )
+		// take the tiles out of the list, so nothing is left in their place and the others close up
+		doomed.forEach( function ( el )
 		{
-			elLabel.SetDialogVariableInt( 'count', Math.max( 0, elList.count - hidden ) );
+			try
+			{
+				el.visible = false;
+				el.DeleteAsync( 0.0 );
+				removed++;
+			}
+			catch ( e )
+			{
+				try
+				{
+					el.style.visibility = 'collapse';
+					el.style.width = '0px';
+					el.style.height = '0px';
+					el.style.margin = '0px';
+					removed++;
+				}
+				catch ( e2 ) {}
+			}
+		} );
+
+		var elLabel = $.GetContextPanel().FindChildTraverse( 'CraftingItemsText' );
+		if ( elLabel && removed > 0 )
+		{
+			elLabel.SetDialogVariableInt( 'count', shown );
 		}
 	}
 	catch ( e ) {}
@@ -122,7 +140,7 @@ var CsgoGcTradeUpTidy = function ()
 
 var CsgoGcTradeUpTidyLater = function ()
 {
-	[ 0.05, 0.3, 0.8, 1.6 ].forEach( function ( delay ) { $.Schedule( delay, CsgoGcTradeUpTidy ); } );
+	[ 0.02, 0.15, 0.4, 0.9, 1.8 ].forEach( function ( delay ) { $.Schedule( delay, CsgoGcTradeUpTidy ); } );
 };
 
 $.RegisterForUnhandledEvent( 'UpdateTradeUpPanel', CsgoGcTradeUpTidyLater );
