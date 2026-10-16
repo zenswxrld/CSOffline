@@ -494,6 +494,8 @@ var CsgoGcCaseStore = ( function()
 			+ '&asyncforcehide=true'
 			+ '&storeitemid=' + id
 			+ '&overridepurchasemultiple=1'
+			// inspect only: no store buy button or price under the popup (SkinStop's own bar buys with stars)
+			+ '&inspectonly=true'
 		);
 	}
 
@@ -1007,6 +1009,16 @@ static const char CaseStoreScriptPart2[] = R"js(
 			width: '100%', height: '100%', flowChildren: 'down',
 			padding: '0px 0px 0px 0px', backgroundColor: '#0d0a09'
 		}, 'Panel', 'CsgoGcCaseStore' );
+		// take every click and hover, so nothing of the main menu underneath (its Play button, say) reacts
+		try
+		{
+			m_overlay.hittest = true;
+			m_overlay.hittestchildren = true;
+			m_overlay.SetPanelEvent( 'onmouseover', function() {} );
+			m_overlay.SetPanelEvent( 'onactivate', function() {} );
+			m_overlay.SetPanelEvent( 'oncontextmenu', function() {} );
+		}
+		catch ( e ) {}
 		// the operation page's backdrop: a map screenshot, darkened
 		_Style( m_overlay, { backgroundImage: BACKGROUND, backgroundSize: 'cover', backgroundPosition: 'center',
 			backgroundRepeat: 'no-repeat', washColor: '#0d0a0930' } );
