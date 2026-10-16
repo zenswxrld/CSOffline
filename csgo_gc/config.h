@@ -206,7 +206,7 @@ private:
     bool m_storeOtherContainers{ false };
     bool m_storeHideIndividualItems{ true };
     bool m_customCasePreviews{ false };
-    bool m_goldTradeUpRecipes{ false };
+    bool m_goldTradeUpRecipes{ true };
     bool m_careerTracking{ true };
     bool m_customCaseCollections{ false };
     bool m_caseStoreMenu{ true };
