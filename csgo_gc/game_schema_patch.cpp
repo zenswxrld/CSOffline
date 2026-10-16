@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include <unordered_set>
 #include "game_schema_patch.h"
 
 #include <cerrno>
@@ -377,6 +378,23 @@ size_t GameSchemaPatch::AddCases(std::string &text, const std::vector<AddedCaseP
     std::string itemsText, revolvingText, listsText, setsText;
     size_t added = 0;
 
+    // a skin and weapon pair may be in only one collection: the game asserts at start-up when two hold the same
+    // one. the pairs the game's own collections already hold are eligible for trade-ups as they are, so a case's
+    // collection takes only the pairs no collection has yet
+    std::unordered_set<std::string> inCollection;
+    {
+        BlockRange sets;
+        if (FindBlock(text, { "items_game", "item_sets" }, sets))
+        {
+            const std::string block = text.substr(sets.keyBegin, sets.close + 1 - sets.keyBegin);
+            static const std::regex entry{ R"re("(\[[^"\]]+\][^"]*)")re" };
+            for (auto it = std::sregex_iterator(block.begin(), block.end(), entry); it != std::sregex_iterator(); ++it)
+            {
+                inCollection.insert((*it)[1].str());
+            }
+        }
+    }
+
     for (const AddedCasePatch &addedCase : cases)
     {
         BlockRange source;
@@ -410,17 +428,26 @@ size_t GameSchemaPatch::AddCases(std::string &text, const std::vector<AddedCaseP
         // its own collection. the game only lets an item into a trade-up when it knows a collection that holds it, and
         // a skin and weapon pair a custom case invents is in none of the game's, so the case gets one of its own
         // (named and described in plain text, no language file needed) and its crate points at it
-        const std::string setName = "set_" + addedCase.name;
-        block = std::regex_replace(block, std::regex{ R"re(("tag_value"\s+)"[^"]*")re" },
-            "$1\"" + setName + "\"", std::regex_constants::format_first_only);
-        block = std::regex_replace(block, std::regex{ R"re(("tag_text"\s+)"[^"]*")re" },
-            "$1\"" + addedCase.displayName + "\"", std::regex_constants::format_first_only);
-        if (!addedCase.previewEntries.empty())
+        std::vector<std::string> novel;
+        for (const std::string &entry : addedCase.previewEntries)
         {
+            if (inCollection.insert(entry).second)
+            {
+                novel.push_back(entry);
+            }
+        }
+
+        if (!novel.empty())
+        {
+            const std::string setName = "set_" + addedCase.name;
+            block = std::regex_replace(block, std::regex{ R"re(("tag_value"\s+)"[^"]*")re" },
+                "$1\"" + setName + "\"", std::regex_constants::format_first_only);
+            block = std::regex_replace(block, std::regex{ R"re(("tag_text"\s+)"[^"]*")re" },
+                "$1\"" + addedCase.displayName + "\"", std::regex_constants::format_first_only);
             setsText += "\t\t\"" + setName + "\"\n\t\t{\n\t\t\t\"name\"\t\t\"" + addedCase.displayName
                 + "\"\n\t\t\t\"set_description\"\t\t\"" + addedCase.displayName
                 + "\"\n\t\t\t\"is_collection\"\t\t\"1\"\n\t\t\t\"items\"\n\t\t\t{\n";
-            for (const std::string &entry : addedCase.previewEntries)
+            for (const std::string &entry : novel)
             {
                 setsText += "\t\t\t\t\"" + entry + "\"\t\t\"1\"\n";
             }

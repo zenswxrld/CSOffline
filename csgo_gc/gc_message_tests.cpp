@@ -4043,7 +4043,7 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
         "\t\t\t\t\t\"tag_text\"\t\t\"#CSGO_set_base\"\n\t\t\t\t}\n\t\t\t}\n"
         "\t\t\t\"attributes\"\n\t\t\t{\n\t\t\t\t\"set supply crate series\"\n\t\t\t\t{\n"
         "\t\t\t\t\t\"attribute_class\"\t\t\"supply_crate_series\"\n\t\t\t\t\t\"value\"\t\t\"4\"\n\t\t\t\t}\n\t\t\t}\n\t\t}\n"
-        "\t}\n\t\"revolving_loot_lists\"\n\t{\n\t}\n\t\"client_loot_lists\"\n\t{\n\t}\n\t\"item_sets\"\n\t{\n\t}\n}\n";
+        "\t}\n\t\"revolving_loot_lists\"\n\t{\n\t}\n\t\"client_loot_lists\"\n\t{\n\t}\n\t\"item_sets\"\n\t{\n\t\t\"set_real\"\n\t\t{\n\t\t\t\"items\"\n\t\t\t{\n\t\t\t\t\"[a]weapon_ak47\"\t\t\"1\"\n\t\t\t}\n\t\t}\n\t}\n}\n";
 
     GameSchemaPatch::AddedCasePatch added;
     added.defIndex = 5000;
@@ -4070,8 +4070,12 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
     }
 
     // the added case has a collection of its own, holding its regular skins, and its crate points at it
-    valid &= text.find("\"set_crate_t\"") != std::string::npos
-        && text.find("\"[b]weapon_awp\"\t\t\"1\"", text.find("\"set_crate_t\"\n")) != std::string::npos
+    // (only pairs no collection holds yet: the game asserts when two collections hold the same one)
+    const size_t ownSet = text.find("\n\t\t\"set_crate_t\"\n\t\t{");
+    const size_t ownSetEnd = ownSet == std::string::npos ? ownSet : text.find("\n\t\t}\n", ownSet);
+    valid &= ownSet != std::string::npos
+        && text.find("\"[b]weapon_awp\"\t\t\"1\"", ownSet) < ownSetEnd
+        && text.find("\"[a]weapon_ak47\"", ownSet) > ownSetEnd
         && text.find("\"tag_value\"\t\t\"set_crate_t\"") != std::string::npos
         && text.find("\"tag_text\"\t\t\"T Case\"") != std::string::npos
         && text.find("\"tag_value\"\t\t\"set_base\"") != std::string::npos; // the base case keeps its own
