@@ -109,6 +109,11 @@
 // achievements that pay stars. RCON: career, goals [all], achievements. needs the star shop.
 "career_tracking"	"1"
 
+// EXPERIMENTAL: gives each custom case a collection of its own in items_game.txt, so the skins that no real collection
+// holds can be picked in the game's Trade Up screen. restart the game twice after changing it. if the game shows an
+// "Assert ... econ_item_system.cpp" box at start-up, set this back to 0 (clicking Ignore also gets you in)
+"custom_case_collections"	"0"
+
 // lets StatTrak, normal and Souvenir skins of the same rarity go into one
 // contract. the chance of a StatTrak result is the share of StatTrak inputs
 // (all StatTrak = always StatTrak, 3 of 10 = 30%). like gold_tradeup_recipes
