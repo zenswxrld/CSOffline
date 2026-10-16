@@ -42,10 +42,18 @@ namespace PanoramaHook
     // returns false when the delete entry isn't found
     bool AddSellEntry(std::string &source, const SellPrices &prices);
 
+    // makes the inventory page's delete question (inventory.js) a "sell for N stars?" question for items that have a
+    // sell price. its OK runs in the page, which stays alive (the right-click menu closes, and takes any popup
+    // callback made in it down too). returns false when the page's delete question isn't found
+    bool PatchInventoryDelete(std::string &source, const SellPrices &prices);
+
     // makes the contents list of a case (popup_capability_decodable.js) load each skin's textures before it shows
     // the skin's picture. the game only does that for the one you click, so a skin and weapon pair it has no
     // ready-made picture of (every one in a custom case) stays a blank tile. returns the number of changes
     int PatchCasePopup(std::string &source);
+
+    // hides knives and gloves from the trade-up page's list of eligible items (appends a script to crafting.js)
+    void TidyTradeUpPage(std::string &source);
 
     // lets a context menu entry whose name starts with '!' show that text as it is (the menu would look the
     // name up as a language token). returns the number of changes

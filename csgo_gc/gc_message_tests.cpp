@@ -3997,7 +3997,18 @@ static bool ContextMenuGetsASellEntry()
     valid &= sell != std::string::npos && del != std::string::npos && sell < del
         && entries.find("CsgoGcSellPrices = {1:10,2:20,3:30,4:40,5:50,6:60}") != std::string::npos
         && entries.find("CsgoGcSellKnifeOrGlove = 150;") != std::string::npos
-        && entries.find("InventoryAPI.DeleteItem( id )") != std::string::npos;
+        && entries.find("DispatchEvent( 'ShowDeleteItemConfirmationPopup', id )") != std::string::npos;
+
+    // the inventory page's own delete question becomes the sell question for items with a price
+    std::string inventory =
+        "\tvar _ShowDeleteItemConfirmation = function( id )\n\t{\n\t\tUiToolkitAPI.ShowGenericPopupYesNo( '#inv_context_delete', '', '', function() { _DeleteItemAnim( id ); }, function() {} );\n\t};\n";
+    valid &= PanoramaHook::PatchInventoryDelete(inventory, prices)
+        && inventory.find("var gcPrice = CsgoGcSellPrice( id );") != std::string::npos
+        && inventory.find("_DeleteItemAnim( id ); }, function() {} );\n\t\t\treturn;") != std::string::npos
+        && inventory.find("CsgoGcSellPrices = {1:10,2:20,3:30,4:40,5:50,6:60}") != std::string::npos
+        && inventory.find("'#inv_context_delete'") != std::string::npos;
+    std::string noQuestion = "var x = 1;";
+    valid &= !PanoramaHook::PatchInventoryDelete(noQuestion, prices) && noQuestion == "var x = 1;";
 
     std::string noDelete = "var list = [ { name: 'sell' } ];";
     valid &= !PanoramaHook::AddSellEntry(noDelete, prices);
@@ -4009,6 +4020,13 @@ static bool ContextMenuGetsASellEntry()
         && menu.find("'#inv_context_' + displayName") != std::string::npos;
     std::string other = "var x = 1;";
     valid &= PanoramaHook::PatchContextMenuLabels(other) == 0;
+
+    // the trade-up page hides knives and gloves from its list and keeps the page's own script intact
+    std::string crafting = "var Crafting = 1;\n";
+    PanoramaHook::TidyTradeUpPage(crafting);
+    valid &= crafting.rfind("var Crafting = 1;\n", 0) == 0
+        && crafting.find("slot === 'melee' || slot === 'clothing_hands'") != std::string::npos
+        && crafting.find("'Crafting-Items'") != std::string::npos;
     return valid;
 }
 
@@ -4018,6 +4036,8 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
         "\"items_game\"\n{\n"
         "\t\"items\"\n\t{\n"
         "\t\t\"4001\"\n\t\t{\n\t\t\t\"name\"\t\t\"crate_base\"\n\t\t\t\"image_inventory\"\t\t\"econ/weapon_cases/crate_base\"\n"
+        "\t\t\t\"loot_list_rare_item_name\"\t\t\"#crate_base_unusual_itemname\"\n"
+        "\t\t\t\"image_unusual_item\"\t\t\"econ/weapon_cases/crate_base_rare_item\"\n"
         "\t\t\t\"attributes\"\n\t\t\t{\n\t\t\t\t\"set supply crate series\"\n\t\t\t\t{\n"
         "\t\t\t\t\t\"attribute_class\"\t\t\"supply_crate_series\"\n\t\t\t\t\t\"value\"\t\t\"4\"\n\t\t\t\t}\n\t\t\t}\n\t\t}\n"
         "\t}\n\t\"revolving_loot_lists\"\n\t{\n\t}\n\t\"client_loot_lists\"\n\t{\n\t}\n}\n";
@@ -4035,11 +4055,21 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
 
     bool valid = GameSchemaPatch::AddCases(text, { added }) == 1;
 
+    // the base case's own gold tile is left behind, so the generic "Rare Special Item" shows
+    {
+        // (the base case keeps its own; only the added case loses them)
+        const size_t block = text.find("\"5000\"\n");
+        const size_t blockEnd = text.find("\"revolving_loot_lists\"", block);
+        const std::string added5000 = text.substr(block, blockEnd - block);
+        valid &= block != std::string::npos && added5000.find("rare_item") == std::string::npos
+            && added5000.find("unusual_itemname") == std::string::npos;
+    }
+
     // its own picture replaces the base case's
     valid &= text.find("\"econ/weapon_cases/crate_t\"") != std::string::npos;
 
     // the top list names the rarity lists in blue, purple, pink, red order and ends with the gold entry
-    const size_t top = text.find("\t\t\"crate_t\"\n");
+    const size_t top = text.find("\n\t\t\"crate_t\"\n\t\t{");
     const size_t rare = text.find("\"crate_t_rare\"\t\t\"1\"", top);
     const size_t mythical = text.find("\"crate_t_mythical\"\t\t\"1\"", top);
     const size_t legendary = text.find("\"crate_t_legendary\"\t\t\"1\"", top);
@@ -4055,6 +4085,8 @@ static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
     valid &= rareText.find("[b]weapon_awp") != std::string::npos && rareText.find("[e]weapon_mp9") != std::string::npos
         && rareText.find("[a]weapon_ak47") == std::string::npos;
     valid &= text.find("\t\t\"crate_t_unusual\"\n") == std::string::npos;
+    // like the game's own files, the rarity lists come before the list that names them
+    valid &= rareList < top;
 
     // a case without golds gets no gold tile
     std::string plain = text;
@@ -4137,13 +4169,28 @@ static bool CareerTracksGoalsAchievementsAndPersists()
 
         valid &= career.Stat("cases_opened") == 4 && career.Stat("custom_cases_opened") == 4
             && career.Stat("goals_done") == 1 && career.Stat("gold_pulls") == 1 && career.Stat("tradeups") == 2;
+
+        // a gold-only case (Black Market, Gauntlet) is a case that was opened, with no collection goal to complete
+        Career::CaseInfo goldOnly;
+        goldOnly.name = "Gold Only";
+        goldOnly.custom = true;
+        goldOnly.goldItems = 5;
+        career.RecordCaseOpened(5002, goldOnly, pull(500, 0, ItemSchema::RarityUnusual, true, false));
+        valid &= career.Stat("cases_opened") == 5 && career.Stat("custom_cases_opened") == 5
+            && career.Stat("goals_done") == 1 && career.Stat("other_opened") == 0;
+
+        // a capsule with nothing to collect and no golds is not a case
+        Career::CaseInfo capsule;
+        capsule.name = "Capsule";
+        career.RecordCaseOpened(5003, capsule, pull(1, 0, ItemSchema::RarityMythical, false, false));
+        valid &= career.Stat("cases_opened") == 5 && career.Stat("other_opened") == 1;
     }
 
     // everything comes back from the file, and nothing unlocks twice
     {
         Career career{ Path };
         career.Load();
-        valid &= career.Stat("cases_opened") == 4 && career.Stat("stars_earned") == 10000;
+        valid &= career.Stat("cases_opened") == 5 && career.Stat("stars_earned") == 10000;
         valid &= career.RecordCaseOpened(5001, info, pull(9, 101, ItemSchema::RarityMythical, false, false)).empty();
 
         const std::string goals = career.GoalsText({ { 5001, info } }, false);
@@ -4158,7 +4205,7 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         const std::string ui = career.UiData({ { 5001, info } });
         valid &= ui.find("cases: [[5001,'Test Case',2,2,1,1,1,5]]") != std::string::npos
             && ui.find("['first_case','First Crack','Open your first case.',100,1,1,1,0]") != std::string::npos
-            && ui.find("['Cases opened','5']") != std::string::npos
+            && ui.find("['Cases opened','6']") != std::string::npos
             && ui.find("goalReward: 1500") != std::string::npos;
     }
 

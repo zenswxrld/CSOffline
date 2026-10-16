@@ -58,16 +58,72 @@ int PanoramaHook::PatchContextMenuLabels(std::string &source)
     return count;
 }
 
-bool PanoramaHook::AddSellEntry(std::string &source, const SellPrices &prices)
+// appended to the trade-up page (crafting.js): the game lists every item a contract recipe accepts, and the
+// top-tier recipe takes knives and gloves too. they can't be used here, so they are hidden from the list
+static const char *const TradeUpTidyScript = R"js(
+var CsgoGcTradeUpTidy = function ()
 {
-    // the object of the delete entry:  { name: 'delete', ...
-    static const std::regex deleteEntry{ R"re(\{(\s*)name:\s*'delete')re" };
-    std::smatch match;
-    if (!std::regex_search(source, match, deleteEntry))
-    {
-        return false;
-    }
+	try
+	{
+		var elList = $.GetContextPanel().FindChildTraverse( 'Crafting-Items' );
+		if ( !elList )
+		{
+			return;
+		}
 
+		var hidden = 0;
+		var visit = function ( el )
+		{
+			var id = el.GetAttributeString ? el.GetAttributeString( 'itemid', '0' ) : '0';
+			if ( id && id !== '0' )
+			{
+				var slot = '';
+				try { slot = ItemInfo.GetSlotSubPosition( id ); } catch ( e ) {}
+				if ( slot === 'melee' || slot === 'clothing_hands' )
+				{
+					el.visible = false;
+					hidden++;
+				}
+				return;
+			}
+
+			var children = el.Children();
+			for ( var i = 0; i < children.length; i++ )
+			{
+				visit( children[ i ] );
+			}
+		};
+		visit( elList );
+
+		var elLabel = $.GetContextPanel().FindChildTraverse( 'CraftingItemsText' );
+		if ( elLabel && hidden > 0 )
+		{
+			elLabel.SetDialogVariableInt( 'count', Math.max( 0, elList.count - hidden ) );
+		}
+	}
+	catch ( e ) {}
+};
+
+var CsgoGcTradeUpTidyLater = function ()
+{
+	[ 0.05, 0.3, 0.8, 1.6 ].forEach( function ( delay ) { $.Schedule( delay, CsgoGcTradeUpTidy ); } );
+};
+
+$.RegisterForUnhandledEvent( 'UpdateTradeUpPanel', CsgoGcTradeUpTidyLater );
+$.RegisterForUnhandledEvent( 'PanoramaComponent_Inventory_CraftIngredientAdded', CsgoGcTradeUpTidyLater );
+$.RegisterForUnhandledEvent( 'PanoramaComponent_Inventory_CraftIngredientRemoved', CsgoGcTradeUpTidyLater );
+CsgoGcTradeUpTidyLater();
+)js";
+
+void PanoramaHook::TidyTradeUpPage(std::string &source)
+{
+    source += TradeUpTidyScript;
+}
+
+// the price of an item, by its tier: knives and gloves, then painted weapons by rarity. what the GC really
+// pays is decided by the GC (star_shop sell in config.txt); these are the same numbers
+static std::string SellPriceScript(const PanoramaHook::SellPrices &prices)
+{
     std::string rarities = "{";
     for (int rarity = 1; rarity <= 6; rarity++)
     {
@@ -75,54 +131,7 @@ bool PanoramaHook::AddSellEntry(std::string &source, const SellPrices &prices)
     }
     rarities += "}";
 
-    const std::string entry = R"js({
-			name: function ( id ) {
-				return '!Sell for ' + CsgoGcSellPrice( id ) + ' stars';
-			},
-			style: function ( id ) {
-				return 'TopSeparator';
-			},
-			AvailableForItem: function ( id ) {
-				// not InventoryAPI.IsDeletable: the game doesn't offer Delete for skins, but the GC sells them
-				return CsgoGcSellPrice( id ) > 0;
-			},
-			OnSelected: function ( id ) {
-				$.DispatchEvent( 'ContextMenuEvent', '' );
-				var price = CsgoGcSellPrice( id );
-				var sell = function()
-				{
-					InventoryAPI.DeleteItem( id );
-					// if the item is still there a moment later, the game did not send the delete
-					$.Schedule( 2.0, function()
-					{
-						var stillThere = true;
-						try { stillThere = InventoryAPI.IsValidItemID( id ) !== false; } catch ( e ) {}
-						if ( stillThere )
-						{
-							$.Msg( '[csgo_gc] sell: the game did not delete item ' + id + ' (IsDeletable = ' + InventoryAPI.IsDeletable( id ) + ')' );
-							try { UiToolkitAPI.ShowGenericPopupOk( 'Could not sell', 'The game would not delete this item, so it was not sold.', '', function() {} ); } catch ( e ) {}
-						}
-					} );
-				};
-				try
-				{
-					UiToolkitAPI.ShowGenericPopupOkCancel( 'Sell item', 'Sell this item for ' + price + ' stars? It will be removed from your inventory.', '', sell, function() {} );
-				}
-				catch ( e )
-				{
-					$.Msg( '[csgo_gc] sell: no confirm popup (' + e + '), using the delete popup' );
-					UiToolkitAPI.ShowCustomLayoutPopupParameters( '', 'file://{resources}/layout/popups/popup_inventory_inspect.xml',
-						'itemid=' + id + '&asyncworktype=delete&asyncworkbtnstyle=Negative' );
-				}
-			}
-		},
-		)js";
-
-    source.replace(match.position(0), 0, entry + "\n\t\t");
-
-    // the price of an item, by its tier: knives and gloves, then painted weapons by rarity. what the GC really
-    // pays is decided by the GC (star_shop sell in config.txt); these are the same numbers
-    source += "\n\nvar CsgoGcSellPrices = " + rarities + ";\nvar CsgoGcSellKnifeOrGlove = " + std::to_string(prices.knifeOrGlove)
+    return "\n\nvar CsgoGcSellPrices = " + rarities + ";\nvar CsgoGcSellKnifeOrGlove = " + std::to_string(prices.knifeOrGlove)
         + R"js(;
 var CsgoGcSellPrice = function ( id )
 {
@@ -147,6 +156,65 @@ var CsgoGcSellPrice = function ( id )
 	}
 };
 )js";
+}
+
+bool PanoramaHook::PatchInventoryDelete(std::string &source, const SellPrices &prices)
+{
+    // var _ShowDeleteItemConfirmation = function( id ) {
+    static const std::regex confirm{ R"re(var\s+_ShowDeleteItemConfirmation\s*=\s*function\(\s*id\s*\)\s*\{)re" };
+    if (!std::regex_search(source, confirm))
+    {
+        return false;
+    }
+
+    // a sellable item gets a "sell for N stars?" question, whose answer runs the page's own delete (the GC pays
+    // for what it removes). anything else keeps the game's delete question
+    source = std::regex_replace(source, confirm, R"js($&
+		var gcPrice = CsgoGcSellPrice( id );
+		if ( gcPrice > 0 )
+		{
+			UiToolkitAPI.ShowGenericPopupOkCancel( 'Sell item', 'Sell this item for ' + gcPrice + ' stars? It will be removed from your inventory.', '',
+				function() { _DeleteItemAnim( id ); }, function() {} );
+			return;
+		}
+)js", std::regex_constants::format_first_only);
+    source += SellPriceScript(prices);
+    return true;
+}
+
+bool PanoramaHook::AddSellEntry(std::string &source, const SellPrices &prices)
+{
+    // the object of the delete entry:  { name: 'delete', ...
+    static const std::regex deleteEntry{ R"re(\{(\s*)name:\s*'delete')re" };
+    std::smatch match;
+    if (!std::regex_search(source, match, deleteEntry))
+    {
+        return false;
+    }
+
+    const std::string entry = R"js({
+			name: function ( id ) {
+				return '!Sell for ' + CsgoGcSellPrice( id ) + ' stars';
+			},
+			style: function ( id ) {
+				return 'TopSeparator';
+			},
+			AvailableForItem: function ( id ) {
+				// not InventoryAPI.IsDeletable: the game doesn't offer Delete for skins, but the GC sells them
+				return CsgoGcSellPrice( id ) > 0;
+			},
+			OnSelected: function ( id ) {
+				$.DispatchEvent( 'ContextMenuEvent', '' );
+				// the inventory page asks "sell this item?" and deletes it (see PatchInventoryDelete): a popup made here
+				// would lose its buttons with this menu, which closes now
+				$.DispatchEvent( 'ShowDeleteItemConfirmationPopup', id );
+			}
+		},
+		)js";
+
+    source.replace(match.position(0), 0, entry + "\n\t\t");
+
+    source += SellPriceScript(prices);
     return true;
 }
 
@@ -426,6 +494,8 @@ var CsgoGcCaseStore = ( function()
 			+ '&asyncforcehide=true'
 			+ '&storeitemid=' + id
 			+ '&overridepurchasemultiple=1'
+			// inspect only: no store buy button or price under the popup (SkinStop's own bar buys with stars)
+			+ '&inspectonly=true'
 		);
 	}
 
@@ -464,7 +534,7 @@ var CsgoGcCaseStore = ( function()
 		var pictureId = entry[ 7 ] ? _FauxId( entry[ 7 ] ) : id;
 
 		var card = _Panel( parent, { width: '200px', height: '262px', margin: '0px 10px 10px 0px', flowChildren: 'down',
-			backgroundColor: 'gradient( linear, 0% 0%, 0% 100%, from( #1d2736f4 ), to( #121923f4 ) )', border: '1px solid #ffffff1a' }, 'Button' );
+			backgroundColor: 'gradient( linear, 0% 0%, 0% 100%, from( #2a3a52f4 ), to( #1b2638f4 ) )', border: '1px solid #ffffff1a' }, 'Button' );
 		var image = _Panel( card, { width: '100%', height: '156px' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
 		image.itemid = pictureId;
 		image.hittest = false;
@@ -641,7 +711,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 			}
 
 			var row = _Panel( panel, { width: '100%', height: '58px', margin: '0px 0px 6px 0px', padding: '8px 14px 8px 12px', flowChildren: 'right',
-				backgroundColor: finished ? 'gradient( linear, 0% 0%, 100% 0%, from( #1d3a24f0 ), to( #14201ff0 ) )' : 'gradient( linear, 0% 0%, 100% 0%, from( #232e3df0 ), to( #161d28f0 ) )',
+				backgroundColor: finished ? 'gradient( linear, 0% 0%, 100% 0%, from( #25522fee ), to( #1a3524ee ) )' : 'gradient( linear, 0% 0%, 100% 0%, from( #31405aee ), to( #212c3eee ) )',
 				borderLeft: finished ? '4px solid #6fd36f' : '4px solid #ffffff2a' } );
 			_Label( row, finished ? '\u2713' : '\u25cb', { fontSize: '24px', color: finished ? GREEN : '#5c6773', verticalAlign: 'center', width: '40px', marginLeft: '6px' } );
 			var text = _Panel( row, { flowChildren: 'down', verticalAlign: 'center', width: '520px' } );
@@ -669,7 +739,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 		stats.forEach( function( stat )
 		{
 			var row = _Panel( panel, { width: '560px', height: '38px', margin: '0px 0px 4px 0px', padding: '0px 14px', flowChildren: 'right',
-				backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #232e3df0 ), to( #161d28f0 ) )', borderLeft: '4px solid #ffffff2a' } );
+				backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #31405aee ), to( #212c3eee ) )', borderLeft: '4px solid #ffffff2a' } );
 			_Label( row, stat[ 0 ], { fontSize: '15px', color: '#e2e8f0', verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )' } );
 			_Label( row, String( stat[ 1 ] ), { fontSize: '17px', color: '#ffffff', fontWeight: 'bold', verticalAlign: 'center', horizontalAlign: 'right' } );
 		} );
@@ -729,7 +799,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 
 	function _BuildTabs( header )
 	{
-		var row = _Panel( m_overlay, { width: '100%', height: '42px', flowChildren: 'right', padding: '0px 56px 0px 56px', borderBottom: '1px solid #ffffff22', backgroundColor: '#0000004d' } );
+		var row = _Panel( m_overlay, { width: '100%', height: '42px', flowChildren: 'right', padding: '0px 56px 0px 56px', borderBottom: '1px solid #ffffff22', backgroundColor: '#0e162266' } );
 		TABS.forEach( function( tab )
 		{
 			m_tabButtons[ tab[ 0 ] ] = _Button( row, tab[ 1 ], { width: '170px', height: '100%', margin: '0px 2px 0px 0px', backgroundColor: '#00000000', borderBottom: '3px solid #00000000' },
@@ -809,7 +879,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 
 			var color = KIND_COLORS[ category[ 2 ][ 0 ] ] || '#ffffff';
 			var band = _Panel( m_content, { width: '100%', height: '296px', margin: '0px 0px 12px 0px', flowChildren: 'right',
-				backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #0b1018ee ), to( #0b101899 ) )', borderLeft: '4px solid ' + color } );
+				backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #16202eea ), to( #16202e88 ) )', borderLeft: '4px solid ' + color } );
 			var left = _Panel( band, { width: '250px', height: '100%', flowChildren: 'down', padding: '22px 20px 0px 22px' } );
 			_Label( left, category[ 1 ], { fontSize: '19px', color: '#ffffff', fontWeight: 'bold', letterSpacing: '2px' } );
 			_Label( left, category[ 3 ], { fontSize: '13px', color: '#aab6c4', margin: '8px 0px 0px 0px', width: '100%' } );
@@ -833,7 +903,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 	// a category (or the search results) as a grid of cards, a page at a time
 	function _RenderGrid( words )
 	{
-		var key = words.length ? 'home' : m_category;
+		var key = m_category; // a search stays inside the chosen category (Home searches everything)
 		var entries = _Entries( key, words );
 		var pages = Math.max( 1, Math.ceil( entries.length / PAGE_SIZE ) );
 		m_page = Math.max( 0, Math.min( m_page, pages - 1 ) );
@@ -939,9 +1009,19 @@ static const char CaseStoreScriptPart2[] = R"js(
 			width: '100%', height: '100%', flowChildren: 'down',
 			padding: '0px 0px 0px 0px', backgroundColor: '#0d0a09'
 		}, 'Panel', 'CsgoGcCaseStore' );
+		// take every click and hover, so nothing of the main menu underneath (its Play button, say) reacts
+		try
+		{
+			m_overlay.hittest = true;
+			m_overlay.hittestchildren = true;
+			m_overlay.SetPanelEvent( 'onmouseover', function() {} );
+			m_overlay.SetPanelEvent( 'onactivate', function() {} );
+			m_overlay.SetPanelEvent( 'oncontextmenu', function() {} );
+		}
+		catch ( e ) {}
 		// the operation page's backdrop: a map screenshot, darkened
 		_Style( m_overlay, { backgroundImage: BACKGROUND, backgroundSize: 'cover', backgroundPosition: 'center',
-			backgroundRepeat: 'no-repeat', washColor: '#0d0a0990' } );
+			backgroundRepeat: 'no-repeat', washColor: '#0d0a0930' } );
 
 		var popups = context.FindChild( 'PopupManager' );
 		if ( popups )
@@ -965,7 +1045,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 		var shopPanel = _Panel( m_overlay, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'right' } );
 		m_tabPanels.shop = shopPanel;
 
-		var side = _Panel( shopPanel, { width: '260px', height: '100%', flowChildren: 'down', padding: '16px 0px 0px 0px', backgroundColor: '#070a10c8', borderRight: '1px solid #ffffff1c' } );
+		var side = _Panel( shopPanel, { width: '260px', height: '100%', flowChildren: 'down', padding: '16px 0px 0px 0px', backgroundColor: '#0e1622a0', borderRight: '1px solid #ffffff1c' } );
 		_AddSidebarButton( side, 'home', 'HOME' );
 		CATEGORIES.forEach( function( category )
 		{
@@ -987,7 +1067,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 
 		m_content = _Panel( main, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', overflow: 'squish scroll' } );
 
-		m_pager = _Panel( main, { width: '100%', height: '54px', flowChildren: 'right', horizontalAlign: 'center', padding: '8px 0px 8px 0px', backgroundColor: '#000000b0' } );
+		m_pager = _Panel( main, { width: '100%', height: '54px', flowChildren: 'right', horizontalAlign: 'center', padding: '8px 0px 8px 0px', backgroundColor: '#0e162290' } );
 		_Panel( m_pager, { width: 'fill-parent-flow( 1.0 )', height: '100%' } );
 		m_pager.prev = _Button( m_pager, '\u2039  PREVIOUS', { width: '160px', height: '38px', backgroundColor: PRIMARY, border: '1px solid ' + PRIMARY_EDGE },
 			function() { if ( m_page > 0 ) { m_page--; _Render(); } }, { fontSize: '15px', fontWeight: 'bold', letterSpacing: '1px' } );
@@ -1382,17 +1462,30 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
     const StarShopConfig &starShop = GetConfig().StarShop();
     const bool sellMenu = starShop.enabled && starShop.sellEnabled;
 
+    PanoramaHook::SellPrices prices;
+    prices.byRarity[1] = starShop.sellConsumer;
+    prices.byRarity[2] = starShop.sellIndustrial;
+    prices.byRarity[3] = starShop.sellMilSpec;
+    prices.byRarity[4] = starShop.sellRestricted;
+    prices.byRarity[5] = starShop.sellClassified;
+    prices.byRarity[6] = starShop.sellCovert;
+    prices.knifeOrGlove = starShop.sellKnifeOrGlove;
+
+    if (sellMenu && PathIsFile(path, "inventory.js"))
+    {
+        std::string patched = source;
+        if (PanoramaHook::PatchInventoryDelete(patched, prices))
+        {
+            Platform::Print("Panorama: inventory.js sells through the page's own delete\n");
+            s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
+            return;
+        }
+        Platform::Print("Panorama: inventory.js has no delete question, Sell will not work\n");
+    }
+
     if (sellMenu && PathIsFile(path, "item_context_entries.js"))
     {
         std::string patched = source;
-        PanoramaHook::SellPrices prices;
-        prices.byRarity[1] = starShop.sellConsumer;
-        prices.byRarity[2] = starShop.sellIndustrial;
-        prices.byRarity[3] = starShop.sellMilSpec;
-        prices.byRarity[4] = starShop.sellRestricted;
-        prices.byRarity[5] = starShop.sellClassified;
-        prices.byRarity[6] = starShop.sellCovert;
-        prices.knifeOrGlove = starShop.sellKnifeOrGlove;
         const bool sellAdded = PanoramaHook::AddSellEntry(patched, prices);
         Platform::Print(sellAdded ? "Panorama: right-click Sell entry added\n"
                                   : "Panorama: item_context_entries.js has no delete entry, no Sell entry added\n");
@@ -1425,11 +1518,16 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
         Platform::Print("Panorama: context_menu_inventory_item.js didn't match, the Sell entry has no label\n");
     }
 
-    if (GetConfig().PanoramaDebug() && PathIsFile(path, "crafting.js"))
+    if (PathIsFile(path, "crafting.js"))
     {
-        std::string withDiagnostics = std::string{ source } + "\n" + CraftingDiagnosticScript;
-        s_originalRunScript(engine, edx, panel, withDiagnostics.c_str(), path, line, column, arg6, arg7);
-        Platform::Print("Panorama: trade-up page diagnostics added (panorama_debug)\n");
+        std::string patched = source;
+        PanoramaHook::TidyTradeUpPage(patched);
+        if (GetConfig().PanoramaDebug())
+        {
+            patched += std::string{ "\n" } + CraftingDiagnosticScript;
+            Platform::Print("Panorama: trade-up page diagnostics added (panorama_debug)\n");
+        }
+        s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
         return;
     }
 
