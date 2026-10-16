@@ -80,7 +80,7 @@ var CsgoGcTradeUpTidy = function ()
 		var elList = $.GetContextPanel().FindChildTraverse( 'Crafting-Items' );
 		if ( !elList )
 		{
-			return;
+			return true;
 		}
 
 		var removed = 0;
@@ -141,13 +141,37 @@ var CsgoGcTradeUpTidy = function ()
 		{
 			elLabel.SetDialogVariableInt( 'count', shown );
 		}
+		return true;
 	}
-	catch ( e ) {}
+	catch ( e )
+	{
+		// the page is gone
+		return false;
+	}
+};
+
+// the list builds its tiles as it is scrolled, so the cleanup keeps running while the page exists
+var CsgoGcTradeUpLoopRunning = false;
+var CsgoGcTradeUpLoop = function ()
+{
+	if ( CsgoGcTradeUpTidy() )
+	{
+		$.Schedule( 0.2, CsgoGcTradeUpLoop );
+	}
+	else
+	{
+		CsgoGcTradeUpLoopRunning = false;
+	}
 };
 
 var CsgoGcTradeUpTidyLater = function ()
 {
-	[ 0.02, 0.15, 0.4, 0.9, 1.8 ].forEach( function ( delay ) { $.Schedule( delay, CsgoGcTradeUpTidy ); } );
+	CsgoGcTradeUpTidy();
+	if ( !CsgoGcTradeUpLoopRunning )
+	{
+		CsgoGcTradeUpLoopRunning = true;
+		$.Schedule( 0.2, CsgoGcTradeUpLoop );
+	}
 };
 
 $.RegisterForUnhandledEvent( 'UpdateTradeUpPanel', CsgoGcTradeUpTidyLater );
