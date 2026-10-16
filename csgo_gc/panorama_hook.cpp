@@ -13,25 +13,30 @@
 // text processing (all platforms)
 // ============================================================================
 
-int PanoramaHook::PatchItemContextEntries(std::string &source)
+int PanoramaHook::PatchCasePopup(std::string &source)
 {
-    // the "Add to contract" / "Remove from contract" entries skip knives and
-    // gloves:  slot !=="melee" && slot !=="c4" && slot !=="clothing_hands" &&
-    //          !ItemInfo.IsEquippalbleButNotAWeapon(id)
-    static const std::regex slotCheck{
-        R"re(slot\s*!==\s*"melee"\s*&&\s*slot\s*!==\s*"c4"\s*&&\s*slot\s*!==\s*"clothing_hands"\s*&&\s*!\s*ItemInfo\.IsEquippalbleButNotAWeapon\(\s*id\s*\))re" };
+    // var itemid = ItemInfo.GetLootListItemByIndex( caseId, i );
+    static const std::regex getItem{ R"re(var\s+itemid\s*=\s*ItemInfo\.GetLootListItemByIndex\(\s*caseId\s*,\s*i\s*\)\s*;)re" };
+    // _UpdateLootListItemInfo( elItem, itemid, caseId );
+    static const std::regex update{ R"re(_UpdateLootListItemInfo\(\s*elItem\s*,\s*itemid\s*,\s*caseId\s*\)\s*;)re" };
 
     int count = 0;
-    for (auto it = std::sregex_iterator(source.begin(), source.end(), slotCheck); it != std::sregex_iterator(); ++it)
+    if (std::regex_search(source, getItem))
     {
+        source = std::regex_replace(source, getItem,
+            "$&\n\t\t\t// csgo_gc: load the skin's textures first, or its picture can't be drawn\n"
+            "\t\t\tif ( itemid !== '0' ) { try { InventoryAPI.PrecacheCustomMaterials( itemid ); } catch ( e ) {} }");
         count++;
     }
 
-    if (count)
+    if (std::regex_search(source, update))
     {
-        source = std::regex_replace(source, slotCheck, R"(slot !=="c4")");
+        // the textures load in the background: ask for the picture again a moment later
+        source = std::regex_replace(source, update,
+            "$&\n\t\t\t\tif ( itemid !== '0' ) { ( function( image, id ) { $.Schedule( 0.7, function() "
+            "{ try { image.itemid = ''; image.itemid = id; } catch ( e ) {} } ); } )( elItem.FindChildInLayoutFile( 'ItemImage' ), itemid ); }");
+        count++;
     }
-
     return count;
 }
 
@@ -78,12 +83,27 @@ bool PanoramaHook::AddSellEntry(std::string &source, const SellPrices &prices)
 				return 'TopSeparator';
 			},
 			AvailableForItem: function ( id ) {
-				return InventoryAPI.IsDeletable( id ) && CsgoGcSellPrice( id ) > 0;
+				// not InventoryAPI.IsDeletable: the game doesn't offer Delete for skins, but the GC sells them
+				return CsgoGcSellPrice( id ) > 0;
 			},
 			OnSelected: function ( id ) {
 				$.DispatchEvent( 'ContextMenuEvent', '' );
 				var price = CsgoGcSellPrice( id );
-				var sell = function() { InventoryAPI.DeleteItem( id ); };
+				var sell = function()
+				{
+					InventoryAPI.DeleteItem( id );
+					// if the item is still there a moment later, the game did not send the delete
+					$.Schedule( 2.0, function()
+					{
+						var stillThere = true;
+						try { stillThere = InventoryAPI.IsValidItemID( id ) !== false; } catch ( e ) {}
+						if ( stillThere )
+						{
+							$.Msg( '[csgo_gc] sell: the game did not delete item ' + id + ' (IsDeletable = ' + InventoryAPI.IsDeletable( id ) + ')' );
+							try { UiToolkitAPI.ShowGenericPopupOk( 'Could not sell', 'The game would not delete this item, so it was not sold.', '', function() {} ); } catch ( e ) {}
+						}
+					} );
+				};
 				try
 				{
 					UiToolkitAPI.ShowGenericPopupOkCancel( 'Sell item', 'Sell this item for ' + price + ' stars? It will be removed from your inventory.', '', sell, function() {} );
@@ -222,6 +242,8 @@ var CsgoGcCaseStore = ( function()
 	var RARITY_COLORS = { 1: '#b0c3d9', 2: '#5e98d9', 3: '#4b69ff', 4: '#8847ff', 5: '#d32ce6', 6: '#eb4b4b', 7: '#e4ae39' };
 	var BUY_AMOUNTS = [ 1, 5, 10 ];
 	var GOLD = '#f5c542';
+	var PRIMARY = '#2d6fb0';        // the colour of the buttons that do something
+	var PRIMARY_EDGE = '#7db4ea';
 	var HOME_CARDS = 6;   // cards in a band on the Home page
 	var PAGE_SIZE = 14;   // cards on a page of a category
 
@@ -388,7 +410,7 @@ var CsgoGcCaseStore = ( function()
 
 		m_current = { id: id, keyId: keyId, price: price, name: name };
 		m_barName.text = name;
-		m_barPrice.text = price > 0 ? ( price + ' ★' ) : '';
+		m_barPrice.text = price > 0 ? ( price + ' \u2605' ) : '';
 		m_bar.visible = true;
 		_ShowAffordability();
 	}
@@ -451,7 +473,7 @@ var CsgoGcCaseStore = ( function()
 		var info = _Panel( card, { width: '100%', flowChildren: 'right', margin: '2px 0px 0px 0px' } );
 		info.hittest = false;
 		_Label( info, subtitle, { fontSize: '12px', color: '#9aa8b8', margin: '0px 0px 0px 12px', verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )' } ).hittest = false;
-		var priceLabel = _Label( info, price > 0 ? ( price + ' ★' ) : 'free', { fontSize: '19px', color: GOLD, fontWeight: 'bold', margin: '0px 12px 0px 0px', horizontalAlign: 'right' } );
+		var priceLabel = _Label( info, price > 0 ? ( price + ' \u2605' ) : 'free', { fontSize: '19px', color: GOLD, fontWeight: 'bold', margin: '0px 12px 0px 0px', horizontalAlign: 'right' } );
 		priceLabel.hittest = false;
 
 		var known = _Known( id );
@@ -528,9 +550,9 @@ static const char CaseStoreScriptCareer[] = R"js(
 		[ [ 'opened', 'OPENED' ], [ 'all', 'ALL CASES' ], [ 'complete', 'COMPLETE' ] ].forEach( function( filter )
 		{
 			var active = m_collectionFilter === filter[ 0 ];
-			_Button( top, filter[ 1 ], { width: '110px', height: '28px', margin: '0px 4px', verticalAlign: 'center',
-				backgroundColor: active ? '#ffffff26' : '#ffffff0d', border: active ? '1px solid #ffffff66' : '1px solid #ffffff1a' },
-				function() { m_collectionFilter = filter[ 0 ]; _RenderCollections(); }, { fontSize: '12px', letterSpacing: '1px', color: active ? '#ffffff' : '#aab4c0' } );
+			_Button( top, filter[ 1 ], { width: '120px', height: '30px', margin: '0px 4px', verticalAlign: 'center',
+				backgroundColor: active ? PRIMARY : '#ffffff30', border: active ? '1px solid ' + PRIMARY_EDGE : '1px solid #ffffff66' },
+				function() { m_collectionFilter = filter[ 0 ]; _RenderCollections(); }, { fontSize: '13px', fontWeight: 'bold', letterSpacing: '1px', color: '#ffffff' } );
 		} );
 		_Label( panel, 'Open a case to find its skins. Find every skin of a case to complete its collection and win ' + ( m_career ? m_career.goalReward : 0 ) + ' stars.', { fontSize: '13px', color: '#cdd6e0', margin: '0px 0px 8px 0px' } );
 
@@ -576,16 +598,16 @@ static const char CaseStoreScriptCareer[] = R"js(
 		_Clear( panel );
 		var list = m_career ? m_career.achievements : [];
 		var categories = m_career && m_career.categories ? m_career.categories : [];
-		var done = list.filter( function( a ) { return a[ 7 ]; } ).length;
+		var done = list.filter( function( a ) { return a[ 6 ]; } ).length;
 
 		var top = _Panel( panel, { width: '100%', flowChildren: 'right', margin: '0px 0px 10px 0px' } );
 		_Label( top, done + ' of ' + list.length + ' achievements unlocked', { fontSize: '16px', color: GOLD, fontWeight: 'bold', verticalAlign: 'center', marginRight: '24px' } );
 		[ [ 'all', 'ALL' ], [ 'locked', 'IN PROGRESS' ], [ 'done', 'UNLOCKED' ] ].forEach( function( filter )
 		{
 			var active = m_achievementFilter === filter[ 0 ];
-			_Button( top, filter[ 1 ], { width: '120px', height: '28px', margin: '0px 4px', verticalAlign: 'center',
-				backgroundColor: active ? '#ffffff26' : '#ffffff0d', border: active ? '1px solid #ffffff66' : '1px solid #ffffff1a' },
-				function() { m_achievementFilter = filter[ 0 ]; _RenderAchievements(); }, { fontSize: '12px', letterSpacing: '1px', color: active ? '#ffffff' : '#aab4c0' } );
+			_Button( top, filter[ 1 ], { width: '130px', height: '30px', margin: '0px 4px', verticalAlign: 'center',
+				backgroundColor: active ? PRIMARY : '#ffffff30', border: active ? '1px solid ' + PRIMARY_EDGE : '1px solid #ffffff66' },
+				function() { m_achievementFilter = filter[ 0 ]; _RenderAchievements(); }, { fontSize: '13px', fontWeight: 'bold', letterSpacing: '1px', color: '#ffffff' } );
 		} );
 
 		if ( !list.length )
@@ -596,7 +618,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 
 		var shown = list.filter( function( a )
 		{
-			return m_achievementFilter === 'all' || ( m_achievementFilter === 'done' ? a[ 7 ] : !a[ 7 ] );
+			return m_achievementFilter === 'all' || ( m_achievementFilter === 'done' ? a[ 6 ] : !a[ 6 ] );
 		} );
 		if ( !shown.length )
 		{
@@ -607,12 +629,12 @@ static const char CaseStoreScriptCareer[] = R"js(
 		var lastCategory = -1;
 		shown.forEach( function( a )
 		{
-			var finished = a[ 7 ];
-			if ( a[ 8 ] !== lastCategory )
+			var finished = a[ 6 ];
+			if ( a[ 7 ] !== lastCategory )
 			{
-				lastCategory = a[ 8 ];
-				var inCategory = list.filter( function( x ) { return x[ 8 ] === lastCategory; } );
-				var unlockedHere = inCategory.filter( function( x ) { return x[ 7 ]; } ).length;
+				lastCategory = a[ 7 ];
+				var inCategory = list.filter( function( x ) { return x[ 7 ] === lastCategory; } );
+				var unlockedHere = inCategory.filter( function( x ) { return x[ 6 ]; } ).length;
 				var heading = _Panel( panel, { width: '100%', height: '30px', margin: '10px 0px 6px 0px', flowChildren: 'right', borderBottom: '1px solid #ffffff30' } );
 				_Label( heading, ( categories[ lastCategory ] || 'Other' ).toUpperCase(), { fontSize: '14px', color: '#ffffff', fontWeight: 'bold', letterSpacing: '3px', verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )' } );
 				_Label( heading, unlockedHere + ' / ' + inCategory.length, { fontSize: '13px', color: '#aab4c0', verticalAlign: 'center', horizontalAlign: 'right' } );
@@ -680,7 +702,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 		var label = button.GetChild( 0 );
 		if ( label )
 		{
-			label.style.color = active ? '#ffffff' : '#8d99a8';
+			label.style.color = active ? '#ffffff' : '#c5cfdb';
 		}
 	}
 
@@ -711,7 +733,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 		TABS.forEach( function( tab )
 		{
 			m_tabButtons[ tab[ 0 ] ] = _Button( row, tab[ 1 ], { width: '170px', height: '100%', margin: '0px 2px 0px 0px', backgroundColor: '#00000000', borderBottom: '3px solid #00000000' },
-				function() { _SelectTab( tab[ 0 ] ); }, { fontSize: '14px', letterSpacing: '2px', fontWeight: 'bold', color: '#8d99a8' } );
+				function() { _SelectTab( tab[ 0 ] ); }, { fontSize: '14px', letterSpacing: '2px', fontWeight: 'bold', color: '#c5cfdb' } );
 		} );
 	}
 
@@ -794,8 +816,8 @@ static const char CaseStoreScriptPart2[] = R"js(
 			_Label( left, entries.length + ( entries.length === 1 ? ' item' : ' items' ), { fontSize: '13px', color: color, margin: '10px 0px 0px 0px' } );
 			if ( entries.length > HOME_CARDS )
 			{
-				_Button( left, 'VIEW ALL', { width: '130px', height: '32px', margin: '16px 0px 0px 0px', backgroundColor: '#ffffff1c', border: '1px solid #ffffff44' },
-					function() { _SelectCategory( category[ 0 ] ); }, { fontSize: '13px', letterSpacing: '2px' } );
+				_Button( left, 'VIEW ALL', { width: '140px', height: '34px', margin: '16px 0px 0px 0px', backgroundColor: PRIMARY, border: '1px solid ' + PRIMARY_EDGE },
+					function() { _SelectCategory( category[ 0 ] ); }, { fontSize: '14px', fontWeight: 'bold', letterSpacing: '2px' } );
 			}
 
 			var row = _Panel( band, { height: '100%', flowChildren: 'right', padding: '16px 0px 0px 6px' } );
@@ -827,8 +849,8 @@ static const char CaseStoreScriptPart2[] = R"js(
 		m_count.text = entries.length + ( entries.length === 1 ? ' item' : ' items' );
 		m_pageLabel.text = 'PAGE ' + ( m_page + 1 ) + ' / ' + pages;
 		m_pager.visible = pages > 1;
-		m_pager.prev.style.opacity = m_page > 0 ? '1.0' : '0.3';
-		m_pager.next.style.opacity = m_page < pages - 1 ? '1.0' : '0.3';
+		m_pager.prev.style.opacity = m_page > 0 ? '1.0' : '0.35';
+		m_pager.next.style.opacity = m_page < pages - 1 ? '1.0' : '0.35';
 	}
 
 	function _Render()
@@ -965,12 +987,14 @@ static const char CaseStoreScriptPart2[] = R"js(
 
 		m_content = _Panel( main, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', overflow: 'squish scroll' } );
 
-		m_pager = _Panel( main, { width: '100%', height: '46px', flowChildren: 'right', horizontalAlign: 'center', padding: '8px 0px 0px 0px' } );
-		m_pager.prev = _Button( m_pager, '‹  PREVIOUS', { width: '140px', height: '30px', backgroundColor: '#ffffff1c', border: '1px solid #ffffff33' },
-			function() { if ( m_page > 0 ) { m_page--; _Render(); } }, { fontSize: '13px', letterSpacing: '1px' } );
-		m_pageLabel = _Label( m_pager, '', { fontSize: '14px', color: '#e2e8f0', verticalAlign: 'center', margin: '0px 22px', width: '110px', textAlign: 'center' } );
-		m_pager.next = _Button( m_pager, 'NEXT  ›', { width: '140px', height: '30px', backgroundColor: '#ffffff1c', border: '1px solid #ffffff33' },
-			function() { m_page++; _Render(); }, { fontSize: '13px', letterSpacing: '1px' } );
+		m_pager = _Panel( main, { width: '100%', height: '54px', flowChildren: 'right', horizontalAlign: 'center', padding: '8px 0px 8px 0px', backgroundColor: '#000000b0' } );
+		_Panel( m_pager, { width: 'fill-parent-flow( 1.0 )', height: '100%' } );
+		m_pager.prev = _Button( m_pager, '\u2039  PREVIOUS', { width: '160px', height: '38px', backgroundColor: PRIMARY, border: '1px solid ' + PRIMARY_EDGE },
+			function() { if ( m_page > 0 ) { m_page--; _Render(); } }, { fontSize: '15px', fontWeight: 'bold', letterSpacing: '1px' } );
+		m_pageLabel = _Label( m_pager, '', { fontSize: '16px', color: '#ffffff', fontWeight: 'bold', verticalAlign: 'center', margin: '0px 24px', width: '130px', textAlign: 'center' } );
+		m_pager.next = _Button( m_pager, 'NEXT  \u203a', { width: '160px', height: '38px', backgroundColor: PRIMARY, border: '1px solid ' + PRIMARY_EDGE },
+			function() { m_page++; _Render(); }, { fontSize: '15px', fontWeight: 'bold', letterSpacing: '1px' } );
+		_Panel( m_pager, { width: 'fill-parent-flow( 1.0 )', height: '100%' } );
 		m_pager.visible = false;
 
 		_BuildTabPanel( 'collections' );
@@ -980,7 +1004,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 
 		// back button along the bottom
 		var footer = _Panel( m_overlay, { width: '100%', height: '44px', borderTop: '1px solid #ffffff30' } );
-		_Button( footer, 'BACK', { horizontalAlign: 'right', verticalAlign: 'center', marginRight: '56px', width: '100px', height: '30px', backgroundColor: '#ffffff18' }, _Close, { fontSize: '15px', letterSpacing: '2px' } );
+		_Button( footer, 'BACK', { horizontalAlign: 'right', verticalAlign: 'center', marginRight: '56px', width: '120px', height: '34px', backgroundColor: PRIMARY, border: '1px solid ' + PRIMARY_EDGE }, _Close, { fontSize: '15px', fontWeight: 'bold', letterSpacing: '2px' } );
 
 		_StyleSidebar();
 		_ShowStars();
@@ -1078,7 +1102,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 
 		var button = $.CreatePanel( 'Button', nav, 'CsgoGcCaseStoreNavBtn', { class: 'mainmenu-navbar__btn-small MainMenuModeOnly' } );
 		// a star, matching the star currency (drawn as text so it can't be a missing icon file)
-		var star = $.CreatePanel( 'Label', button, '', { text: '★' } );
+		var star = $.CreatePanel( 'Label', button, '', { text: '\u2605' } );
 		_Style( star, { fontSize: '34px', color: '#f5c542', horizontalAlign: 'center', verticalAlign: 'center', hittest: 'false' } );
 
 		var inventory = nav.FindChildTraverse( 'MainMenuNavBarInventory' );
@@ -1188,7 +1212,6 @@ void *s_uiEngine;
 void *s_mainMenuPanel;
 std::string s_caseStoreData;
 bool s_caseStoreDataSent;
-bool s_loggedContextPatch;
 int64_t s_starsSent = -2; // what the UI was last told
 
 struct Section
@@ -1359,43 +1382,36 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
     const StarShopConfig &starShop = GetConfig().StarShop();
     const bool sellMenu = starShop.enabled && starShop.sellEnabled;
 
-    if (PathIsFile(path, "item_context_entries.js") && (GetConfig().GoldTradeUpRecipes() || sellMenu))
+    if (sellMenu && PathIsFile(path, "item_context_entries.js"))
     {
         std::string patched = source;
-        int changes = 0;
-        if (GetConfig().GoldTradeUpRecipes())
-        {
-            changes = PanoramaHook::PatchItemContextEntries(patched);
-            if (!s_loggedContextPatch)
-            {
-                s_loggedContextPatch = true;
-                Platform::Print(changes
-                        ? "Panorama: knives and gloves can be added to trade-up contracts\n"
-                        : "Panorama: item_context_entries.js didn't match, knives can't be added to contracts from the menu\n");
-            }
-        }
-
-        bool sellAdded = false;
-        if (sellMenu)
-        {
-            PanoramaHook::SellPrices prices;
-            prices.byRarity[1] = starShop.sellConsumer;
-            prices.byRarity[2] = starShop.sellIndustrial;
-            prices.byRarity[3] = starShop.sellMilSpec;
-            prices.byRarity[4] = starShop.sellRestricted;
-            prices.byRarity[5] = starShop.sellClassified;
-            prices.byRarity[6] = starShop.sellCovert;
-            prices.knifeOrGlove = starShop.sellKnifeOrGlove;
-            sellAdded = PanoramaHook::AddSellEntry(patched, prices);
-            Platform::Print(sellAdded ? "Panorama: right-click Sell entry added\n"
-                                      : "Panorama: item_context_entries.js has no delete entry, no Sell entry added\n");
-        }
-
-        if (changes || sellAdded)
+        PanoramaHook::SellPrices prices;
+        prices.byRarity[1] = starShop.sellConsumer;
+        prices.byRarity[2] = starShop.sellIndustrial;
+        prices.byRarity[3] = starShop.sellMilSpec;
+        prices.byRarity[4] = starShop.sellRestricted;
+        prices.byRarity[5] = starShop.sellClassified;
+        prices.byRarity[6] = starShop.sellCovert;
+        prices.knifeOrGlove = starShop.sellKnifeOrGlove;
+        const bool sellAdded = PanoramaHook::AddSellEntry(patched, prices);
+        Platform::Print(sellAdded ? "Panorama: right-click Sell entry added\n"
+                                  : "Panorama: item_context_entries.js has no delete entry, no Sell entry added\n");
+        if (sellAdded)
         {
             s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
             return;
         }
+    }
+
+    if (PathIsFile(path, "popup_capability_decodable.js"))
+    {
+        std::string patched = source;
+        if (PanoramaHook::PatchCasePopup(patched) == 2)
+        {
+            s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
+            return;
+        }
+        Platform::Print("Panorama: popup_capability_decodable.js didn't match, case contents may show blank pictures\n");
     }
 
     if (sellMenu && PathIsFile(path, "context_menu_inventory_item.js"))
@@ -1443,12 +1459,6 @@ void PanoramaHook::TryInstall()
         return;
     }
 
-    const bool sellMenu = GetConfig().StarShop().enabled && GetConfig().StarShop().sellEnabled;
-    if (!GetConfig().CaseStoreMenu() && !GetConfig().GoldTradeUpRecipes() && !GetConfig().PanoramaDebug() && !sellMenu)
-    {
-        s_installDone = true;
-        return;
-    }
 
     HMODULE panorama = GetModuleHandleA("panorama.dll");
     if (!panorama)

@@ -402,14 +402,47 @@ size_t GameSchemaPatch::AddCases(std::string &text, const std::vector<AddedCaseP
             std::regex{ R"re(("set supply crate series"\s*\{[^}]*?"value"\s+)"[^"]*")re" },
             "$1\"" + std::to_string(addedCase.series) + "\"", std::regex_constants::format_first_only);
 
+        // its own picture, when there is one
+        if (!addedCase.image.empty())
+        {
+            block = std::regex_replace(block, std::regex{ R"re(("image_inventory"\s+)"[^"]*")re" },
+                "$1\"" + addedCase.image + "\"", std::regex_constants::format_first_only);
+        }
+
         itemsText += "\t\t" + block + "\n";
         revolvingText += "\t\t\"" + std::to_string(addedCase.series) + "\"\t\t\"" + addedCase.name + "\"\n";
-        listsText += "\t\t\"" + addedCase.name + "\"\n\t\t{\n";
-        for (const std::string &entry : addedCase.previewEntries)
+
+        // like the game's own cases: a list per rarity, shown blue, purple, pink, red, then the gold tile. a
+        // "<case>_unusual" entry (a list that isn't defined, as in the game's files) is what draws the gold tile
+        static const char *const Suffixes[] = { "rare", "mythical", "legendary", "ancient" };
+        std::string sublists, topList;
+        for (size_t tier = 0; tier < 4; tier++)
         {
-            listsText += "\t\t\t\"" + entry + "\"\t\t\"1\"\n";
+            std::string entries;
+            for (size_t i = 0; i < addedCase.previewEntries.size(); i++)
+            {
+                // Consumer and Industrial go with the blues, anything above Covert with the reds
+                const uint32_t rarity = i < addedCase.previewRarities.size() ? addedCase.previewRarities[i] : 3;
+                const size_t entryTier = rarity <= 3 ? 0 : rarity >= 6 ? 3 : rarity - 3;
+                if (entryTier == tier)
+                {
+                    entries += "\t\t\t\"" + addedCase.previewEntries[i] + "\"\t\t\"1\"\n";
+                }
+            }
+
+            if (!entries.empty())
+            {
+                const std::string listName = addedCase.name + "_" + Suffixes[tier];
+                sublists += "\t\t\"" + listName + "\"\n\t\t{\n" + entries + "\t\t}\n";
+                topList += "\t\t\t\"" + listName + "\"\t\t\"1\"\n";
+            }
         }
-        listsText += "\t\t}\n";
+        if (addedCase.hasUnusual)
+        {
+            topList += "\t\t\t\"" + addedCase.name + "_unusual\"\t\t\"1\"\n";
+        }
+
+        listsText += "\t\t\"" + addedCase.name + "\"\n\t\t{\n" + topList + "\t\t}\n" + sublists;
         added++;
     }
 
@@ -764,7 +797,8 @@ int GameSchemaPatch::ActivateOperation(std::string &text, int64_t now)
 }
 
 // Recipe ids follow the existing pattern (0..4 by input rarity, +10 for
-// StatTrak), which is also what the GC's craft handler expects.
+// StatTrak), which is also what the GC's craft handler expects. Only Covert skins go into these:
+// knives and gloves have no trade-up recipe, so they never show up on the trade-up screen.
 const char *const GameSchemaPatch::GoldTradeUpRecipes = R"(		"5"
 		{
 			"name"		"#RT_MP_A"
@@ -845,43 +879,6 @@ const char *const GameSchemaPatch::GoldTradeUpRecipes = R"(		"5"
 			"category"		"crafting"
 			"filter"		"-3"
 			"requires_tool"		"0"
-		}
-		"6"
-		{
-			"name"		"#RT_MP_A"
-			"n_A"		"#Exceedingly_Rare_Item"
-			"desc_inputs"		"#RDI_AB"
-			"desc_outputs"		"#RDO_AB"
-			"di_A"		"5"
-			"di_B"		"#Exceedingly_Rare_Item"
-			"do_A"		"1"
-			"do_B"		"#Exceedingly_Rare_Item"
-			"all_same_class"		"0"
-			"always_known"		"1"
-			"premium_only"		"0"
-			"disabled"		"0"
-			"input_items"
-			{
-				"5"
-				{
-					"conditions"
-					{
-						"0" { "field" "*quality" "operator" "string==" "value" "unusual" "required" "1" }
-					}
-				}
-			}
-			"output_items"
-			{
-				"item1"
-				{
-					"conditions"
-					{
-						"0" { "field" "*match_set_rarity" "operator" "string==" "value" "unusual" "required" "1" }
-					}
-				}
-			}
-			"category"		"crafting"
-			"filter"		"-3"
 		}
 )";
 

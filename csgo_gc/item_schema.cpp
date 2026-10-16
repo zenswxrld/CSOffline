@@ -315,7 +315,8 @@ ItemSchema::ItemSchema(bool loadFiles)
         std::vector<GameSchemaPatch::AddedCasePatch> addedCases;
         for (const AddedCase &added : m_addedCases)
         {
-            addedCases.push_back({ added.defIndex, added.basedOn, added.series, added.name, added.previewEntries });
+            addedCases.push_back({ added.defIndex, added.basedOn, added.series, added.name, added.previewEntries,
+                added.previewRarities, added.hasGolds, added.image });
         }
 
         GameSchemaPatch::PaintKitsPatch paintKits;
@@ -369,6 +370,19 @@ static bool IsKeyedCrate(const ItemInfo &info)
 {
     return !info.m_isCoupon && info.m_name.compare(0, 6, "crate_") == 0
         && (info.m_supplyCrateSeries || !info.m_lootListName.empty());
+}
+
+// a case's own inventory picture: csgo/resource/flash/econ/weapon_cases/<case name>.png, loose in the game folder
+// (the game reads its pictures from there). returns what items_game.txt's image_inventory should say, or empty
+static std::string CaseImageFor(const std::string &caseName)
+{
+    const std::string file = "csgo/resource/flash/econ/weapon_cases/" + caseName + ".png";
+    if (FILE *f = fopen(file.c_str(), "rb"))
+    {
+        fclose(f);
+        return "econ/weapon_cases/" + caseName;
+    }
+    return {};
 }
 
 void ItemSchema::ParseCustomCases(const KeyValue &customCasesKey)
@@ -430,6 +444,7 @@ void ItemSchema::ParseCustomCases(const KeyValue &customCasesKey)
             if (!golds)
             {
                 m_customCasePreviewEntries[currentCrateDefIndex].emplace_back(name);
+                m_customCasePreviewRarities[currentCrateDefIndex].push_back(item.rarity);
             }
         }
     };
@@ -518,6 +533,7 @@ void ItemSchema::ParseCustomCases(const KeyValue &customCasesKey)
         if (regular.items.empty() && golds.items.empty())
         {
             m_customCasePreviewEntries.erase(crateDefIndex);
+            m_customCasePreviewRarities.erase(crateDefIndex);
             Platform::Print("custom_cases: case %u has no valid items, ignoring\n", crateDefIndex);
             if (addedBasedOn)
             {
@@ -543,7 +559,8 @@ void ItemSchema::ParseCustomCases(const KeyValue &customCasesKey)
         if (addedBasedOn)
         {
             m_addedCases.push_back({ crateDefIndex, addedBasedOn, crateDefIndex, addedName,
-                m_customCasePreviewEntries[crateDefIndex] });
+                m_customCasePreviewEntries[crateDefIndex], m_customCasePreviewRarities[crateDefIndex],
+                !golds.items.empty(), CaseImageFor(addedName) });
         }
 
         std::string_view customName = caseKey.GetString("name");

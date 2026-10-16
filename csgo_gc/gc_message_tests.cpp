@@ -3950,6 +3950,28 @@ static bool StoreListsAddedCustomCases()
 
 // finishes from a mod: the schema knows them, a custom case can use them, and the
 // game file gets entries for them
+static bool CasePopupLoadsTexturesForEveryTile()
+{
+    std::string source =
+        "\t\t\tfor ( var i = 0; i < count; i++ )\n\t\t\t{\n"
+        "\t\t\tvar itemid = ItemInfo.GetLootListItemByIndex( caseId, i );\n"
+        "\t\t\tvar elItem = elLootList.FindChildInLayoutFile( itemid );\n"
+        "\t\t\t\t_UpdateLootListItemInfo( elItem, itemid, caseId );\n\t\t\t}\n";
+
+    bool valid = PanoramaHook::PatchCasePopup(source) == 2;
+
+    // the textures are asked for before the picture is, and the picture is asked for again later
+    const size_t getItem = source.find("GetLootListItemByIndex");
+    const size_t precache = source.find("PrecacheCustomMaterials( itemid )");
+    const size_t update = source.find("_UpdateLootListItemInfo(");
+    const size_t again = source.find("$.Schedule( 0.7");
+    valid &= getItem < precache && precache < update && update < again && again != std::string::npos;
+
+    std::string other = "var x = 1;";
+    valid &= PanoramaHook::PatchCasePopup(other) == 0 && other == "var x = 1;";
+    return valid;
+}
+
 static bool ContextMenuGetsASellEntry()
 {
     std::string entries =
@@ -3987,6 +4009,63 @@ static bool ContextMenuGetsASellEntry()
         && menu.find("'#inv_context_' + displayName") != std::string::npos;
     std::string other = "var x = 1;";
     valid &= PanoramaHook::PatchContextMenuLabels(other) == 0;
+    return valid;
+}
+
+static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
+{
+    std::string text =
+        "\"items_game\"\n{\n"
+        "\t\"items\"\n\t{\n"
+        "\t\t\"4001\"\n\t\t{\n\t\t\t\"name\"\t\t\"crate_base\"\n\t\t\t\"image_inventory\"\t\t\"econ/weapon_cases/crate_base\"\n"
+        "\t\t\t\"attributes\"\n\t\t\t{\n\t\t\t\t\"set supply crate series\"\n\t\t\t\t{\n"
+        "\t\t\t\t\t\"attribute_class\"\t\t\"supply_crate_series\"\n\t\t\t\t\t\"value\"\t\t\"4\"\n\t\t\t\t}\n\t\t\t}\n\t\t}\n"
+        "\t}\n\t\"revolving_loot_lists\"\n\t{\n\t}\n\t\"client_loot_lists\"\n\t{\n\t}\n}\n";
+
+    GameSchemaPatch::AddedCasePatch added;
+    added.defIndex = 5000;
+    added.basedOn = 4001;
+    added.series = 5000;
+    added.name = "crate_t";
+    // written out of order on purpose: covert, mil-spec, classified, restricted, mil-spec
+    added.previewEntries = { "[a]weapon_ak47", "[b]weapon_awp", "[c]weapon_m4a1", "[d]weapon_p90", "[e]weapon_mp9" };
+    added.previewRarities = { 6, 3, 5, 4, 3 };
+    added.hasUnusual = true;
+    added.image = "econ/weapon_cases/crate_t";
+
+    bool valid = GameSchemaPatch::AddCases(text, { added }) == 1;
+
+    // its own picture replaces the base case's
+    valid &= text.find("\"econ/weapon_cases/crate_t\"") != std::string::npos;
+
+    // the top list names the rarity lists in blue, purple, pink, red order and ends with the gold entry
+    const size_t top = text.find("\t\t\"crate_t\"\n");
+    const size_t rare = text.find("\"crate_t_rare\"\t\t\"1\"", top);
+    const size_t mythical = text.find("\"crate_t_mythical\"\t\t\"1\"", top);
+    const size_t legendary = text.find("\"crate_t_legendary\"\t\t\"1\"", top);
+    const size_t ancient = text.find("\"crate_t_ancient\"\t\t\"1\"", top);
+    const size_t unusual = text.find("\"crate_t_unusual\"\t\t\"1\"", top);
+    valid &= top != std::string::npos && rare < mythical && mythical < legendary && legendary < ancient
+        && ancient < unusual && unusual != std::string::npos;
+
+    // each rarity list holds its own skins, and the gold list isn't defined (the game's own files don't either)
+    const size_t rareList = text.find("\t\t\"crate_t_rare\"\n");
+    const size_t rareEnd = text.find("\t\t}", rareList);
+    const std::string rareText = text.substr(rareList, rareEnd - rareList);
+    valid &= rareText.find("[b]weapon_awp") != std::string::npos && rareText.find("[e]weapon_mp9") != std::string::npos
+        && rareText.find("[a]weapon_ak47") == std::string::npos;
+    valid &= text.find("\t\t\"crate_t_unusual\"\n") == std::string::npos;
+
+    // a case without golds gets no gold tile
+    std::string plain = text;
+    added.hasUnusual = false;
+    added.image.clear();
+    added.name = "crate_u";
+    added.defIndex = 5001;
+    added.series = 5001;
+    valid &= GameSchemaPatch::AddCases(plain, { added }) == 1 && plain.find("crate_u_unusual") == std::string::npos;
+    // without its own picture the case keeps the base case's
+    valid &= plain.find("econ/weapon_cases/crate_base") != std::string::npos;
     return valid;
 }
 
@@ -4467,8 +4546,9 @@ static bool GoldTradeUpRecipesAreAddedToSchema()
     const KeyValue *itemsGame = parsed.GetSubkey("items_game");
     const KeyValue *recipes = itemsGame ? itemsGame->GetSubkey("recipes") : nullptr;
     const KeyValue *other = itemsGame ? itemsGame->GetSubkey("other") : nullptr;
-    valid &= recipes && recipes->SubkeyCount() == 4
-        && recipes->GetSubkey("0") && recipes->GetSubkey("5") && recipes->GetSubkey("15") && recipes->GetSubkey("6")
+    // 5 Coverts only: knives and gloves have no recipe, so they can't be put into a contract
+    valid &= recipes && recipes->SubkeyCount() == 3
+        && recipes->GetSubkey("0") && recipes->GetSubkey("5") && recipes->GetSubkey("15") && !recipes->GetSubkey("6")
         && other && other->GetSubkey("recipes") && other->GetSubkey("recipes")->SubkeyCount() == 0;
 
     // covert recipe takes 5 Coverts
@@ -4478,33 +4558,6 @@ static bool GoldTradeUpRecipesAreAddedToSchema()
 
     std::string noRecipes = "\"items_game\" { \"items\" { } }";
     valid &= !GameSchemaPatch::InsertRecipes(noRecipes, GameSchemaPatch::GoldTradeUpRecipes);
-    return valid;
-}
-
-static bool PanoramaPatchLetsKnivesIntoContracts()
-{
-    // the two entries from the final CS:GO scripts/common/item_context_entries.js
-    std::string source =
-        "\t\t\tname: 'tradeup_add',\n"
-        "\t\t\tAvailableForItem: function ( id ) {\n"
-        "\t\t\t\tvar slot = ItemInfo.GetSlotSubPosition(id);\n"
-        "\t\t\t\treturn slot && slot !==\"melee\" && slot !==\"c4\" && slot !==\"clothing_hands\" && !ItemInfo.IsEquippalbleButNotAWeapon(id) &&\n"
-        "\t\t\t\t\t( InventoryAPI.CanTradeUp( id ) || InventoryAPI.GetNumItemsNeededToTradeUp( id ) > 0 );\n"
-        "\t\t\tname: 'tradeup_remove',\n"
-        "\t\t\t\treturn slot && slot !==\"melee\" && slot !==\"c4\" && slot !==\"clothing_hands\" && !ItemInfo.IsEquippalbleButNotAWeapon(id);\n"
-        "\t\t\tname: 'equip_ct', AvailableForItem: function ( id ) { return slot !== \"melee\"; }\n";
-
-    int changes = PanoramaHook::PatchItemContextEntries(source);
-    bool valid = changes == 2
-        && source.find("slot && slot !==\"c4\" &&\n") != std::string::npos
-        && source.find("slot && slot !==\"c4\";") != std::string::npos
-        && source.find("clothing_hands") == std::string::npos
-        && source.find("return slot !== \"melee\";") != std::string::npos; // other entries untouched
-
-    std::string unrelated = "var x = 1;";
-    valid &= PanoramaHook::PatchItemContextEntries(unrelated) == 0 && unrelated == "var x = 1;";
-    valid &= PanoramaHook::CaseStoreScript().find("var CsgoGcCaseStore") != std::string::npos
-        && PanoramaHook::CaseStoreScript().find("SetData: _SetData") != std::string::npos;
     return valid;
 }
 
@@ -5051,12 +5104,13 @@ int main()
         { "LanguageTokensGoLastInTheTokensBlock", LanguageTokensGoLastInTheTokensBlock },
         { "CareerTracksGoalsAchievementsAndPersists", CareerTracksGoalsAchievementsAndPersists },
         { "ContextMenuGetsASellEntry", ContextMenuGetsASellEntry },
+        { "CasePopupLoadsTexturesForEveryTile", CasePopupLoadsTexturesForEveryTile },
+        { "AddedCasesListTheirSkinsByRarityWithAGoldTile", AddedCasesListTheirSkinsByRarityWithAGoldTile },
         { "StoreListsAddedCustomCases", StoreListsAddedCustomCases },
         { "AddedCaseSkinsTradeUp", AddedCaseSkinsTradeUp },
         { "CustomCasePreviewPatchesOnlyTargetLists", CustomCasePreviewPatchesOnlyTargetLists },
         { "CustomCasePreviewBacksUpAndRestores", CustomCasePreviewBacksUpAndRestores },
         { "GoldTradeUpRecipesAreAddedToSchema", GoldTradeUpRecipesAreAddedToSchema },
-        { "PanoramaPatchLetsKnivesIntoContracts", PanoramaPatchLetsKnivesIntoContracts },
         { "CaseStoreDataListsCasesWithKeys", CaseStoreDataListsCasesWithKeys },
         { "TradeUpRecipesAcceptStatTrakWhenMixing", TradeUpRecipesAcceptStatTrakWhenMixing },
         { "StarShopPatchReplacesOnlyTheNewestOperationsGoods",
