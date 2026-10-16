@@ -1550,7 +1550,29 @@ bool Inventory::CreateMatchDrop(CMsgSOSingleObject &newItem, std::string &itemDe
 
     if (dropCase)
     {
-        uint32_t crateDefIndex = crates[m_random.Integer<size_t>(0, crates.size() - 1)];
+        uint32_t crateDefIndex = crates.empty() ? 0 : crates[m_random.Integer<size_t>(0, crates.size() - 1)];
+
+        // some of the cases dropped are from custom_cases.txt. the priced ones (Black Market, Gauntlet) are special
+        // offers and only come from the shop
+        std::vector<uint32_t> customCases;
+        for (uint32_t custom : m_itemSchema.GetCustomCaseDefIndexes())
+        {
+            if (!m_itemSchema.CustomCasePrice(custom) && m_itemSchema.ItemInfoByDefIndex(custom))
+            {
+                customCases.push_back(custom);
+            }
+        }
+        if (!customCases.empty() && (!crateDefIndex || m_random.Float(0.0f, 1.0f) < config.customCaseChance))
+        {
+            crateDefIndex = customCases[m_random.Integer<size_t>(0, customCases.size() - 1)];
+        }
+
+        if (!crateDefIndex)
+        {
+            Platform::Print("Match drop: no cases to drop\n");
+            return false;
+        }
+
         CSOEconItem &item = CreateItem(crateDefIndex, ItemOriginDrop, UnacknowledgedDropped);
         ToSingleObject(newItem, item);
 

@@ -33,6 +33,7 @@ struct MatchDropConfig
     bool enabled{ true };
     float dropChance{ 1.0f }; // chance of a drop when a match ends
     float caseChance{ 0.35f }; // chance that a drop is a case rather than a skin
+    float customCaseChance{ 0.5f }; // chance that a dropped case is one from custom_cases.txt
     uint32_t dropsPerMatch{ 1 }; // separate drops rolled when a match ends
     // skin drop rarity weights (old CS:GO drops were almost always Consumer/Industrial)
     std::vector<RarityWeight> skinRarityWeights{
