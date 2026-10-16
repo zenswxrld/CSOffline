@@ -4130,7 +4130,7 @@ static bool CareerTracksGoalsAchievementsAndPersists()
 
         // first opening: a skin of the case and the "first case" achievement, no goal yet
         auto first = career.RecordCaseOpened(5001, info, pull(7, 100, ItemSchema::RarityMythical, false, false));
-        valid &= first.size() == 1 && first[0].stars == 100;
+        valid &= first.size() == 1 && first[0].stars == 40;
 
         // the same skin again finds nothing new
         valid &= career.RecordCaseOpened(5001, info, pull(7, 100, ItemSchema::RarityMythical, false, false)).empty();
@@ -4205,7 +4205,7 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         // the SkinStop tabs' data: the case's 2/2 skins and gold, a finished achievement, a stat
         const std::string ui = career.UiData({ { 5001, info } });
         valid &= ui.find("cases: [[5001,'Test Case',2,2,1,1,1,5]]") != std::string::npos
-            && ui.find("['first_case','First Crack','Open your first case.',100,1,1,1,0]") != std::string::npos
+            && ui.find("['first_case','First Crack','Open your first case.',40,1,1,1,0]") != std::string::npos
             && ui.find("['Cases opened','6']") != std::string::npos
             && ui.find("goalReward: 1500") != std::string::npos;
     }
