@@ -1160,6 +1160,15 @@ bool GameSchemaPatch::Apply(const LootListPreviews &previews, const std::string 
     {
         const size_t count = AddCases(patched, *addedCases);
         Platform::Print("items_game.txt patch: added %zu of %zu custom case(s) as new items\n", count, addedCases->size());
+
+        // how many of them got a collection of their own (custom_case_collections), so a log shows what was written
+        size_t collections = 0;
+        for (size_t at = patched.find("\n\t\t\"set_crate_csgogc_"); at != std::string::npos;
+             at = patched.find("\n\t\t\"set_crate_csgogc_", at + 1))
+        {
+            collections++;
+        }
+        Platform::Print("items_game.txt patch: %zu custom case collection(s) written (custom_case_collections)\n", collections);
     }
 
     if (paintKits && !paintKits->kitsText.empty())
