@@ -58,16 +58,10 @@ int PanoramaHook::PatchContextMenuLabels(std::string &source)
     return count;
 }
 
-bool PanoramaHook::AddSellEntry(std::string &source, const SellPrices &prices)
+// the price of an item, by its tier: knives and gloves, then painted weapons by rarity. what the GC really
+// pays is decided by the GC (star_shop sell in config.txt); these are the same numbers
+static std::string SellPriceScript(const PanoramaHook::SellPrices &prices)
 {
-    // the object of the delete entry:  { name: 'delete', ...
-    static const std::regex deleteEntry{ R"re(\{(\s*)name:\s*'delete')re" };
-    std::smatch match;
-    if (!std::regex_search(source, match, deleteEntry))
-    {
-        return false;
-    }
-
     std::string rarities = "{";
     for (int rarity = 1; rarity <= 6; rarity++)
     {
@@ -75,54 +69,7 @@ bool PanoramaHook::AddSellEntry(std::string &source, const SellPrices &prices)
     }
     rarities += "}";
 
-    const std::string entry = R"js({
-			name: function ( id ) {
-				return '!Sell for ' + CsgoGcSellPrice( id ) + ' stars';
-			},
-			style: function ( id ) {
-				return 'TopSeparator';
-			},
-			AvailableForItem: function ( id ) {
-				// not InventoryAPI.IsDeletable: the game doesn't offer Delete for skins, but the GC sells them
-				return CsgoGcSellPrice( id ) > 0;
-			},
-			OnSelected: function ( id ) {
-				$.DispatchEvent( 'ContextMenuEvent', '' );
-				var price = CsgoGcSellPrice( id );
-				var sell = function()
-				{
-					InventoryAPI.DeleteItem( id );
-					// if the item is still there a moment later, the game did not send the delete
-					$.Schedule( 2.0, function()
-					{
-						var stillThere = true;
-						try { stillThere = InventoryAPI.IsValidItemID( id ) !== false; } catch ( e ) {}
-						if ( stillThere )
-						{
-							$.Msg( '[csgo_gc] sell: the game did not delete item ' + id + ' (IsDeletable = ' + InventoryAPI.IsDeletable( id ) + ')' );
-							try { UiToolkitAPI.ShowGenericPopupOk( 'Could not sell', 'The game would not delete this item, so it was not sold.', '', function() {} ); } catch ( e ) {}
-						}
-					} );
-				};
-				try
-				{
-					UiToolkitAPI.ShowGenericPopupOkCancel( 'Sell item', 'Sell this item for ' + price + ' stars? It will be removed from your inventory.', '', sell, function() {} );
-				}
-				catch ( e )
-				{
-					$.Msg( '[csgo_gc] sell: no confirm popup (' + e + '), using the delete popup' );
-					UiToolkitAPI.ShowCustomLayoutPopupParameters( '', 'file://{resources}/layout/popups/popup_inventory_inspect.xml',
-						'itemid=' + id + '&asyncworktype=delete&asyncworkbtnstyle=Negative' );
-				}
-			}
-		},
-		)js";
-
-    source.replace(match.position(0), 0, entry + "\n\t\t");
-
-    // the price of an item, by its tier: knives and gloves, then painted weapons by rarity. what the GC really
-    // pays is decided by the GC (star_shop sell in config.txt); these are the same numbers
-    source += "\n\nvar CsgoGcSellPrices = " + rarities + ";\nvar CsgoGcSellKnifeOrGlove = " + std::to_string(prices.knifeOrGlove)
+    return "\n\nvar CsgoGcSellPrices = " + rarities + ";\nvar CsgoGcSellKnifeOrGlove = " + std::to_string(prices.knifeOrGlove)
         + R"js(;
 var CsgoGcSellPrice = function ( id )
 {
@@ -147,6 +94,65 @@ var CsgoGcSellPrice = function ( id )
 	}
 };
 )js";
+}
+
+bool PanoramaHook::PatchInventoryDelete(std::string &source, const SellPrices &prices)
+{
+    // var _ShowDeleteItemConfirmation = function( id ) {
+    static const std::regex confirm{ R"re(var\s+_ShowDeleteItemConfirmation\s*=\s*function\(\s*id\s*\)\s*\{)re" };
+    if (!std::regex_search(source, confirm))
+    {
+        return false;
+    }
+
+    // a sellable item gets a "sell for N stars?" question, whose answer runs the page's own delete (the GC pays
+    // for what it removes). anything else keeps the game's delete question
+    source = std::regex_replace(source, confirm, R"js($&
+		var gcPrice = CsgoGcSellPrice( id );
+		if ( gcPrice > 0 )
+		{
+			UiToolkitAPI.ShowGenericPopupOkCancel( 'Sell item', 'Sell this item for ' + gcPrice + ' stars? It will be removed from your inventory.', '',
+				function() { _DeleteItemAnim( id ); }, function() {} );
+			return;
+		}
+)js", std::regex_constants::format_first_only);
+    source += SellPriceScript(prices);
+    return true;
+}
+
+bool PanoramaHook::AddSellEntry(std::string &source, const SellPrices &prices)
+{
+    // the object of the delete entry:  { name: 'delete', ...
+    static const std::regex deleteEntry{ R"re(\{(\s*)name:\s*'delete')re" };
+    std::smatch match;
+    if (!std::regex_search(source, match, deleteEntry))
+    {
+        return false;
+    }
+
+    const std::string entry = R"js({
+			name: function ( id ) {
+				return '!Sell for ' + CsgoGcSellPrice( id ) + ' stars';
+			},
+			style: function ( id ) {
+				return 'TopSeparator';
+			},
+			AvailableForItem: function ( id ) {
+				// not InventoryAPI.IsDeletable: the game doesn't offer Delete for skins, but the GC sells them
+				return CsgoGcSellPrice( id ) > 0;
+			},
+			OnSelected: function ( id ) {
+				$.DispatchEvent( 'ContextMenuEvent', '' );
+				// the inventory page asks "sell this item?" and deletes it (see PatchInventoryDelete): a popup made here
+				// would lose its buttons with this menu, which closes now
+				$.DispatchEvent( 'ShowDeleteItemConfirmationPopup', id );
+			}
+		},
+		)js";
+
+    source.replace(match.position(0), 0, entry + "\n\t\t");
+
+    source += SellPriceScript(prices);
     return true;
 }
 
@@ -1382,17 +1388,30 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
     const StarShopConfig &starShop = GetConfig().StarShop();
     const bool sellMenu = starShop.enabled && starShop.sellEnabled;
 
+    PanoramaHook::SellPrices prices;
+    prices.byRarity[1] = starShop.sellConsumer;
+    prices.byRarity[2] = starShop.sellIndustrial;
+    prices.byRarity[3] = starShop.sellMilSpec;
+    prices.byRarity[4] = starShop.sellRestricted;
+    prices.byRarity[5] = starShop.sellClassified;
+    prices.byRarity[6] = starShop.sellCovert;
+    prices.knifeOrGlove = starShop.sellKnifeOrGlove;
+
+    if (sellMenu && PathIsFile(path, "inventory.js"))
+    {
+        std::string patched = source;
+        if (PanoramaHook::PatchInventoryDelete(patched, prices))
+        {
+            Platform::Print("Panorama: inventory.js sells through the page's own delete\n");
+            s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
+            return;
+        }
+        Platform::Print("Panorama: inventory.js has no delete question, Sell will not work\n");
+    }
+
     if (sellMenu && PathIsFile(path, "item_context_entries.js"))
     {
         std::string patched = source;
-        PanoramaHook::SellPrices prices;
-        prices.byRarity[1] = starShop.sellConsumer;
-        prices.byRarity[2] = starShop.sellIndustrial;
-        prices.byRarity[3] = starShop.sellMilSpec;
-        prices.byRarity[4] = starShop.sellRestricted;
-        prices.byRarity[5] = starShop.sellClassified;
-        prices.byRarity[6] = starShop.sellCovert;
-        prices.knifeOrGlove = starShop.sellKnifeOrGlove;
         const bool sellAdded = PanoramaHook::AddSellEntry(patched, prices);
         Platform::Print(sellAdded ? "Panorama: right-click Sell entry added\n"
                                   : "Panorama: item_context_entries.js has no delete entry, no Sell entry added\n");

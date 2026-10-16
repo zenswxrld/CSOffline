@@ -3997,7 +3997,18 @@ static bool ContextMenuGetsASellEntry()
     valid &= sell != std::string::npos && del != std::string::npos && sell < del
         && entries.find("CsgoGcSellPrices = {1:10,2:20,3:30,4:40,5:50,6:60}") != std::string::npos
         && entries.find("CsgoGcSellKnifeOrGlove = 150;") != std::string::npos
-        && entries.find("InventoryAPI.DeleteItem( id )") != std::string::npos;
+        && entries.find("DispatchEvent( 'ShowDeleteItemConfirmationPopup', id )") != std::string::npos;
+
+    // the inventory page's own delete question becomes the sell question for items with a price
+    std::string inventory =
+        "\tvar _ShowDeleteItemConfirmation = function( id )\n\t{\n\t\tUiToolkitAPI.ShowGenericPopupYesNo( '#inv_context_delete', '', '', function() { _DeleteItemAnim( id ); }, function() {} );\n\t};\n";
+    valid &= PanoramaHook::PatchInventoryDelete(inventory, prices)
+        && inventory.find("var gcPrice = CsgoGcSellPrice( id );") != std::string::npos
+        && inventory.find("_DeleteItemAnim( id ); }, function() {} );\n\t\t\treturn;") != std::string::npos
+        && inventory.find("CsgoGcSellPrices = {1:10,2:20,3:30,4:40,5:50,6:60}") != std::string::npos
+        && inventory.find("'#inv_context_delete'") != std::string::npos;
+    std::string noQuestion = "var x = 1;";
+    valid &= !PanoramaHook::PatchInventoryDelete(noQuestion, prices) && noQuestion == "var x = 1;";
 
     std::string noDelete = "var list = [ { name: 'sell' } ];";
     valid &= !PanoramaHook::AddSellEntry(noDelete, prices);
