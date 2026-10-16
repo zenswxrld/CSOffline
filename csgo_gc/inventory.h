@@ -105,7 +105,17 @@ public:
 
     // end-of-match drop (a weapon case or a collection skin); returns false when
     // no drop was rolled or nothing could be created
-    bool CreateMatchDrop(CMsgSOSingleObject &newItem, std::string &itemDescription);
+    // levelUp: a guaranteed drop with the level-up origin instead of a match drop
+    bool CreateMatchDrop(CMsgSOSingleObject &newItem, std::string &itemDescription, bool levelUp = false);
+
+    struct XpChange
+    {
+        int levelsGained{};
+        CMsgSOSingleObject personaData; // set when the level changed
+    };
+    // adds experience (nothing at max level until the service medal is claimed).
+    // saves when a level is gained or save is set
+    bool AddPlayerXp(uint32_t amount, uint32_t perLevel, bool save, XpChange &change);
 
     // cases opened since the last gold, for the case pity system
     uint32_t GoldlessCases() const { return m_goldlessCases; }

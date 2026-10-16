@@ -99,6 +99,8 @@ private:
     void LocalPlayerMatchEnd();
     // award stars for something the local player did
     void LocalPlayerStars(StarShop::Reason reason);
+    void LocalPlayerXp(StarShop::Reason reason);
+    uint32_t m_matchXp{}; // experience earned since the last match end message
     // the operation whose redeemable balance is the star count, if the star shop is on
     std::optional<uint32_t> StarSeason() const;
     uint32_t StarBalance() const;

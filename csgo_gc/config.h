@@ -46,6 +46,22 @@ struct MatchDropConfig
     };
 };
 
+// experience earned from playing (bot matches too). every xpPerLevel fills a
+// player level and a level-up can drop an item. max level can be reset for a
+// service medal, like the real game
+struct XpConfig
+{
+    bool enabled{ true };
+    uint32_t perKill{ 5 };
+    uint32_t perHeadshot{ 3 }; // on top of the kill
+    uint32_t perMvp{ 25 };
+    uint32_t perPlant{ 25 };
+    uint32_t perDefuse{ 25 };
+    uint32_t perMatch{ 600 };
+    uint32_t perLevel{ 5000 };
+    bool levelUpDrops{ true };
+};
+
 // stars earned from playing, spent in the Case Store. a case (or other
 // container) costs casePrice stars with its key included
 struct StarShopConfig
@@ -158,6 +174,7 @@ public:
     const CasePityConfig &CasePity() const { return m_casePity; }
     const MatchDropConfig &MatchDrops() const { return m_matchDrops; }
     const StarShopConfig &StarShop() const { return m_starShop; }
+    const XpConfig &XpRewards() const { return m_xpConfig; }
     const BotSkinsConfig &BotSkins() const { return m_botSkins; }
     bool ItemDeleteMenu() const { return m_itemDeleteMenu; }
 
@@ -211,6 +228,7 @@ private:
     int m_commendedLeader{ 0 };
     int m_level{ 0 };
     int m_xp{ 0 };
+    XpConfig m_xpConfig;
 
     // default to valve weights
     std::vector<RarityWeight> m_rarityWeights{

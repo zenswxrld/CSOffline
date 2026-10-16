@@ -63,7 +63,7 @@ public:
         uint32_t stars{};
     };
 
-    static constexpr uint32_t GoalReward = 1500;
+    static constexpr uint32_t GoalReward = 500;
 
     explicit Career(std::string path);
 

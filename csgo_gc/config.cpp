@@ -154,6 +154,19 @@ GCConfig::GCConfig()
 
     m_itemDeleteMenu = config.GetNumber("item_delete_menu", m_itemDeleteMenu);
 
+    if (const KeyValue *xp = config.GetSubkey("xp"))
+    {
+        m_xpConfig.enabled = xp->GetNumber("enabled", m_xpConfig.enabled);
+        m_xpConfig.perKill = xp->GetNumber("per_kill", m_xpConfig.perKill);
+        m_xpConfig.perHeadshot = xp->GetNumber("per_headshot", m_xpConfig.perHeadshot);
+        m_xpConfig.perMvp = xp->GetNumber("per_mvp", m_xpConfig.perMvp);
+        m_xpConfig.perPlant = xp->GetNumber("per_plant", m_xpConfig.perPlant);
+        m_xpConfig.perDefuse = xp->GetNumber("per_defuse", m_xpConfig.perDefuse);
+        m_xpConfig.perMatch = xp->GetNumber("per_match", m_xpConfig.perMatch);
+        m_xpConfig.perLevel = std::max<uint32_t>(1, xp->GetNumber("per_level", m_xpConfig.perLevel));
+        m_xpConfig.levelUpDrops = xp->GetNumber("level_up_drops", m_xpConfig.levelUpDrops);
+    }
+
     const KeyValue *starShop = config.GetSubkey("star_shop");
     if (starShop)
     {
