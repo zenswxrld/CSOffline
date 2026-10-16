@@ -532,7 +532,7 @@ var CsgoGcCaseStore = ( function()
 		var pictureId = entry[ 7 ] ? _FauxId( entry[ 7 ] ) : id;
 
 		var card = _Panel( parent, { width: '200px', height: '262px', margin: '0px 10px 10px 0px', flowChildren: 'down',
-			backgroundColor: 'gradient( linear, 0% 0%, 0% 100%, from( #1d2736f4 ), to( #121923f4 ) )', border: '1px solid #ffffff1a' }, 'Button' );
+			backgroundColor: 'gradient( linear, 0% 0%, 0% 100%, from( #2a3a52f4 ), to( #1b2638f4 ) )', border: '1px solid #ffffff1a' }, 'Button' );
 		var image = _Panel( card, { width: '100%', height: '156px' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
 		image.itemid = pictureId;
 		image.hittest = false;
@@ -709,7 +709,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 			}
 
 			var row = _Panel( panel, { width: '100%', height: '58px', margin: '0px 0px 6px 0px', padding: '8px 14px 8px 12px', flowChildren: 'right',
-				backgroundColor: finished ? 'gradient( linear, 0% 0%, 100% 0%, from( #1d3a24f0 ), to( #14201ff0 ) )' : 'gradient( linear, 0% 0%, 100% 0%, from( #232e3df0 ), to( #161d28f0 ) )',
+				backgroundColor: finished ? 'gradient( linear, 0% 0%, 100% 0%, from( #25522fee ), to( #1a3524ee ) )' : 'gradient( linear, 0% 0%, 100% 0%, from( #31405aee ), to( #212c3eee ) )',
 				borderLeft: finished ? '4px solid #6fd36f' : '4px solid #ffffff2a' } );
 			_Label( row, finished ? '\u2713' : '\u25cb', { fontSize: '24px', color: finished ? GREEN : '#5c6773', verticalAlign: 'center', width: '40px', marginLeft: '6px' } );
 			var text = _Panel( row, { flowChildren: 'down', verticalAlign: 'center', width: '520px' } );
@@ -737,7 +737,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 		stats.forEach( function( stat )
 		{
 			var row = _Panel( panel, { width: '560px', height: '38px', margin: '0px 0px 4px 0px', padding: '0px 14px', flowChildren: 'right',
-				backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #232e3df0 ), to( #161d28f0 ) )', borderLeft: '4px solid #ffffff2a' } );
+				backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #31405aee ), to( #212c3eee ) )', borderLeft: '4px solid #ffffff2a' } );
 			_Label( row, stat[ 0 ], { fontSize: '15px', color: '#e2e8f0', verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )' } );
 			_Label( row, String( stat[ 1 ] ), { fontSize: '17px', color: '#ffffff', fontWeight: 'bold', verticalAlign: 'center', horizontalAlign: 'right' } );
 		} );
@@ -797,7 +797,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 
 	function _BuildTabs( header )
 	{
-		var row = _Panel( m_overlay, { width: '100%', height: '42px', flowChildren: 'right', padding: '0px 56px 0px 56px', borderBottom: '1px solid #ffffff22', backgroundColor: '#0000004d' } );
+		var row = _Panel( m_overlay, { width: '100%', height: '42px', flowChildren: 'right', padding: '0px 56px 0px 56px', borderBottom: '1px solid #ffffff22', backgroundColor: '#0e162266' } );
 		TABS.forEach( function( tab )
 		{
 			m_tabButtons[ tab[ 0 ] ] = _Button( row, tab[ 1 ], { width: '170px', height: '100%', margin: '0px 2px 0px 0px', backgroundColor: '#00000000', borderBottom: '3px solid #00000000' },
@@ -877,7 +877,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 
 			var color = KIND_COLORS[ category[ 2 ][ 0 ] ] || '#ffffff';
 			var band = _Panel( m_content, { width: '100%', height: '296px', margin: '0px 0px 12px 0px', flowChildren: 'right',
-				backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #0b1018ee ), to( #0b101899 ) )', borderLeft: '4px solid ' + color } );
+				backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #16202eea ), to( #16202e88 ) )', borderLeft: '4px solid ' + color } );
 			var left = _Panel( band, { width: '250px', height: '100%', flowChildren: 'down', padding: '22px 20px 0px 22px' } );
 			_Label( left, category[ 1 ], { fontSize: '19px', color: '#ffffff', fontWeight: 'bold', letterSpacing: '2px' } );
 			_Label( left, category[ 3 ], { fontSize: '13px', color: '#aab6c4', margin: '8px 0px 0px 0px', width: '100%' } );
@@ -1009,7 +1009,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 		}, 'Panel', 'CsgoGcCaseStore' );
 		// the operation page's backdrop: a map screenshot, darkened
 		_Style( m_overlay, { backgroundImage: BACKGROUND, backgroundSize: 'cover', backgroundPosition: 'center',
-			backgroundRepeat: 'no-repeat', washColor: '#0d0a0990' } );
+			backgroundRepeat: 'no-repeat', washColor: '#0d0a0930' } );
 
 		var popups = context.FindChild( 'PopupManager' );
 		if ( popups )
@@ -1033,7 +1033,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 		var shopPanel = _Panel( m_overlay, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'right' } );
 		m_tabPanels.shop = shopPanel;
 
-		var side = _Panel( shopPanel, { width: '260px', height: '100%', flowChildren: 'down', padding: '16px 0px 0px 0px', backgroundColor: '#070a10c8', borderRight: '1px solid #ffffff1c' } );
+		var side = _Panel( shopPanel, { width: '260px', height: '100%', flowChildren: 'down', padding: '16px 0px 0px 0px', backgroundColor: '#0e1622a0', borderRight: '1px solid #ffffff1c' } );
 		_AddSidebarButton( side, 'home', 'HOME' );
 		CATEGORIES.forEach( function( category )
 		{
@@ -1055,7 +1055,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 
 		m_content = _Panel( main, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', overflow: 'squish scroll' } );
 
-		m_pager = _Panel( main, { width: '100%', height: '54px', flowChildren: 'right', horizontalAlign: 'center', padding: '8px 0px 8px 0px', backgroundColor: '#000000b0' } );
+		m_pager = _Panel( main, { width: '100%', height: '54px', flowChildren: 'right', horizontalAlign: 'center', padding: '8px 0px 8px 0px', backgroundColor: '#0e162290' } );
 		_Panel( m_pager, { width: 'fill-parent-flow( 1.0 )', height: '100%' } );
 		m_pager.prev = _Button( m_pager, '\u2039  PREVIOUS', { width: '160px', height: '38px', backgroundColor: PRIMARY, border: '1px solid ' + PRIMARY_EDGE },
 			function() { if ( m_page > 0 ) { m_page--; _Render(); } }, { fontSize: '15px', fontWeight: 'bold', letterSpacing: '1px' } );

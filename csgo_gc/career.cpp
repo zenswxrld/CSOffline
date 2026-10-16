@@ -454,8 +454,9 @@ std::vector<Career::Unlock> Career::RecordCaseOpened(uint32_t crate, const CaseI
 {
     std::vector<Unlock> unlocked;
 
-    // sticker capsules and the like have no skins to collect
-    if (info.skins.empty())
+    // sticker capsules and the like have neither skins to collect nor golds to find. a gold-only case (Black
+    // Market, Gauntlet) is still a case that was opened
+    if (info.skins.empty() && !info.goldItems)
     {
         m_stats["other_opened"]++;
         unlocked = CheckAchievements();
@@ -533,7 +534,8 @@ std::vector<Career::Unlock> Career::RecordCaseOpened(uint32_t crate, const CaseI
     m_stats["cases_distinct"] = distinct;
     m_stats["skins_found"] = found;
 
-    if (!progress.complete)
+    // (a gold-only case has no collection goal)
+    if (!progress.complete && !info.skins.empty())
     {
         bool all = true;
         for (const Skin &skin : info.skins)

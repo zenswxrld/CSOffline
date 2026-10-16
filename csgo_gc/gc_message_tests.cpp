@@ -4169,13 +4169,28 @@ static bool CareerTracksGoalsAchievementsAndPersists()
 
         valid &= career.Stat("cases_opened") == 4 && career.Stat("custom_cases_opened") == 4
             && career.Stat("goals_done") == 1 && career.Stat("gold_pulls") == 1 && career.Stat("tradeups") == 2;
+
+        // a gold-only case (Black Market, Gauntlet) is a case that was opened, with no collection goal to complete
+        Career::CaseInfo goldOnly;
+        goldOnly.name = "Gold Only";
+        goldOnly.custom = true;
+        goldOnly.goldItems = 5;
+        career.RecordCaseOpened(5002, goldOnly, pull(500, 0, ItemSchema::RarityUnusual, true, false));
+        valid &= career.Stat("cases_opened") == 5 && career.Stat("custom_cases_opened") == 5
+            && career.Stat("goals_done") == 1 && career.Stat("other_opened") == 0;
+
+        // a capsule with nothing to collect and no golds is not a case
+        Career::CaseInfo capsule;
+        capsule.name = "Capsule";
+        career.RecordCaseOpened(5003, capsule, pull(1, 0, ItemSchema::RarityMythical, false, false));
+        valid &= career.Stat("cases_opened") == 5 && career.Stat("other_opened") == 1;
     }
 
     // everything comes back from the file, and nothing unlocks twice
     {
         Career career{ Path };
         career.Load();
-        valid &= career.Stat("cases_opened") == 4 && career.Stat("stars_earned") == 10000;
+        valid &= career.Stat("cases_opened") == 5 && career.Stat("stars_earned") == 10000;
         valid &= career.RecordCaseOpened(5001, info, pull(9, 101, ItemSchema::RarityMythical, false, false)).empty();
 
         const std::string goals = career.GoalsText({ { 5001, info } }, false);
@@ -4190,7 +4205,7 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         const std::string ui = career.UiData({ { 5001, info } });
         valid &= ui.find("cases: [[5001,'Test Case',2,2,1,1,1,5]]") != std::string::npos
             && ui.find("['first_case','First Crack','Open your first case.',100,1,1,1,0]") != std::string::npos
-            && ui.find("['Cases opened','5']") != std::string::npos
+            && ui.find("['Cases opened','6']") != std::string::npos
             && ui.find("goalReward: 1500") != std::string::npos;
     }
 
