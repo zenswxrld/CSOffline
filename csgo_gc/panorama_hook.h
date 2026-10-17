@@ -35,7 +35,12 @@ namespace PanoramaHook
     {
         uint32_t byRarity[7]{}; // index 0 unused
         uint32_t knifeOrGlove{};
+        uint32_t stickerPercent{ 50 }; // stickers, patches and graffiti pay this percent of the rarity price
     };
+
+    // JS object {defIndex: stars} of the items sold for a flat price (cases, agents, music kits), from
+    // StarShop::BuildSellTable. the Sell entry looks prices up in it
+    void SetSellData(std::string table);
 
     // adds a "Sell for N stars" entry to item_context_entries.js, before the delete entry. selling is what the
     // game's own delete does once the star shop's selling is on: the GC pays for the item it removes.

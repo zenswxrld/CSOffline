@@ -187,6 +187,10 @@ GCConfig::GCConfig()
             m_starShop.sellClassified = sell->GetNumber("classified", m_starShop.sellClassified);
             m_starShop.sellCovert = sell->GetNumber("covert", m_starShop.sellCovert);
             m_starShop.sellKnifeOrGlove = sell->GetNumber("knife_glove", m_starShop.sellKnifeOrGlove);
+            m_starShop.sellStickerPercent = sell->GetNumber("sticker_percent", m_starShop.sellStickerPercent);
+            m_starShop.sellMusicKit = sell->GetNumber("music_kit", m_starShop.sellMusicKit);
+            m_starShop.sellContainerPercent = sell->GetNumber("container_percent", m_starShop.sellContainerPercent);
+            m_starShop.sellAgentPercent = sell->GetNumber("agent_percent", m_starShop.sellAgentPercent);
         }
         m_starShop.maxCases = starShop->GetNumber("max_cases", m_starShop.maxCases);
         m_starShop.maxCapsules = starShop->GetNumber("max_capsules", m_starShop.maxCapsules);

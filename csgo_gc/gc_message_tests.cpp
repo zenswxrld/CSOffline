@@ -4911,13 +4911,36 @@ static bool StarShopSellsSkinsByRarity()
         valid &= StarShop::SellValue(schema, config, skin) == 0;
         config.sellEnabled = true;
 
-        // a case and an item with no paint kit pay nothing
-        CSOEconItem crate;
-        crate.set_def_index(4001);
+        // an item with no paint kit pays nothing
         CSOEconItem plain;
         plain.set_def_index(7); // weapon_ak47 with no skin
         plain.set_rarity(ItemSchema::RarityAncient);
-        valid &= StarShop::SellValue(schema, config, crate) == 0 && StarShop::SellValue(schema, config, plain) == 0;
+        valid &= StarShop::SellValue(schema, config, plain) == 0;
+
+        // a case pays a share of its store price
+        CSOEconItem crate;
+        crate.set_def_index(4001);
+        const uint32_t cratePrice = StarShop::Price(schema, config, 4001);
+        valid &= StarShop::SellValue(schema, config, crate) == cratePrice * config.sellContainerPercent / 100;
+
+        // stickers pay a share of the skin price of their rarity, music kits a flat price
+        CSOEconItem sticker;
+        sticker.set_def_index(ItemSchema::ItemSticker);
+        sticker.set_rarity(ItemSchema::RarityAncient);
+        if (schema.ItemInfoByDefIndex(ItemSchema::ItemSticker)) // the test schema may not have stickers
+        {
+            valid &= StarShop::SellValue(schema, config, sticker) == 25;
+            sticker.set_rarity(ItemSchema::RarityCommon);
+            valid &= StarShop::SellValue(schema, config, sticker) == 1;
+        }
+        CSOEconItem kit;
+        kit.set_def_index(ItemSchema::ItemMusicKit);
+        if (schema.ItemInfoByDefIndex(ItemSchema::ItemMusicKit))
+        {
+            valid &= StarShop::SellValue(schema, config, kit) == 10;
+        }
+        const std::string table = StarShop::BuildSellTable(schema, config);
+        valid &= table.front() == '{' && table.back() == '}';
 
         // a knife is the unusual quality and pays the knife price
         CSOEconItem knife;

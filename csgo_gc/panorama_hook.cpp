@@ -187,6 +187,13 @@ void PanoramaHook::TidyTradeUpPage(std::string &source)
 
 // the price of an item, by its tier: knives and gloves, then painted weapons by rarity. what the GC really
 // pays is decided by the GC (star_shop sell in config.txt); these are the same numbers
+static std::string s_sellTable = "{}";
+
+void PanoramaHook::SetSellData(std::string table)
+{
+    s_sellTable = std::move(table);
+}
+
 static std::string SellPriceScript(const PanoramaHook::SellPrices &prices)
 {
     std::string rarities = "{";
@@ -197,6 +204,7 @@ static std::string SellPriceScript(const PanoramaHook::SellPrices &prices)
     rarities += "}";
 
     return "\n\nvar CsgoGcSellPrices = " + rarities + ";\nvar CsgoGcSellKnifeOrGlove = " + std::to_string(prices.knifeOrGlove)
+        + ";\nvar CsgoGcSellStickerPercent = " + std::to_string(prices.stickerPercent) + ";\nvar CsgoGcSellFlat = " + s_sellTable
         + R"js(;
 var CsgoGcSellPrice = function ( id )
 {
@@ -205,6 +213,19 @@ var CsgoGcSellPrice = function ( id )
 		if ( InventoryAPI.IsItemDefault( id ) )
 		{
 			return 0;
+		}
+
+		var def = InventoryAPI.GetItemDefinitionIndex( id );
+		if ( CsgoGcSellFlat[ def ] )
+		{
+			return CsgoGcSellFlat[ def ];
+		}
+
+		// stickers, patches, graffiti and sealed graffiti
+		if ( def === 1209 || def === 4609 || def === 1348 || def === 1349 )
+		{
+			var base = CsgoGcSellPrices[ InventoryAPI.GetItemRarity( id ) ] || CsgoGcSellPrices[ 2 ] || 0;
+			return base > 0 ? Math.max( 1, Math.floor( base * CsgoGcSellStickerPercent / 100 ) ) : 0;
 		}
 
 		var slot = ItemInfo.GetSlotSubPosition( id );
@@ -1535,6 +1556,7 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
     prices.byRarity[5] = starShop.sellClassified;
     prices.byRarity[6] = starShop.sellCovert;
     prices.knifeOrGlove = starShop.sellKnifeOrGlove;
+    prices.stickerPercent = starShop.sellStickerPercent;
 
     if (sellMenu && PathIsFile(path, "inventory.js"))
     {

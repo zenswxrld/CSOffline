@@ -23,6 +23,7 @@
 #include "bot_skins.h"
 #include "viewmodel_range.h"
 #include "panorama_hook.h"
+#include "star_shop.h"
 #include <funchook.h>
 #include <ctime>
 #include <limits>
@@ -1924,6 +1925,7 @@ static void Hk_SteamAPI_RunCallbacks()
     if (s_clientGC && GetConfig().CaseStoreMenu() && !PanoramaHook::HasCaseStoreData())
     {
         PanoramaHook::SetCaseStoreData(PanoramaHook::BuildCaseStoreData(s_clientGC->m_gc.GetItemSchema()));
+        PanoramaHook::SetSellData(StarShop::BuildSellTable(s_clientGC->m_gc.GetItemSchema(), GetConfig().StarShop()));
     }
     PanoramaHook::Tick();
 

@@ -34,6 +34,10 @@ namespace StarShop
     // what an item pays when it is sold (deleted): a skin by its rarity, a knife or
     // glove a fixed amount. 0 for anything else (cases, stickers, default items...)
     uint32_t SellValue(const ItemSchema &itemSchema, const StarShopConfig &config, const CSOEconItem &item);
+
+    // what a sold item of this kind pays whatever its details: JS object {defIndex: stars} of the containers, agents
+    // and music kits that can be sold. the Sell menu uses it for the price it shows
+    std::string BuildSellTable(const ItemSchema &itemSchema, const StarShopConfig &config);
     // cases, souvenir packages, capsules and other crate_* containers (not keys)
     bool IsContainer(const ItemSchema &itemSchema, uint32_t defIndex);
 
