@@ -177,7 +177,9 @@
 	// Major's Legends capsule, CS20 and a few community ones). 0 = all of them
 	"shop_capsules"				"20"
 
-	// what deleting a skin pays (0 = nothing). only skins, knives and gloves
+	// what selling pays (0 = nothing): skins by rarity, knives and gloves, and also stickers, patches and
+	// graffiti (a percent of the skin price of the same rarity), music kits, and cases, capsules, souvenir
+	// packages and agents (a percent of what the star store charges for them)
 	"sell"
 	{
 		"enabled"		"1"
@@ -188,6 +190,10 @@
 		"classified"	"25"
 		"covert"		"50"
 		"knife_glove"	"150"
+		"sticker_percent"	"50"
+		"music_kit"			"10"
+		"container_percent"	"30"
+		"agent_percent"		"50"
 	}
 
 	// stars earned

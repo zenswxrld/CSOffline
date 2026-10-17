@@ -324,6 +324,40 @@ uint32_t StarShop::SellValue(const ItemSchema &itemSchema, const StarShopConfig 
         return 0;
     }
 
+    const uint32_t def = item.def_index();
+
+    // stickers, patches and graffiti pay a share of the skin price of their rarity
+    if (def == ItemSchema::ItemSticker || def == ItemSchema::ItemPatch || def == ItemSchema::ItemSpray
+        || def == ItemSchema::ItemSprayPaint)
+    {
+        uint32_t base = 0;
+        switch (item.rarity())
+        {
+        case ItemSchema::RarityCommon: base = config.sellConsumer; break;
+        case ItemSchema::RarityUncommon: base = config.sellIndustrial; break;
+        case ItemSchema::RarityRare: base = config.sellMilSpec; break;
+        case ItemSchema::RarityMythical: base = config.sellRestricted; break;
+        case ItemSchema::RarityLegendary: base = config.sellClassified; break;
+        case ItemSchema::RarityAncient: base = config.sellCovert; break;
+        default: base = config.sellIndustrial; break;
+        }
+        const uint32_t pay = base * config.sellStickerPercent / 100;
+        return base && config.sellStickerPercent ? std::max<uint32_t>(1, pay) : 0;
+    }
+
+    if (def == ItemSchema::ItemMusicKit)
+    {
+        return config.sellMusicKit;
+    }
+
+    // cases, capsules, souvenir packages and agents pay a share of the store price
+    if (IsAgent(itemSchema, def) || IsContainer(itemSchema, def))
+    {
+        const uint32_t price = Price(itemSchema, config, def);
+        const uint32_t percent = IsAgent(itemSchema, def) ? config.sellAgentPercent : config.sellContainerPercent;
+        return price && percent ? std::max<uint32_t>(1, price * percent / 100) : 0;
+    }
+
     // only weapons (and knives) and gloves are bought back
     const bool weapon = info->m_name.compare(0, 7, "weapon_") == 0;
     const bool gloves = info->m_itemType == "gloves" || info->m_name.find("glove") != std::string::npos;
@@ -362,4 +396,36 @@ uint32_t StarShop::SellValue(const ItemSchema &itemSchema, const StarShopConfig 
     case ItemSchema::RarityAncient: return config.sellCovert;
     default: return 0;
     }
+}
+
+std::string StarShop::BuildSellTable(const ItemSchema &itemSchema, const StarShopConfig &config)
+{
+    std::string text = "{";
+    bool first = true;
+    const auto add = [&](uint32_t def, uint32_t stars)
+    {
+        if (!stars)
+        {
+            return;
+        }
+        text += (first ? "" : ",") + std::to_string(def) + ":" + std::to_string(stars);
+        first = false;
+    };
+
+    if (config.enabled && config.sellEnabled)
+    {
+        add(ItemSchema::ItemMusicKit, config.sellMusicKit);
+        for (uint32_t def : itemSchema.GetAgentDefIndexes())
+        {
+            const uint32_t price = Price(itemSchema, config, def);
+            add(def, price && config.sellAgentPercent ? std::max<uint32_t>(1, price * config.sellAgentPercent / 100) : 0);
+        }
+        for (uint32_t def : itemSchema.GetContainerDefIndexes())
+        {
+            const uint32_t price = Price(itemSchema, config, def);
+            add(def, price && config.sellContainerPercent ? std::max<uint32_t>(1, price * config.sellContainerPercent / 100) : 0);
+        }
+    }
+
+    return text + "}";
 }

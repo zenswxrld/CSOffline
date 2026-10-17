@@ -35,7 +35,12 @@ namespace PanoramaHook
     {
         uint32_t byRarity[7]{}; // index 0 unused
         uint32_t knifeOrGlove{};
+        uint32_t stickerPercent{ 50 }; // stickers, patches and graffiti pay this percent of the rarity price
     };
+
+    // JS object {defIndex: stars} of the items sold for a flat price (cases, agents, music kits), from
+    // StarShop::BuildSellTable. the Sell entry looks prices up in it
+    void SetSellData(std::string table);
 
     // adds a "Sell for N stars" entry to item_context_entries.js, before the delete entry. selling is what the
     // game's own delete does once the star shop's selling is on: the GC pays for the item it removes.
@@ -51,9 +56,6 @@ namespace PanoramaHook
     // the skin's picture. the game only does that for the one you click, so a skin and weapon pair it has no
     // ready-made picture of (every one in a custom case) stays a blank tile. returns the number of changes
     int PatchCasePopup(std::string &source);
-
-    // hides knives and gloves from the trade-up page's list of eligible items (appends a script to crafting.js)
-    void TidyTradeUpPage(std::string &source);
 
     // lets a context menu entry whose name starts with '!' show that text as it is (the menu would look the
     // name up as a language token). returns the number of changes

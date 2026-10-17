@@ -3715,7 +3715,7 @@ static bool GoldTradeUpContractsProduceKnives()
             && covert.destroyCount == 5 && covert.created
             && covert.createdItem.def_index() == 507
             && covert.createdItem.quality() == ItemSchema::QualityUnusual
-            && covert.createdItem.rarity() == ItemSchema::RarityAncient
+            && covert.createdItem.rarity() == ItemSchema::RarityUnusual // knives are shown as unusual, not Covert
             && FindAttributeUint32(covert.createdItem, ItemSchema::AttributeTexturePrefab, paintKit) && paintKit == 44
             && FindAttributeFloat(covert.createdItem, ItemSchema::AttributeTextureWear, covertWear)
             && std::fabs(covertWear - 0.2f) < 0.0001f;
@@ -3734,15 +3734,9 @@ static bool GoldTradeUpContractsProduceKnives()
             && souvenir.createdItem.rarity() == ItemSchema::RarityAncient
             && !HasAttribute(souvenir.createdItem, ItemSchema::AttributeTournamentEventId);
 
-        // 5 Karambits at 0.4 -> Karambit at half the float
+        // knives and gloves can't be traded up, not even five of them
         CraftOutcome gold = SendCraft(gc, 5, { itemId(10), itemId(11), itemId(12), itemId(13), itemId(14) });
-        float goldWear = -1.0f;
-        valid &= gold.responded && gold.responseOk
-            && gold.destroyCount == 5 && gold.created
-            && gold.createdItem.def_index() == 507
-            && gold.createdItem.quality() == ItemSchema::QualityUnusual
-            && FindAttributeFloat(gold.createdItem, ItemSchema::AttributeTextureWear, goldWear)
-            && std::fabs(goldWear - 0.2f) < 0.0001f;
+        valid &= gold.responded && gold.responseDenied && gold.destroyCount == 0 && !gold.created;
     }
 
     RemoveGoldTradeUpFixtures();
@@ -4022,13 +4016,6 @@ static bool ContextMenuGetsASellEntry()
     std::string other = "var x = 1;";
     valid &= PanoramaHook::PatchContextMenuLabels(other) == 0;
 
-    // the trade-up page hides knives and gloves from its list and keeps the page's own script intact
-    std::string crafting = "var Crafting = 1;\n";
-    PanoramaHook::TidyTradeUpPage(crafting);
-    valid &= crafting.rfind("var Crafting = 1;\n", 0) == 0
-        && crafting.find("slot === 'melee' || slot === 'clothing_hands' || slot === 'customplayer'") != std::string::npos
-        && crafting.find("DeleteAsync") != std::string::npos
-        && crafting.find("'Crafting-Items'") != std::string::npos;
     return valid;
 }
 
@@ -4911,13 +4898,36 @@ static bool StarShopSellsSkinsByRarity()
         valid &= StarShop::SellValue(schema, config, skin) == 0;
         config.sellEnabled = true;
 
-        // a case and an item with no paint kit pay nothing
-        CSOEconItem crate;
-        crate.set_def_index(4001);
+        // an item with no paint kit pays nothing
         CSOEconItem plain;
         plain.set_def_index(7); // weapon_ak47 with no skin
         plain.set_rarity(ItemSchema::RarityAncient);
-        valid &= StarShop::SellValue(schema, config, crate) == 0 && StarShop::SellValue(schema, config, plain) == 0;
+        valid &= StarShop::SellValue(schema, config, plain) == 0;
+
+        // a case pays a share of its store price
+        CSOEconItem crate;
+        crate.set_def_index(4001);
+        const uint32_t cratePrice = StarShop::Price(schema, config, 4001);
+        valid &= StarShop::SellValue(schema, config, crate) == cratePrice * config.sellContainerPercent / 100;
+
+        // stickers pay a share of the skin price of their rarity, music kits a flat price
+        CSOEconItem sticker;
+        sticker.set_def_index(ItemSchema::ItemSticker);
+        sticker.set_rarity(ItemSchema::RarityAncient);
+        if (schema.ItemInfoByDefIndex(ItemSchema::ItemSticker)) // the test schema may not have stickers
+        {
+            valid &= StarShop::SellValue(schema, config, sticker) == 25;
+            sticker.set_rarity(ItemSchema::RarityCommon);
+            valid &= StarShop::SellValue(schema, config, sticker) == 1;
+        }
+        CSOEconItem kit;
+        kit.set_def_index(ItemSchema::ItemMusicKit);
+        if (schema.ItemInfoByDefIndex(ItemSchema::ItemMusicKit))
+        {
+            valid &= StarShop::SellValue(schema, config, kit) == 10;
+        }
+        const std::string table = StarShop::BuildSellTable(schema, config);
+        valid &= table.front() == '{' && table.back() == '}';
 
         // a knife is the unusual quality and pays the knife price
         CSOEconItem knife;

@@ -325,13 +325,18 @@ private:
     // helpers for above..
     void AddToMultipleObjects(CMsgSOMultipleObjects &message, const CSOEconItem &object)
     {
-        AddToMultipleObjects(message, SOTypeItem, object);
+        AddToMultipleObjects(message, SOTypeItem, ClientView(object));
     }
 
     void ToSingleObject(CMsgSOSingleObject &message, const CSOEconItem &object)
     {
-        ToSingleObject(message, SOTypeItem, object);
+        ToSingleObject(message, SOTypeItem, ClientView(object));
     }
+
+    // the item as the game client is shown it. knives, gloves and agents of the Covert rarity are shown with the
+    // schema's "unusual" rarity: the trade-up screen lists every item whose rarity a contract recipe takes, and the
+    // Covert to gold contracts take Covert, which put every knife, glove and Master Agent in the list
+    CSOEconItem ClientView(const CSOEconItem &item) const;
 
     void AddToMultipleObjects(CMsgSOMultipleObjects &message, const CSOEconDefaultEquippedDefinitionInstanceClient &object)
     {

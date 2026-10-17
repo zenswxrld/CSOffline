@@ -93,6 +93,12 @@ struct StarShopConfig
     uint32_t sellClassified{ 25 };
     uint32_t sellCovert{ 50 };
     uint32_t sellKnifeOrGlove{ 150 };
+    // stickers, patches and graffiti pay this percent of the skin price of the same rarity
+    uint32_t sellStickerPercent{ 50 };
+    uint32_t sellMusicKit{ 10 };
+    // cases, capsules, souvenir packages and agents pay this percent of what the star store charges for them
+    uint32_t sellContainerPercent{ 30 };
+    uint32_t sellAgentPercent{ 50 };
     uint32_t perKill{ 1 };
     uint32_t perHeadshot{ 1 }; // on top of the kill
     uint32_t perMvp{ 3 };

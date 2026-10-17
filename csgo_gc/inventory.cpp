@@ -155,6 +155,33 @@ Inventory::~Inventory()
     WriteToFile();
 }
 
+CSOEconItem Inventory::ClientView(const CSOEconItem &item) const
+{
+    if (item.rarity() != ItemSchema::RarityAncient)
+    {
+        return item;
+    }
+
+    bool hidden = item.quality() == ItemSchema::QualityUnusual;
+    if (!hidden)
+    {
+        const ItemInfo *info = m_itemSchema.ItemInfoByDefIndex(item.def_index());
+        hidden = info && (info->m_name.find("knife") != std::string::npos
+            || info->m_name.find("bayonet") != std::string::npos
+            || info->m_name.find("glove") != std::string::npos
+            || info->m_itemType == "customplayer");
+    }
+
+    if (!hidden)
+    {
+        return item;
+    }
+
+    CSOEconItem shown = item;
+    shown.set_rarity(ItemSchema::RarityUnusual);
+    return shown;
+}
+
 void Inventory::AddToMultipleObjects(CMsgSOMultipleObjects &message, SOTypeId type, const google::protobuf::MessageLite &object)
 {
     if (!message.has_version())
@@ -894,7 +921,7 @@ void Inventory::BuildCacheSubscription(CMsgSOCacheSubscribed &message, bool serv
                 continue;
             }
 
-            object->add_object_data(pair.second.SerializeAsString());
+            object->add_object_data(ClientView(pair.second).SerializeAsString());
         }
     }
 
@@ -3472,15 +3499,12 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
     {
         Standard,   // 10 same rarity -> next rarity
         CovertToGold,
-        GoldToGold,
     };
 
     constexpr size_t StandardTradeUpCount = 10;
     constexpr size_t GoldTradeUpCount = 5;
     // unusual (gold) StatTraks are only valid below this def index, i.e. knives not gloves
     constexpr uint32_t MaxStatTrakUnusualDefIndex = 1000;
-    // gold-for-gold: output float is the inputs' normalized average times this
-    constexpr float GoldUpgradeFloatFactor = 0.5f;
 
     const size_t inputCount = inputItemIds.size();
     if (inputCount != StandardTradeUpCount && inputCount != GoldTradeUpCount)
@@ -3556,11 +3580,20 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
         debug.storedRarity = item.rarity();
         debug.quality = item.quality();
 
-        const bool isGold = item.quality() == ItemSchema::QualityUnusual;
+        // knives and gloves can't be traded up, whatever quality they were made with
+        const ItemInfo *inputInfo = m_itemSchema.ItemInfoByDefIndex(item.def_index());
+        if (item.quality() == ItemSchema::QualityUnusual
+            || (inputInfo && (inputInfo->m_name.find("knife") != std::string::npos
+                || inputInfo->m_name.find("bayonet") != std::string::npos
+                || inputInfo->m_name.find("glove") != std::string::npos)))
+        {
+            Platform::Print("Trade-up item %llu is a knife or gloves, which can't be traded up\n",
+                static_cast<unsigned long long>(itemId));
+            return false;
+        }
 
-        // vanilla knives have no paint kit; everything else must have one
         uint32_t paintKitDefIndex = 0;
-        if (!GetItemPaintKitDefIndex(item, m_itemSchema, paintKitDefIndex) && !isGold)
+        if (!GetItemPaintKitDefIndex(item, m_itemSchema, paintKitDefIndex))
         {
             Platform::Print("Trade-up item %llu has no paint kit (def %u, stored rarity %u, quality %u)\n",
                 static_cast<unsigned long long>(itemId), item.def_index(), item.rarity(), item.quality());
@@ -3575,7 +3608,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
         // a skin only a custom case has uses the rarity that case gave it
         std::vector<std::string> officialCollections;
         uint32_t customRarity = 0;
-        if (paintKitDefIndex && !isGold
+        if (paintKitDefIndex
             && !m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, officialCollections)
             && m_itemSchema.GetCustomCaseRarity(item.def_index(), paintKitDefIndex, customRarity))
         {
@@ -3585,11 +3618,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
 
         // work out which contract this item belongs to
         ContractType itemContract;
-        if (isGold)
-        {
-            itemContract = ContractType::GoldToGold;
-        }
-        else if (rarity == ItemSchema::RarityAncient)
+        if (rarity == ItemSchema::RarityAncient)
         {
             itemContract = ContractType::CovertToGold;
         }
@@ -3610,7 +3639,7 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
         }
         else if (itemContract != contractType)
         {
-            printItemDebug("Trade-up items must all be the same tier (all same-rarity skins, all Coverts, or all knives/gloves)", debug);
+            printItemDebug("Trade-up items must all be the same tier (all same-rarity skins, or all Coverts)", debug);
             return false;
         }
 
@@ -3626,17 +3655,9 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
             return false;
         }
 
-        // collection lookup: skins via their collection, golds via the case pool they drop from
+        // collection lookup: a skin's collection
         std::vector<std::string> collections;
-        if (contractType == ContractType::GoldToGold)
-        {
-            if (!m_itemSchema.GetSpecialTradeUpCollections(item.def_index(), paintKitDefIndex, collections))
-            {
-                printItemDebug("Knife/glove is not in any case pool linked to a collection", debug);
-                return false;
-            }
-        }
-        else if (!m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections)
+        if (!m_itemSchema.GetCollectionsForPaintedItem(item.def_index(), paintKitDefIndex, collections)
             && !m_itemSchema.GetCustomCaseCollections(item.def_index(), paintKitDefIndex, collections)
             && !m_itemSchema.GetCollectionsForPaintKit(paintKitDefIndex, collections))
         {
@@ -3696,24 +3717,13 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
             return false;
         }
 
-        // StatTrak knives keep unusual quality, so for golds only the kill eater matters
-        bool itemStatTrak;
-        bool itemValid;
-        if (contractType == ContractType::GoldToGold)
-        {
-            itemStatTrak = hasKillEater && hasWeaponKillEaterScoreType;
-            itemValid = !hasKillEater || itemStatTrak;
-        }
-        else
-        {
-            const bool itemNormalTradeUp = (item.quality() == ItemSchema::QualityUnique
-                || item.quality() == ItemSchema::QualityTournament)
-                && !hasKillEater;
-            itemStatTrak = item.quality() == ItemSchema::QualityStrange
-                && hasKillEater
-                && hasWeaponKillEaterScoreType;
-            itemValid = itemNormalTradeUp || itemStatTrak;
-        }
+        const bool itemNormalTradeUp = (item.quality() == ItemSchema::QualityUnique
+            || item.quality() == ItemSchema::QualityTournament)
+            && !hasKillEater;
+        const bool itemStatTrak = item.quality() == ItemSchema::QualityStrange
+            && hasKillEater
+            && hasWeaponKillEaterScoreType;
+        const bool itemValid = itemNormalTradeUp || itemStatTrak;
 
         if (!itemValid)
         {
@@ -3769,10 +3779,6 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
         avgWear = m_random.Float(0.0f, 1.0f);
     }
 
-    if (contractType == ContractType::GoldToGold)
-    {
-        avgWear *= GoldUpgradeFloatFactor;
-    }
     avgWear = std::clamp(avgWear, 0.0f, 1.0f);
 
     const uint32_t outputRarity = inputRarity + 1;
@@ -3908,20 +3914,8 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
     {
         const uint32_t paintKitId = selectedCandidate->paintKitInfo->m_defIndex;
 
-        // gold-for-gold rolls the pattern once per input and keeps the best one
-        const int seedRolls = contractType == ContractType::GoldToGold ? static_cast<int>(inputCount) : 1;
         outputSeed = m_random.Integer<uint32_t>(GoldPatterns::SeedMin, GoldPatterns::SeedMax);
         outputPatternScore = GoldPatterns::Score(outputItem.def_index(), paintKitId, outputSeed);
-        for (int i = 1; i < seedRolls; i++)
-        {
-            uint32_t seed = m_random.Integer<uint32_t>(GoldPatterns::SeedMin, GoldPatterns::SeedMax);
-            uint32_t score = GoldPatterns::Score(outputItem.def_index(), paintKitId, seed);
-            if (score > outputPatternScore)
-            {
-                outputSeed = seed;
-                outputPatternScore = score;
-            }
-        }
 
         CSOEconItemAttribute *paintAttr = outputItem.add_attribute();
         paintAttr->set_def_index(ItemSchema::AttributeTexturePrefab);
@@ -3960,17 +3954,8 @@ bool Inventory::TradeUp(const std::vector<uint64_t> &inputItemIds,
 
     ToSingleObject(newItem, outputItem);
 
-    // recipe ids: 0..5 by input rarity (Consumer..Covert), +10 for StatTrak.
-    // Gold-for-gold is recipe 6 whether or not the knives are StatTrak.
-    if (contractType == ContractType::GoldToGold)
-    {
-        responseRecipeIndex = 6;
-    }
-    else
-    {
-        responseRecipeIndex = static_cast<int16_t>(inputRarity - ItemSchema::RarityCommon
-            + (hasStatTrak ? 10 : 0));
-    }
+    // recipe ids: 0..5 by input rarity (Consumer..Covert), +10 for StatTrak
+    responseRecipeIndex = static_cast<int16_t>(inputRarity - ItemSchema::RarityCommon + (hasStatTrak ? 10 : 0));
 
     if (outCraftedItem)
     {
