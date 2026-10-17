@@ -855,8 +855,8 @@ int GameSchemaPatch::ActivateOperation(std::string &text, int64_t now)
 }
 
 // Recipe ids follow the existing pattern (0..4 by input rarity, +10 for
-// StatTrak), which is also what the GC's craft handler expects. Only Covert skins go into these:
-// knives and gloves have no trade-up recipe, so they never show up on the trade-up screen.
+// StatTrak), which is also what the GC's craft handler expects. Only Covert skins go into these; the item_slot
+// conditions keep knives, gloves and agents out of the trade-up list.
 const char *const GameSchemaPatch::GoldTradeUpRecipes = R"(		"5"
 		{
 			"name"		"#RT_MP_A"
@@ -880,6 +880,9 @@ const char *const GameSchemaPatch::GoldTradeUpRecipes = R"(		"5"
 						"0" { "field" "*rarity" "operator" "string==" "value" "ancient" "required" "1" }
 						"1" { "field" "*quality" "operator" "string==" "value" "unique" "required" "1" }
 						"2" { "field" "craft_class" "operator" "string==" "value" "weapon" "required" "1" }
+						"3" { "field" "item_slot" "operator" "string!=" "value" "melee" "required" "1" }
+						"4" { "field" "item_slot" "operator" "string!=" "value" "clothing_hands" "required" "1" }
+						"5" { "field" "item_slot" "operator" "string!=" "value" "customplayer" "required" "1" }
 					}
 				}
 			}
@@ -920,6 +923,9 @@ const char *const GameSchemaPatch::GoldTradeUpRecipes = R"(		"5"
 						"1" { "field" "*quality" "operator" "string==" "value" "strange" "required" "1" }
 						"2" { "field" "*kill_eater_score_type" "operator" "string==" "value" "0" "required" "1" }
 						"3" { "field" "craft_class" "operator" "string==" "value" "weapon" "required" "1" }
+						"4" { "field" "item_slot" "operator" "string!=" "value" "melee" "required" "1" }
+						"5" { "field" "item_slot" "operator" "string!=" "value" "clothing_hands" "required" "1" }
+						"6" { "field" "item_slot" "operator" "string!=" "value" "customplayer" "required" "1" }
 					}
 				}
 			}
