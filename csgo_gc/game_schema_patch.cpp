@@ -1073,43 +1073,6 @@ static bool FindRecipesBlock(const std::string &text, size_t &begin, size_t &end
     return false;
 }
 
-// switches a recipe of items_game/recipes off (its "disabled" value 0 becomes 1). false when it isn't there
-static bool DisableRecipe(std::string &text, const std::string &id)
-{
-    size_t begin = 0, end = 0;
-    if (!FindRecipesBlock(text, begin, end))
-    {
-        return false;
-    }
-
-    std::string body = text.substr(begin, end - begin);
-    const std::regex start{ "\\n\\t\\t\"" + id + "\"\\s*\\n\\t\\t\\{" };
-    std::smatch match;
-    if (!std::regex_search(body, match, start))
-    {
-        return false;
-    }
-
-    const size_t from = static_cast<size_t>(match.position(0));
-    // up to the next recipe, or the end of the block
-    static const std::regex next{ R"re(\n\t\t"\d+"\s*\n\t\t\{)re" };
-    std::string rest = body.substr(from + match.length(0));
-    std::smatch nextMatch;
-    const size_t recipeEnd = std::regex_search(rest, nextMatch, next) ? static_cast<size_t>(nextMatch.position(0)) : rest.size();
-    std::string recipe = rest.substr(0, recipeEnd);
-
-    static const std::regex disabled{ R"re(("disabled"\s+)"0")re" };
-    if (!std::regex_search(recipe, disabled))
-    {
-        return std::regex_search(recipe, std::regex{ R"re("disabled"\s+"1")re" }); // already off
-    }
-
-    recipe = std::regex_replace(recipe, disabled, "$1\"1\"", std::regex_constants::format_first_only);
-    body.replace(from + match.length(0), recipeEnd, recipe);
-    text.replace(begin, end - begin, body);
-    return true;
-}
-
 // the recipe numbers in items_game/recipes, and the recipes of `recipesText` whose number is not among them. each recipe in
 // the text starts with a line  \t\t"<number>"  followed by a line  \t\t{
 static std::string DropExistingRecipes(const std::string &text, const std::string &recipesText)
@@ -1225,11 +1188,6 @@ bool GameSchemaPatch::Apply(const LootListPreviews &previews, const std::string 
         {
             Platform::Print("items_game.txt patch: no recipes block found, gold trade-up recipes not added\n");
         }
-
-        // the game's own recipe 6 trades five golds for a gold, which makes every knife and glove eligible on the
-        // trade-up screen. switching it off keeps them off that screen
-        Platform::Print(DisableRecipe(patched, "6") ? "items_game.txt patch: gold-for-gold trade-up recipe switched off\n"
-                                                    : "items_game.txt patch: no gold-for-gold trade-up recipe to switch off\n");
     }
 
     size_t relaxed = 0;

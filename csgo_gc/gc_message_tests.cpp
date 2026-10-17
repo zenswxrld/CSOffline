@@ -3715,7 +3715,7 @@ static bool GoldTradeUpContractsProduceKnives()
             && covert.destroyCount == 5 && covert.created
             && covert.createdItem.def_index() == 507
             && covert.createdItem.quality() == ItemSchema::QualityUnusual
-            && covert.createdItem.rarity() == ItemSchema::RarityAncient
+            && covert.createdItem.rarity() == ItemSchema::RarityUnusual // knives are shown as unusual, not Covert
             && FindAttributeUint32(covert.createdItem, ItemSchema::AttributeTexturePrefab, paintKit) && paintKit == 44
             && FindAttributeFloat(covert.createdItem, ItemSchema::AttributeTextureWear, covertWear)
             && std::fabs(covertWear - 0.2f) < 0.0001f;
@@ -3734,15 +3734,9 @@ static bool GoldTradeUpContractsProduceKnives()
             && souvenir.createdItem.rarity() == ItemSchema::RarityAncient
             && !HasAttribute(souvenir.createdItem, ItemSchema::AttributeTournamentEventId);
 
-        // 5 Karambits at 0.4 -> Karambit at half the float
+        // knives and gloves can't be traded up, not even five of them
         CraftOutcome gold = SendCraft(gc, 5, { itemId(10), itemId(11), itemId(12), itemId(13), itemId(14) });
-        float goldWear = -1.0f;
-        valid &= gold.responded && gold.responseOk
-            && gold.destroyCount == 5 && gold.created
-            && gold.createdItem.def_index() == 507
-            && gold.createdItem.quality() == ItemSchema::QualityUnusual
-            && FindAttributeFloat(gold.createdItem, ItemSchema::AttributeTextureWear, goldWear)
-            && std::fabs(goldWear - 0.2f) < 0.0001f;
+        valid &= gold.responded && gold.responseDenied && gold.destroyCount == 0 && !gold.created;
     }
 
     RemoveGoldTradeUpFixtures();
@@ -4022,13 +4016,6 @@ static bool ContextMenuGetsASellEntry()
     std::string other = "var x = 1;";
     valid &= PanoramaHook::PatchContextMenuLabels(other) == 0;
 
-    // the trade-up page hides knives and gloves from its list and keeps the page's own script intact
-    std::string crafting = "var Crafting = 1;\n";
-    PanoramaHook::TidyTradeUpPage(crafting);
-    valid &= crafting.rfind("var Crafting = 1;\n", 0) == 0
-        && crafting.find("slot === 'melee' || slot === 'clothing_hands' || slot === 'customplayer'") != std::string::npos
-        && crafting.find("DeleteAsync") != std::string::npos
-        && crafting.find("'Crafting-Items'") != std::string::npos;
     return valid;
 }
 

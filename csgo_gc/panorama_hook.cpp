@@ -70,120 +70,6 @@ int PanoramaHook::PatchContextMenuLabels(std::string &source)
     return count;
 }
 
-// appended to the trade-up page (crafting.js): the game lists every item a contract recipe accepts, and its
-// recipes take knives, gloves and agents too (by rarity). they can't be used here, so they are hidden from the list
-static const char *const TradeUpTidyScript = R"js(
-var CsgoGcTradeUpTidy = function ()
-{
-	try
-	{
-		var elList = $.GetContextPanel().FindChildTraverse( 'Crafting-Items' );
-		if ( !elList )
-		{
-			return true;
-		}
-
-		var removed = 0;
-		var shown = 0;
-		var doomed = [];
-		var visit = function ( el )
-		{
-			var id = el.GetAttributeString ? el.GetAttributeString( 'itemid', '0' ) : '0';
-			if ( id && id !== '0' )
-			{
-				var slot = '';
-				try { slot = ItemInfo.GetSlotSubPosition( id ); } catch ( e ) {}
-				// knives, gloves and agents can't be traded up
-				if ( slot === 'melee' || slot === 'clothing_hands' || slot === 'customplayer' )
-				{
-					doomed.push( el );
-				}
-				else
-				{
-					shown++;
-				}
-				return;
-			}
-
-			var children = el.Children();
-			for ( var i = 0; i < children.length; i++ )
-			{
-				visit( children[ i ] );
-			}
-		};
-		visit( elList );
-
-		// take the tiles out of the list, so nothing is left in their place and the others close up
-		doomed.forEach( function ( el )
-		{
-			try
-			{
-				el.visible = false;
-				el.DeleteAsync( 0.0 );
-				removed++;
-			}
-			catch ( e )
-			{
-				try
-				{
-					el.style.visibility = 'collapse';
-					el.style.width = '0px';
-					el.style.height = '0px';
-					el.style.margin = '0px';
-					removed++;
-				}
-				catch ( e2 ) {}
-			}
-		} );
-
-		var elLabel = $.GetContextPanel().FindChildTraverse( 'CraftingItemsText' );
-		if ( elLabel && removed > 0 )
-		{
-			elLabel.SetDialogVariableInt( 'count', shown );
-		}
-		return true;
-	}
-	catch ( e )
-	{
-		// the page is gone
-		return false;
-	}
-};
-
-// the list builds its tiles as it is scrolled, so the cleanup keeps running while the page exists
-var CsgoGcTradeUpLoopRunning = false;
-var CsgoGcTradeUpLoop = function ()
-{
-	if ( CsgoGcTradeUpTidy() )
-	{
-		$.Schedule( 0.2, CsgoGcTradeUpLoop );
-	}
-	else
-	{
-		CsgoGcTradeUpLoopRunning = false;
-	}
-};
-
-var CsgoGcTradeUpTidyLater = function ()
-{
-	CsgoGcTradeUpTidy();
-	if ( !CsgoGcTradeUpLoopRunning )
-	{
-		CsgoGcTradeUpLoopRunning = true;
-		$.Schedule( 0.2, CsgoGcTradeUpLoop );
-	}
-};
-
-$.RegisterForUnhandledEvent( 'UpdateTradeUpPanel', CsgoGcTradeUpTidyLater );
-$.RegisterForUnhandledEvent( 'PanoramaComponent_Inventory_CraftIngredientAdded', CsgoGcTradeUpTidyLater );
-$.RegisterForUnhandledEvent( 'PanoramaComponent_Inventory_CraftIngredientRemoved', CsgoGcTradeUpTidyLater );
-CsgoGcTradeUpTidyLater();
-)js";
-
-void PanoramaHook::TidyTradeUpPage(std::string &source)
-{
-    source += TradeUpTidyScript;
-}
 
 // the price of an item, by its tier: knives and gloves, then painted weapons by rarity. what the GC really
 // pays is decided by the GC (star_shop sell in config.txt); these are the same numbers
@@ -1605,15 +1491,11 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
         Platform::Print("Panorama: context_menu_inventory_item.js didn't match, the Sell entry has no label\n");
     }
 
-    if (PathIsFile(path, "crafting.js"))
+    if (GetConfig().PanoramaDebug() && PathIsFile(path, "crafting.js"))
     {
         std::string patched = source;
-        PanoramaHook::TidyTradeUpPage(patched);
-        if (GetConfig().PanoramaDebug())
-        {
-            patched += std::string{ "\n" } + CraftingDiagnosticScript;
-            Platform::Print("Panorama: trade-up page diagnostics added (panorama_debug)\n");
-        }
+        patched += std::string{ "\n" } + CraftingDiagnosticScript;
+        Platform::Print("Panorama: trade-up page diagnostics added (panorama_debug)\n");
         s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
         return;
     }
