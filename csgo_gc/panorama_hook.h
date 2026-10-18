@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <string>
 
 class ItemSchema;
@@ -56,6 +57,30 @@ namespace PanoramaHook
     // the skin's picture. the game only does that for the one you click, so a skin and weapon pair it has no
     // ready-made picture of (every one in a custom case) stays a blank tile. returns the number of changes
     int PatchCasePopup(std::string &source);
+
+    // your ranks and level, for the scoreboard (Tab). the scoreboard reads each player's rank from the game server,
+    // which has nothing for a listen server, so mock_adapter.js is patched to answer for you and for the bots. bots
+    // get a rank and level near yours. only in competitive and wingman matches. returns the number of changes
+    struct ScoreboardRanks
+    {
+        int competitive{};
+        int wingman{};
+        int level{};
+    };
+    int PatchScoreboardRanks(std::string &source, const ScoreboardRanks &ranks);
+
+    // the ranks the scoreboard patch uses, kept up to date by the GC when they change (header only, so the GC
+    // doesn't need the UI code to build)
+    inline std::atomic<int> g_rankCompetitive{ 0 };
+    inline std::atomic<int> g_rankWingman{ 0 };
+    inline std::atomic<int> g_playerLevel{ 0 };
+
+    inline void SetScoreboardRanks(const ScoreboardRanks &ranks)
+    {
+        g_rankCompetitive = ranks.competitive;
+        g_rankWingman = ranks.wingman;
+        g_playerLevel = ranks.level;
+    }
 
     // lets a context menu entry whose name starts with '!' show that text as it is (the menu would look the
     // name up as a language token). returns the number of changes

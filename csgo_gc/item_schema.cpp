@@ -355,6 +355,34 @@ ItemSchema::ItemSchema(bool loadFiles)
             GameSchemaPatch::Restore();
         }
     }
+
+    // the bots' names
+    if (GetConfig().BotNames())
+    {
+        std::vector<std::string> customNames;
+        if (FILE *file = fopen("csgo_gc/bot_names.txt", "rb"))
+        {
+            char buffer[256];
+            while (fgets(buffer, sizeof(buffer), file))
+            {
+                std::string name{ buffer };
+                while (!name.empty() && (name.back() == '\n' || name.back() == '\r' || name.back() == ' '))
+                {
+                    name.pop_back();
+                }
+                if (!name.empty() && name.size() <= 24 && name.find_first_of(" \t/\"=") == std::string::npos)
+                {
+                    customNames.push_back(name);
+                }
+            }
+            fclose(file);
+        }
+        GameSchemaPatch::ApplyBotNames(customNames);
+    }
+    else
+    {
+        GameSchemaPatch::RestoreBotNames();
+    }
 }
 
 // custom_cases.txt format:

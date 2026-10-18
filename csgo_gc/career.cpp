@@ -328,6 +328,22 @@ constexpr AchievementDef Achievements[] = {
     { "stars_earned_75000_x", "Star Fortune", "Earn 75,000 stars in matches.", "stars_earned", 75000, 250, 7 },
     { "stars_earned_150000_x", "Star Treasury", "Earn 150,000 stars in matches.", "stars_earned", 150000, 325, 7 },
     { "stars_earned_2000000_x", "Galaxy Banker", "Earn 2,000,000 stars in matches.", "stars_earned", 2000000, 650, 7 },
+    { "competitive_win_1", "First Competitive Win", "Win a competitive match.", "wins_competitive", 1, 30, 6 },
+    { "competitive_win_10", "Ten Ranked Wins", "Win 10 competitive matches.", "wins_competitive", 10, 100, 6 },
+    { "competitive_win_25", "Ranked Regular", "Win 25 competitive matches.", "wins_competitive", 25, 175, 6 },
+    { "competitive_win_100", "Ranked Veteran", "Win 100 competitive matches.", "wins_competitive", 100, 350, 6 },
+    { "competitive_win_500", "Ranked Legend", "Win 500 competitive matches.", "wins_competitive", 500, 800, 6 },
+    { "wingman_win_1", "First Wingman Win", "Win a Wingman match.", "wins_wingman", 1, 30, 6 },
+    { "wingman_win_25", "Wingman Regular", "Win 25 Wingman matches.", "wins_wingman", 25, 150, 6 },
+    { "wingman_win_100", "Wingman Veteran", "Win 100 Wingman matches.", "wins_wingman", 100, 350, 6 },
+    { "casual_win_1", "First Casual Win", "Win a casual match.", "wins_casual", 1, 20, 6 },
+    { "casual_win_25", "Casual Regular", "Win 25 casual matches.", "wins_casual", 25, 100, 6 },
+    { "casual_win_100", "Casual Veteran", "Win 100 casual matches.", "wins_casual", 100, 300, 6 },
+    { "dangerzone_win_1", "First Danger Win", "Win a Danger Zone match.", "wins_dangerzone", 1, 30, 6 },
+    { "dangerzone_win_25", "Danger Zone Regular", "Win 25 Danger Zone matches.", "wins_dangerzone", 25, 150, 6 },
+    { "matches_won_10", "Ten Wins", "Win 10 matches in any mode.", "matches_won", 10, 60, 6 },
+    { "matches_won_100", "A Hundred Wins", "Win 100 matches in any mode.", "matches_won", 100, 300, 6 },
+    { "matches_won_500", "Winning Habit", "Win 500 matches in any mode.", "matches_won", 500, 750, 6 },
 };
 
 std::string FormatCaseName(const ItemSchema &schema, uint32_t crate)
@@ -707,6 +723,55 @@ std::vector<Career::Unlock> Career::RecordMatchEvent(MatchEvent event)
     return unlocked;
 }
 
+static constexpr uint64_t RankThresholds[18] = { 0, 100, 200, 300, 450, 600, 800, 1000, 1250, 1500, 1800, 2100, 2500,
+    2900, 3400, 3900, 4500, 5200 };
+
+static constexpr const char *RankNames[18] = { "Silver I", "Silver II", "Silver III", "Silver IV", "Silver Elite",
+    "Silver Elite Master", "Gold Nova I", "Gold Nova II", "Gold Nova III", "Gold Nova Master", "Master Guardian I",
+    "Master Guardian II", "Master Guardian Elite", "Distinguished Master Guardian", "Legendary Eagle",
+    "Legendary Eagle Master", "Supreme Master First Class", "The Global Elite" };
+
+uint32_t Career::RankFromPoints(uint64_t points, uint32_t maxRank)
+{
+    maxRank = std::clamp<uint32_t>(maxRank, 1, 18);
+    uint32_t rank = 1;
+    for (uint32_t i = 1; i < maxRank; i++)
+    {
+        if (points >= RankThresholds[i])
+        {
+            rank = i + 1;
+        }
+    }
+    return rank;
+}
+
+uint64_t Career::PointsForRank(uint32_t rank)
+{
+    return RankThresholds[std::clamp<uint32_t>(rank, 1, 18) - 1];
+}
+
+const char *Career::RankName(uint32_t rank)
+{
+    return RankNames[std::clamp<uint32_t>(rank, 1, 18) - 1];
+}
+
+void Career::AddRankPoints(const std::string &stat, int64_t delta)
+{
+    uint64_t &points = m_stats[stat];
+    points = delta < 0 && static_cast<uint64_t>(-delta) > points ? 0 : points + delta;
+    Save();
+}
+
+std::vector<Career::Unlock> Career::RecordMatchWin(const std::string &stat)
+{
+    m_stats[stat]++;
+    m_stats["matches_won"]++;
+
+    std::vector<Unlock> unlocked = CheckAchievements();
+    Save();
+    return unlocked;
+}
+
 std::vector<Career::Unlock> Career::RecordTradeUp(bool goldResult)
 {
     m_stats["tradeups"]++;
@@ -748,6 +813,8 @@ std::string Career::StatsText() const
         << "StatTrak pulls: " << Stat("stattrak_pulls") << '\n'
         << "Skins found: " << Stat("skins_found") << ", collections complete: " << Stat("goals_done") << '\n'
         << "Trade-ups: " << Stat("tradeups") << " (" << Stat("tradeup_golds") << " gold)\n"
+        << "Matches won: " << Stat("matches_won") << " (competitive " << Stat("wins_competitive") << ", wingman "
+        << Stat("wins_wingman") << ", danger zone " << Stat("wins_dangerzone") << ", casual " << Stat("wins_casual") << ")\n"
         << "Matches: " << Stat("matches") << ", kills " << Stat("kills") << " (" << Stat("headshots")
         << " headshots), MVPs " << Stat("mvps") << ", plants " << Stat("plants") << ", defuses " << Stat("defuses") << '\n'
         << "Stars earned in matches: " << Stat("stars_earned") << '\n'

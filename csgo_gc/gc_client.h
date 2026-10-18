@@ -68,6 +68,8 @@ private:
     std::string RconSellItem(const RconRequest &request);
     std::string RconGiveStars(const RconRequest &request);
     std::string RconCareer(const RconRequest &request);
+    std::string RconLevel(const RconRequest &request);
+    std::string RconGiveXp(const RconRequest &request);
     std::string RconGoals(const RconRequest &request);
     std::string RconAchievements(const RconRequest &request);
     std::string RconRefreshInventory(const RconRequest &request);
@@ -96,10 +98,14 @@ private:
     // Increment the equipped StatTrak music kit when the local player receives round MVP.
     void LocalPlayerRoundMVP();
     // Roll an end-of-match item drop.
-    void LocalPlayerMatchEnd();
+    void LocalPlayerMatchEnd(const LocalMatchResult &result);
+    int WinsFor(const char *stat) const;
+    uint32_t RankFor(const char *pointsStat, uint32_t maxRank) const;
     // award stars for something the local player did
     void LocalPlayerStars(StarShop::Reason reason);
     void LocalPlayerXp(StarShop::Reason reason);
+    void ApplyXp(uint32_t amount, bool save);
+    uint32_t NativeXp() const;
     uint32_t m_matchXp{}; // experience earned since the last match end message
     // the operation whose redeemable balance is the star count, if the star shop is on
     std::optional<uint32_t> StarSeason() const;

@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "case_opening.h"
 #include "gc_client.h"
+#include "game_types.h"
 #include "gc_message.h"
 #include "game_schema_patch.h"
 #include "keyvalue.h"
@@ -2361,7 +2362,7 @@ static bool ValidatePrestigeClaimEvents(const std::vector<EventData> &events,
             CMsgGCCStrike15_v2_MatchmakingGC2ClientHello hello;
             foundMatchmakingHello = ParseHostProtobuf(events[i], hello)
                 && hello.player_level() == 1
-                && hello.player_cur_xp() == 0;
+                && hello.player_cur_xp() == 327680000; // the game's base value for 0 XP in the level
         }
         else if (type == k_EMsgGCCStrike15_v2_Client2GCRequestPrestigeCoin)
         {
@@ -2497,7 +2498,7 @@ static bool ServiceMedalsFollowBuildYearAndPersistPrestige()
             && ParseHostProtobuf(event, welcome)
             && matchmakingHello.ParseFromString(welcome.game_data2())
             && matchmakingHello.player_level() == 1
-            && matchmakingHello.player_cur_xp() == 0;
+            && matchmakingHello.player_cur_xp() == 327680000;
     }
 
     valid &= SetPersistedPlayerProgress(CSGOMaxPlayerLevel, 4999);
@@ -3291,6 +3292,66 @@ static bool EventFavoritesPersistAndPreserveRequestJobs()
     return valid;
 }
 
+static bool BotNamesAreRenamedAndRestored()
+{
+    const std::string sample =
+        "Default\r\n\tDifficulty = 2\r\nEnd\r\n\r\nTemplate Elite\r\n\tSkill = 100\r\nEnd\r\n\r\n"
+        "// These are the individual bot profiles\r\n\r\nElite+Rifle Cliffe\r\n\tVoicePitch = 100\r\nEnd\r\n"
+        "Elite Bonnie\r\n\tVoicePitch = 90\r\nEnd\r\n";
+
+    if (!TestFilesystem::MakeDirectory("csgo"))
+    {
+        return false;
+    }
+    FILE *file = std::fopen(GameSchemaPatch::BotProfilePath, "wb");
+    if (!file)
+    {
+        return false;
+    }
+    std::fwrite(sample.data(), 1, sample.size(), file);
+    std::fclose(file);
+
+    bool ok = GameSchemaPatch::ApplyBotNames({ "ZenFan" });
+
+    std::string patched;
+    if (FILE *in = std::fopen(GameSchemaPatch::BotProfilePath, "rb"))
+    {
+        char buffer[512];
+        size_t n;
+        while ((n = std::fread(buffer, 1, sizeof(buffer), in)) > 0)
+        {
+            patched.append(buffer, n);
+        }
+        std::fclose(in);
+    }
+
+    ok &= patched.find("Cliffe") == std::string::npos && patched.find("Bonnie") == std::string::npos;
+    ok &= patched.find("Elite+Rifle ") != std::string::npos && patched.find("Template Elite\r\n") != std::string::npos;
+    ok &= patched.find("Difficulty = 2") != std::string::npos && patched.find("VoicePitch = 90") != std::string::npos;
+    ok &= patched.find("ZenFan") != std::string::npos;
+
+    // a second run starts from the backup, so the originals are still what gets replaced
+    ok &= GameSchemaPatch::ApplyBotNames({});
+    ok &= GameSchemaPatch::RestoreBotNames();
+
+    std::string restored;
+    if (FILE *in = std::fopen(GameSchemaPatch::BotProfilePath, "rb"))
+    {
+        char buffer[512];
+        size_t n;
+        while ((n = std::fread(buffer, 1, sizeof(buffer), in)) > 0)
+        {
+            restored.append(buffer, n);
+        }
+        std::fclose(in);
+    }
+    ok &= restored == sample;
+
+    TestFilesystem::RemoveFile(GameSchemaPatch::BotProfilePath);
+    TestFilesystem::RemoveDirectory("csgo");
+    return ok;
+}
+
 static bool OfflineGCRequestsReceiveMinimalResponses()
 {
     constexpr uint64_t SteamId = 76561197960265729ull;
@@ -4019,6 +4080,23 @@ static bool ContextMenuGetsASellEntry()
     return valid;
 }
 
+static bool ScoreboardRanksPatchTheAdapter()
+{
+    std::string adapter =
+        "\t\tGetPlayerCompetitiveRanking: function _GetPlayerCompetitiveRanking ( xuid ) {return _APIAccessor( GameStateAPI.GetPlayerCompetitiveRanking( xuid ), k_GetPlayerCompetitiveRanking );},\n"
+        "\t\tGetPlayerXpLevel: function _GetPlayerXpLevel ( xuid ) {return _APIAccessor( GameStateAPI.GetPlayerXpLevel( xuid ), k_GetPlayerXpLevel, xuid );},\n";
+    bool valid = PanoramaHook::PatchScoreboardRanks(adapter, { 7, 3, 21 }) == 2
+        && adapter.find("return CsgoGcRankFor( xuid, _APIAccessor( GameStateAPI.GetPlayerCompetitiveRanking( xuid ), k_GetPlayerCompetitiveRanking ) );}")
+            != std::string::npos
+        && adapter.find("return CsgoGcLevelFor( xuid, _APIAccessor( GameStateAPI.GetPlayerXpLevel( xuid ), k_GetPlayerXpLevel, xuid ) );}")
+            != std::string::npos
+        && adapter.find("var CsgoGcRanks = { comp: 7, wing: 3, level: 21 };") != std::string::npos;
+
+    std::string other = "var x = 1;";
+    valid &= PanoramaHook::PatchScoreboardRanks(other, { 7, 3, 21 }) == 0 && other == "var x = 1;";
+    return valid;
+}
+
 static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
 {
     std::string text =
@@ -4214,6 +4292,56 @@ static bool CareerTracksGoalsAchievementsAndPersists()
     }
 
     TestFilesystem::RemoveFile(Path);
+    return valid;
+}
+
+static bool WonMatchesCountAndMoveRanks()
+{
+    constexpr uint64_t SteamId = 76561197960265729ull;
+    RemoveGoldTradeUpFixtures();
+    if (!WriteGoldTradeUpFixtures())
+    {
+        RemoveGoldTradeUpFixtures();
+        return false;
+    }
+
+    bool valid = true;
+    {
+        ClientGC gc{ SteamId };
+        LocalMatchResult result{ 1, GameTypes::GameTypeClassic, GameTypes::ClassicCompetitive };
+        gc.PostToGC(GCEvent::LocalPlayerMatchEnd, 0, &result, sizeof(result));
+
+        std::vector<EventData> events;
+        valid &= WaitForHostMessagesUntil(gc, k_EMsgGCCStrike15_v2_ClientGCRankUpdate, events);
+
+        bool sawRankUpdate = false;
+        for (const EventData &event : events)
+        {
+            CMsgGCCStrike15_v2_ClientGCRankUpdate update;
+            if ((static_cast<uint32_t>(event.id) & ~ProtobufMask) == k_EMsgGCCStrike15_v2_ClientGCRankUpdate
+                && ParseHostProtobuf(event, update))
+            {
+                for (const PlayerRankingInfo &rank : update.rankings())
+                {
+                    if (rank.rank_type_id() == RankTypeCompetitive)
+                    {
+                        // a win is 25 points; the career file may already hold wins from earlier runs
+                        sawRankUpdate = true;
+                        valid &= rank.rank_id() >= 1 && rank.wins() >= 1;
+                    }
+                }
+            }
+        }
+        valid &= sawRankUpdate;
+    }
+
+    // the rank steps follow the points: 100 is Silver II, 5200 The Global Elite, and a danger zone rank stops at 15
+    valid &= Career::RankFromPoints(0, 18) == 1 && Career::RankFromPoints(99, 18) == 1
+        && Career::RankFromPoints(100, 18) == 2 && Career::RankFromPoints(5200, 18) == 18
+        && Career::RankFromPoints(99999, 18) == 18 && Career::RankFromPoints(99999, 15) == 15
+        && std::string{ Career::RankName(18) } == "The Global Elite";
+
+    RemoveGoldTradeUpFixtures();
     return valid;
 }
 
@@ -5177,6 +5305,8 @@ int main()
         { "GoldTradeUpContractsProduceKnives", GoldTradeUpContractsProduceKnives },
         { "CasePityGuaranteesGoldWithinLimit", CasePityGuaranteesGoldWithinLimit },
         { "MatchEndGivesOneDrop", MatchEndGivesOneDrop },
+        { "WonMatchesCountAndMoveRanks", WonMatchesCountAndMoveRanks },
+        { "ScoreboardRanksPatchTheAdapter", ScoreboardRanksPatchTheAdapter },
         { "StoreListsEveryWeaponCaseAndKey", StoreListsEveryWeaponCaseAndKey },
         { "CustomCaseReplacesContents", CustomCaseReplacesContents },
         { "CaseStoreListsPricedCustomCasesAsSpecialOffers", CaseStoreListsPricedCustomCasesAsSpecialOffers },
@@ -5222,6 +5352,7 @@ int main()
             SeasonalMissionCardSelectionValidatesAndPersists },
         { "EventFavoritesPersistAndPreserveRequestJobs",
             EventFavoritesPersistAndPreserveRequestJobs },
+        { "BotNamesAreRenamedAndRestored", BotNamesAreRenamedAndRestored },
         { "OfflineGCRequestsReceiveMinimalResponses",
             OfflineGCRequestsReceiveMinimalResponses },
     };

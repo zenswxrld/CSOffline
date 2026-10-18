@@ -9,6 +9,14 @@ enum class HostEvent
     MicroTransactionResponse, // id contains the Steam microtransaction order id
 };
 
+// what the game hook knows about the match that just ended, the payload of GCEvent::LocalPlayerMatchEnd
+struct LocalMatchResult
+{
+    int32_t outcome; // 1 when the local player's team won more rounds than it lost, -1 when it lost more, 0 a draw
+    int32_t gameType;
+    int32_t gameMode;
+};
+
 enum class GCEvent
 {
     Message, // id contains the message type, buffer contains the payload

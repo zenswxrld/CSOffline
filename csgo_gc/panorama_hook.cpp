@@ -73,6 +73,87 @@ int PanoramaHook::PatchContextMenuLabels(std::string &source)
 
 // the price of an item, by its tier: knives and gloves, then painted weapons by rarity. what the GC really
 // pays is decided by the GC (star_shop sell in config.txt); these are the same numbers
+int PanoramaHook::PatchScoreboardRanks(std::string &source, const ScoreboardRanks &ranks)
+{
+    // GetPlayerCompetitiveRanking: function _GetPlayerCompetitiveRanking ( xuid ) {return _APIAccessor( ... );},
+    static const std::regex rankFn{
+        R"re((GetPlayerCompetitiveRanking:\s*function\s+_GetPlayerCompetitiveRanking\s*\(\s*xuid\s*\)\s*\{\s*return\s+)(_APIAccessor\([^;]*\))(\s*;\s*\}))re" };
+    static const std::regex levelFn{
+        R"re((GetPlayerXpLevel:\s*function\s+_GetPlayerXpLevel\s*\(\s*xuid\s*\)\s*\{\s*return\s+)(_APIAccessor\([^;]*\))(\s*;\s*\}))re" };
+
+    int count = 0;
+    if (std::regex_search(source, rankFn))
+    {
+        source = std::regex_replace(source, rankFn, "$1CsgoGcRankFor( xuid, $2 )$3", std::regex_constants::format_first_only);
+        count++;
+    }
+    if (std::regex_search(source, levelFn))
+    {
+        source = std::regex_replace(source, levelFn, "$1CsgoGcLevelFor( xuid, $2 )$3", std::regex_constants::format_first_only);
+        count++;
+    }
+    if (!count)
+    {
+        return 0;
+    }
+
+    source += "\n\nvar CsgoGcRanks = { comp: " + std::to_string(ranks.competitive) + ", wing: " + std::to_string(ranks.wingman)
+        + ", level: " + std::to_string(ranks.level) + R"js( };
+var CsgoGcBotHash = function ( xuid )
+{
+	var s = String( xuid );
+	try { s += GameStateAPI.GetPlayerName( xuid ); } catch ( e ) {}
+	var h = 0;
+	for ( var i = 0; i < s.length; i++ )
+	{
+		h = ( h * 31 + s.charCodeAt( i ) ) % 1000003;
+	}
+	return h;
+};
+var CsgoGcRankFor = function ( xuid, real )
+{
+	try
+	{
+		var mode = GameStateAPI.GetGameModeInternalName( false );
+		var wingman = ( mode === 'scrimcomp2v2' );
+		if ( mode !== 'competitive' && !wingman )
+		{
+			return real;
+		}
+
+		var mine = wingman ? CsgoGcRanks.wing : CsgoGcRanks.comp;
+		if ( mine <= 0 )
+		{
+			return real;
+		}
+		if ( xuid === GameStateAPI.GetLocalPlayerXuid() )
+		{
+			return mine;
+		}
+		if ( GameStateAPI.IsFakePlayer( xuid ) )
+		{
+			return Math.max( 1, Math.min( 18, mine + ( CsgoGcBotHash( xuid ) % 5 ) - 2 ) );
+		}
+	}
+	catch ( e ) {}
+	return real;
+};
+var CsgoGcLevelFor = function ( xuid, real )
+{
+	try
+	{
+		if ( CsgoGcRanks.level > 0 && xuid !== GameStateAPI.GetLocalPlayerXuid() && GameStateAPI.IsFakePlayer( xuid ) )
+		{
+			return Math.max( 1, Math.min( 40, CsgoGcRanks.level + ( CsgoGcBotHash( xuid ) % 7 ) - 3 ) );
+		}
+	}
+	catch ( e ) {}
+	return real;
+};
+)js";
+    return count;
+}
+
 static std::string s_sellTable = "{}";
 
 void PanoramaHook::SetSellData(std::string table)
@@ -1443,6 +1524,21 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
     prices.byRarity[6] = starShop.sellCovert;
     prices.knifeOrGlove = starShop.sellKnifeOrGlove;
     prices.stickerPercent = starShop.sellStickerPercent;
+
+    if (GetConfig().RankSystem().scoreboard && PathIsFile(path, "mock_adapter.js"))
+    {
+        std::string patched = source;
+        const int changes = PanoramaHook::PatchScoreboardRanks(patched,
+            { PanoramaHook::g_rankCompetitive.load(), PanoramaHook::g_rankWingman.load(), PanoramaHook::g_playerLevel.load() });
+        Platform::Print("Panorama: scoreboard ranks %s (competitive %d, wingman %d, level %d)\n",
+            changes ? "added" : "not added, mock_adapter.js didn't match", PanoramaHook::g_rankCompetitive.load(), PanoramaHook::g_rankWingman.load(),
+            PanoramaHook::g_playerLevel.load());
+        if (changes)
+        {
+            s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
+            return;
+        }
+    }
 
     if (sellMenu && PathIsFile(path, "inventory.js"))
     {

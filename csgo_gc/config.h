@@ -49,6 +49,18 @@ struct MatchDropConfig
 // experience earned from playing (bot matches too). every xpPerLevel fills a
 // player level and a level-up can drop an item. max level can be reset for a
 // service medal, like the real game
+// competitive ranks, Silver I (1) to The Global Elite (18). a won match in a competitive, wingman or danger zone
+// match earns rank points and a lost one costs some; every rank needs more points than the one before
+struct RankSystemConfig
+{
+    bool enabled{ true };
+    uint32_t winPoints{ 25 };
+    uint32_t lossPoints{ 15 };
+    uint32_t startRank{ 1 };
+    // show your rank and level, and bots near yours, on the scoreboard (Tab) in competitive and wingman matches
+    bool scoreboard{ true };
+};
+
 struct XpConfig
 {
     bool enabled{ true };
@@ -157,6 +169,7 @@ public:
     bool CustomCasePreviews() const { return m_customCasePreviews; }
     bool GoldTradeUpRecipes() const { return m_goldTradeUpRecipes; }
     bool CareerTracking() const { return m_careerTracking; }
+    bool BotNames() const { return m_botNames; }
     bool CustomCaseCollections() const { return m_customCaseCollections; }
     bool CaseStoreMenu() const { return m_caseStoreMenu; }
     bool PanoramaDebug() const { return m_panoramaDebug; }
@@ -181,6 +194,7 @@ public:
     const MatchDropConfig &MatchDrops() const { return m_matchDrops; }
     const StarShopConfig &StarShop() const { return m_starShop; }
     const XpConfig &XpRewards() const { return m_xpConfig; }
+    const RankSystemConfig &RankSystem() const { return m_rankSystem; }
     const BotSkinsConfig &BotSkins() const { return m_botSkins; }
     bool ItemDeleteMenu() const { return m_itemDeleteMenu; }
 
@@ -214,6 +228,7 @@ private:
     bool m_customCasePreviews{ false };
     bool m_goldTradeUpRecipes{ true };
     bool m_careerTracking{ true };
+    bool m_botNames{ true };
     bool m_customCaseCollections{ false };
     bool m_caseStoreMenu{ true };
     bool m_panoramaDebug{ false };
@@ -235,6 +250,7 @@ private:
     int m_level{ 0 };
     int m_xp{ 0 };
     XpConfig m_xpConfig;
+    RankSystemConfig m_rankSystem;
 
     // default to valve weights
     std::vector<RarityWeight> m_rarityWeights{

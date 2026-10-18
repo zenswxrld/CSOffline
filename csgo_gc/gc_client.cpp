@@ -2,6 +2,7 @@
 #include "gc_client.h"
 #include "appid.h"
 #include "game_types.h"
+#include "panorama_hook.h"
 #include "graffiti.h"
 #include "item_utils.h"
 #include "keyvalue.h"
@@ -491,8 +492,15 @@ void ClientGC::HandleEvent(GCEvent type, uint64_t id, const std::vector<uint8_t>
         break;
 
     case GCEvent::LocalPlayerMatchEnd:
-        LocalPlayerMatchEnd();
+    {
+        LocalMatchResult result{};
+        if (buffer.size() == sizeof(result))
+        {
+            memcpy(&result, buffer.data(), sizeof(result));
+        }
+        LocalPlayerMatchEnd(result);
         break;
+    }
 
     case GCEvent::LocalPlayerStars:
         if (buffer.size() == sizeof(uint32_t))
@@ -557,6 +565,8 @@ const ClientGC::RconCommandDef *ClientGC::RconCommands(size_t &count)
         { "sell_item", "sell_item <itemid>", &ClientGC::RconSellItem },
         { "give_stars", "give_stars <amount>", &ClientGC::RconGiveStars },
         { "career", "career", &ClientGC::RconCareer },
+        { "level", "level", &ClientGC::RconLevel },
+        { "give_xp", "give_xp <amount>", &ClientGC::RconGiveXp },
         { "goals", "goals [all]", &ClientGC::RconGoals },
         { "achievements", "achievements", &ClientGC::RconAchievements },
         { "refresh_inventory", "refresh_inventory", &ClientGC::RconRefreshInventory },
@@ -2072,7 +2082,7 @@ void ClientGC::BuildMatchmakingHello(CMsgGCCStrike15_v2_MatchmakingGC2ClientHell
     message.mutable_commendation()->set_cmd_teaching(GetConfig().CommendedTeaching());
     message.mutable_commendation()->set_cmd_leader(GetConfig().CommendedLeader());
     message.set_player_level(m_inventory.PlayerLevel());
-    message.set_player_cur_xp(m_inventory.PlayerXp());
+    message.set_player_cur_xp(NativeXp());
 }
 
 void ClientGC::BuildClientWelcome(CMsgClientWelcome &message, const CMsgClientHello &hello,
@@ -2187,24 +2197,28 @@ void ClientGC::SendEmptyDeepStats(const CMsgGCCStrike15_ClientDeepStats &request
 
 void ClientGC::SendRankUpdate()
 {
+    const bool system = GetConfig().RankSystem().enabled;
+    PanoramaHook::SetScoreboardRanks({ static_cast<int>(system ? RankFor("points_competitive", 18) : GetConfig().CompetitiveRank()),
+        static_cast<int>(system ? RankFor("points_wingman", 18) : GetConfig().WingmanRank()), m_inventory.PlayerLevel() });
+
     CMsgGCCStrike15_v2_ClientGCRankUpdate message;
 
     PlayerRankingInfo *rank = message.add_rankings();
     rank->set_account_id(AccountId());
-    rank->set_rank_id(GetConfig().CompetitiveRank());
-    rank->set_wins(GetConfig().CompetitiveWins());
+    rank->set_rank_id(GetConfig().RankSystem().enabled ? RankFor("points_competitive", 18) : GetConfig().CompetitiveRank());
+    rank->set_wins(GetConfig().CompetitiveWins() + WinsFor("wins_competitive"));
     rank->set_rank_type_id(RankTypeCompetitive);
 
     rank = message.add_rankings();
     rank->set_account_id(AccountId());
-    rank->set_rank_id(GetConfig().WingmanRank());
-    rank->set_wins(GetConfig().WingmanWins());
+    rank->set_rank_id(GetConfig().RankSystem().enabled ? RankFor("points_wingman", 18) : GetConfig().WingmanRank());
+    rank->set_wins(GetConfig().WingmanWins() + WinsFor("wins_wingman"));
     rank->set_rank_type_id(RankTypeWingman);
 
     rank = message.add_rankings();
     rank->set_account_id(AccountId());
-    rank->set_rank_id(GetConfig().DangerZoneRank());
-    rank->set_wins(GetConfig().DangerZoneWins());
+    rank->set_rank_id(GetConfig().RankSystem().enabled ? RankFor("points_dangerzone", 15) : GetConfig().DangerZoneRank());
+    rank->set_wins(GetConfig().DangerZoneWins() + WinsFor("wins_dangerzone"));
     rank->set_rank_type_id(RankTypeDangerZone);
 
     SendMessageToGame(false, k_EMsgGCCStrike15_v2_ClientGCRankUpdate, message);
@@ -2510,7 +2524,19 @@ void ClientGC::LocalPlayerRoundMVP()
     SendMessageToGame(true, k_ESOMsg_Update, update);
 }
 
-void ClientGC::LocalPlayerMatchEnd()
+uint32_t ClientGC::RankFor(const char *pointsStat, uint32_t maxRank) const
+{
+    const RankSystemConfig &ranks = GetConfig().RankSystem();
+    const uint64_t points = Career::PointsForRank(ranks.startRank) + m_career.Stat(pointsStat);
+    return Career::RankFromPoints(points, maxRank);
+}
+
+int ClientGC::WinsFor(const char *stat) const
+{
+    return static_cast<int>(m_career.Stat(stat));
+}
+
+void ClientGC::LocalPlayerMatchEnd(const LocalMatchResult &result)
 {
     // cs_win_panel_match can be seen more than once for the same match (e.g. a
     // reconnect), so allow at most one drop per minute
@@ -2524,6 +2550,60 @@ void ClientGC::LocalPlayerMatchEnd()
         return;
     }
     m_lastMatchDropTime = now;
+
+    if (result.outcome != 0)
+    {
+        // the mode decides which win count it goes to. classic: casual 0, competitive 1, wingman 2 (scrim 2v2),
+        // 5v5 scrim counts as competitive; free for all is Danger Zone
+        const char *stat = "wins_casual";
+        if (result.gameType == GameTypes::GameTypeClassic)
+        {
+            if (result.gameMode == GameTypes::ClassicCompetitive || result.gameMode == GameTypes::ClassicScrimComp5v5)
+            {
+                stat = "wins_competitive";
+            }
+            else if (result.gameMode == GameTypes::ClassicScrimComp2v2)
+            {
+                stat = "wins_wingman";
+            }
+        }
+        else if (result.gameType == GameTypes::GameTypeFreeForAll)
+        {
+            stat = "wins_dangerzone";
+        }
+
+        std::string text;
+        if (result.outcome > 0)
+        {
+            GrantCareerRewards(m_career.RecordMatchWin(stat));
+            PublishCareer();
+            text = std::string{ "Match won! " } + stat + ": " + std::to_string(WinsFor(stat));
+        }
+
+        // competitive, wingman and danger zone matches earn or cost rank points
+        const RankSystemConfig &ranks = GetConfig().RankSystem();
+        const char *pointsStat = !strcmp(stat, "wins_competitive") ? "points_competitive"
+            : !strcmp(stat, "wins_wingman") ? "points_wingman" : !strcmp(stat, "wins_dangerzone") ? "points_dangerzone" : nullptr;
+        if (ranks.enabled && pointsStat)
+        {
+            const uint32_t maxRank = !strcmp(pointsStat, "points_dangerzone") ? 15 : 18;
+            const uint32_t before = RankFor(pointsStat, maxRank);
+            m_career.AddRankPoints(pointsStat, result.outcome > 0 ? static_cast<int64_t>(ranks.winPoints)
+                                                                   : -static_cast<int64_t>(ranks.lossPoints));
+            const uint32_t after = RankFor(pointsStat, maxRank);
+            if (after != before)
+            {
+                text += std::string{ text.empty() ? "" : " - " } + (after > before ? "RANK UP! " : "Rank down: ")
+                    + "you are now " + Career::RankName(after);
+            }
+        }
+
+        if (!text.empty())
+        {
+            SendStarsMessage(text);
+        }
+        SendRankUpdate();
+    }
 
     LocalPlayerStars(StarShop::Reason::MatchComplete);
     if (m_matchStars)
@@ -2557,6 +2637,11 @@ void ClientGC::LocalPlayerMatchEnd()
             + std::to_string(m_inventory.PlayerLevel()) + ", " + std::to_string(m_inventory.PlayerXp())
             + "/" + std::to_string(GetConfig().XpRewards().perLevel) + ")");
         m_matchXp = 0;
+
+        // the game's level screens read the XP from the matchmaking hello
+        CMsgGCCStrike15_v2_MatchmakingGC2ClientHello matchmakingHello;
+        BuildMatchmakingHello(matchmakingHello);
+        SendMessageToGame(false, k_EMsgGCCStrike15_v2_MatchmakingGC2ClientHello, matchmakingHello);
     }
 }
 
@@ -2589,27 +2674,22 @@ void ClientGC::PublishStarChange(const Inventory::StarChange &change)
     }
 }
 
-void ClientGC::LocalPlayerXp(StarShop::Reason reason)
+uint32_t ClientGC::NativeXp() const
+{
+    // the game's own level screens read "327680000 + the XP in the level" and take 5000 XP as a full level, so
+    // the XP is scaled to that whatever per_level says
+    constexpr uint32_t NativeBase = 327680000;
+    constexpr uint32_t NativeLevelXp = 5000;
+    const uint32_t perLevel = std::max<uint32_t>(1, GetConfig().XpRewards().perLevel);
+    const uint64_t xp = static_cast<uint64_t>(std::max(m_inventory.PlayerXp(), 0)) * NativeLevelXp / perLevel;
+    return NativeBase + static_cast<uint32_t>(std::min<uint64_t>(xp, NativeLevelXp - 1));
+}
+
+void ClientGC::ApplyXp(uint32_t amount, bool save)
 {
     const XpConfig &xp = GetConfig().XpRewards();
-    if (!xp.enabled)
-    {
-        return;
-    }
-
-    uint32_t amount = 0;
-    switch (reason)
-    {
-    case StarShop::Reason::Kill: amount = xp.perKill; break;
-    case StarShop::Reason::Headshot: amount = xp.perHeadshot; break;
-    case StarShop::Reason::Mvp: amount = xp.perMvp; break;
-    case StarShop::Reason::Plant: amount = xp.perPlant; break;
-    case StarShop::Reason::Defuse: amount = xp.perDefuse; break;
-    case StarShop::Reason::MatchComplete: amount = xp.perMatch; break;
-    }
-
     Inventory::XpChange change;
-    if (!m_inventory.AddPlayerXp(amount, xp.perLevel, reason == StarShop::Reason::MatchComplete, change))
+    if (!m_inventory.AddPlayerXp(amount, xp.perLevel, save, change))
     {
         return;
     }
@@ -2643,11 +2723,79 @@ void ClientGC::LocalPlayerXp(StarShop::Reason reason)
         text += ". Max level! Claim your service medal from your profile to reset";
     }
 
-    CMsgGCCStrike15_v2_GC2ClientTextMsg textMsg;
-    textMsg.set_id(0);
-    textMsg.set_type(0);
-    textMsg.set_payload(text);
-    SendMessageToGame(false, k_EMsgGCCStrike15_v2_GC2ClientTextMsg, textMsg);
+    SendStarsMessage(text);
+}
+
+void ClientGC::LocalPlayerXp(StarShop::Reason reason)
+{
+    const XpConfig &xp = GetConfig().XpRewards();
+    if (!xp.enabled)
+    {
+        return;
+    }
+
+    uint32_t amount = 0;
+    switch (reason)
+    {
+    case StarShop::Reason::Kill: amount = xp.perKill; break;
+    case StarShop::Reason::Headshot: amount = xp.perHeadshot; break;
+    case StarShop::Reason::Mvp: amount = xp.perMvp; break;
+    case StarShop::Reason::Plant: amount = xp.perPlant; break;
+    case StarShop::Reason::Defuse: amount = xp.perDefuse; break;
+    case StarShop::Reason::MatchComplete: amount = xp.perMatch; break;
+    }
+
+    ApplyXp(amount, reason == StarShop::Reason::MatchComplete);
+}
+
+std::string ClientGC::RconLevel(const RconRequest &request)
+{
+    if (!request.args.empty())
+    {
+        return Usage("level");
+    }
+
+    const XpConfig &xp = GetConfig().XpRewards();
+    std::string text = "Level " + std::to_string(m_inventory.PlayerLevel()) + " of " + std::to_string(CSGOMaxPlayerLevel);
+    if (m_inventory.PlayerLevel() >= CSGOMaxPlayerLevel)
+    {
+        text += ", max level: claim your service medal from your profile to reset";
+    }
+    else
+    {
+        text += ", " + std::to_string(m_inventory.PlayerXp()) + "/" + std::to_string(xp.perLevel) + " XP";
+    }
+    text += xp.enabled ? "" : " (xp is off in config.txt)";
+    text += "\nWins: competitive " + std::to_string(GetConfig().CompetitiveWins() + WinsFor("wins_competitive"))
+        + ", wingman " + std::to_string(GetConfig().WingmanWins() + WinsFor("wins_wingman"))
+        + ", danger zone " + std::to_string(GetConfig().DangerZoneWins() + WinsFor("wins_dangerzone"))
+        + ", casual " + std::to_string(WinsFor("wins_casual"));
+    if (GetConfig().RankSystem().enabled)
+    {
+        text += std::string{ "\nRanks: competitive " } + Career::RankName(RankFor("points_competitive", 18))
+            + ", wingman " + Career::RankName(RankFor("points_wingman", 18))
+            + ", danger zone rank " + std::to_string(RankFor("points_dangerzone", 15));
+    }
+    return text;
+}
+
+std::string ClientGC::RconGiveXp(const RconRequest &request)
+{
+    uint32_t amount = 0;
+    if (request.args.size() != 1 || !TryParseNumber(request.args[0], amount) || !amount || amount > 10000000)
+    {
+        return Usage("give_xp <amount, 1 to 10000000>");
+    }
+
+    const int before = m_inventory.PlayerLevel();
+    ApplyXp(amount, true);
+
+    // the game's level screens read the XP from the matchmaking hello
+    CMsgGCCStrike15_v2_MatchmakingGC2ClientHello matchmakingHello;
+    BuildMatchmakingHello(matchmakingHello);
+    SendMessageToGame(false, k_EMsgGCCStrike15_v2_MatchmakingGC2ClientHello, matchmakingHello);
+
+    return "OK " + RconLevel(RconRequest{ "level", {} }) + (m_inventory.PlayerLevel() > before ? " (level up!)" : "");
 }
 
 void ClientGC::LocalPlayerStars(StarShop::Reason reason)

@@ -11,6 +11,7 @@
 //   Game -> CallbackHandlers -> Game events -> ClientGC/ServerGC
 #include "stdafx.h"
 #include "steam_hook.h"
+#include "game_types.h"
 #include "appid.h"
 #include "gc_client.h"
 #include "gc_server.h"
@@ -280,6 +281,10 @@ static IVEngineClient *s_engineClient;
 // Game Event Listeners - Handle game events and forward to GC
 // ============================================================================
 
+static int s_localTeam; // 2 = T, 3 = CT
+static int s_roundsWon;
+static int s_roundsLost;
+
 class ClientGameEventListener final : public IGameEventListener2
 {
 public:
@@ -291,11 +296,46 @@ public:
         }
 
         const char *eventName = event->GetName();
+
+        // who is winning: the local player's team (player_team) against the winners of each round (round_end)
+        if (!strcmp(eventName, "begin_new_match") || !strcmp(eventName, "round_announce_match_start"))
+        {
+            s_roundsWon = 0;
+            s_roundsLost = 0;
+            return;
+        }
+
+        if (!strcmp(eventName, "player_team"))
+        {
+            PlayerInfo localInfo{};
+            const int local = s_engineClient->GetLocalPlayer();
+            if (local > 0 && s_engineClient->GetPlayerInfo(local, &localInfo) && event->GetInt("userid") == localInfo.userId)
+            {
+                s_localTeam = event->GetInt("team");
+            }
+            return;
+        }
+
+        if (!strcmp(eventName, "round_end"))
+        {
+            const int winner = event->GetInt("winner");
+            if ((s_localTeam == 2 || s_localTeam == 3) && (winner == 2 || winner == 3))
+            {
+                (winner == s_localTeam ? s_roundsWon : s_roundsLost)++;
+            }
+            return;
+        }
+
         if (!strcmp(eventName, "cs_win_panel_match"))
         {
-            // end-of-match scoreboard: roll a match drop
-            Platform::Print("Listener saw cs_win_panel_match, requesting match drop\n");
-            s_clientGC->m_gc.PostToGC(GCEvent::LocalPlayerMatchEnd, 0, nullptr, 0);
+            // end-of-match scoreboard: roll a match drop and count the win
+            LocalMatchResult result{ s_roundsWon > s_roundsLost ? 1 : (s_roundsWon < s_roundsLost ? -1 : 0), GameTypes::CurrentGameType(),
+                GameTypes::CurrentGameMode() };
+            Platform::Print("Listener saw cs_win_panel_match (rounds %d-%d, type %d mode %d), requesting match drop\n",
+                s_roundsWon, s_roundsLost, result.gameType, result.gameMode);
+            s_clientGC->m_gc.PostToGC(GCEvent::LocalPlayerMatchEnd, 0, &result, sizeof(result));
+            s_roundsWon = 0;
+            s_roundsLost = 0;
             BotSkins::NewMatch(); // bots get new loadouts next match
             return;
         }
@@ -540,6 +580,11 @@ static void UpdateGameEventListeners()
 
         if (!s_clientMatchEndListenerRegistered)
         {
+            // the win count needs the teams and the round winners as well
+            s_gameEventManager->AddListener(&s_clientGameEventListener, "player_team", false);
+            s_gameEventManager->AddListener(&s_clientGameEventListener, "round_end", false);
+            s_gameEventManager->AddListener(&s_clientGameEventListener, "begin_new_match", false);
+            s_gameEventManager->AddListener(&s_clientGameEventListener, "round_announce_match_start", false);
             if (s_gameEventManager->AddListener(&s_clientGameEventListener, "cs_win_panel_match", false))
             {
                 s_clientMatchEndListenerRegistered = true;

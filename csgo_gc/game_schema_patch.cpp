@@ -4,6 +4,8 @@
 
 #include <cerrno>
 #include <filesystem>
+#include <algorithm>
+#include <random>
 #include <regex>
 
 static bool ReadWholeFile(const char *path, std::string &out)
@@ -1296,5 +1298,195 @@ bool GameSchemaPatch::Restore()
 
     remove(BackupPath);
     Platform::Print("restored the original %s, restart the game to see it\n", SchemaPath);
+    return true;
+}
+
+
+// ---- bot names -----------------------------------------------------------------------------------------------------
+
+static std::vector<std::string> GenerateGamerNames(std::mt19937 &random, size_t count)
+{
+    static const char *const Words[] = { "frost", "ghost", "viper", "raven", "storm", "blaze", "shadow", "cobra", "falcon",
+        "nova", "lunar", "pixel", "turbo", "rogue", "ember", "drift", "static", "hex", "onyx", "apex", "bolt", "echo",
+        "flux", "glitch", "havoc", "jolt", "karma", "lynx", "mamba", "nitro", "orbit", "pulse", "quartz", "rift", "sable",
+        "tundra", "umbra", "vortex", "wraith", "zephyr", "comet", "dagger", "fable", "gecko", "hydra", "ivory", "jinx" };
+    static const char *const Names[] = { "liam", "noah", "oscar", "leo", "mason", "ethan", "lucas", "adam", "jack", "finn",
+        "kai", "theo", "ryan", "max", "evan", "dylan", "nico", "sam", "ben", "alex", "ivan", "marco", "jonas", "felix",
+        "erik", "luka", "tomas", "mateo", "rafa", "andre", "pavel", "hugo", "viktor", "emil", "milo", "zane" };
+    static const char *const Adjectives[] = { "Salty", "Silent", "Lucky", "Angry", "Sleepy", "Swift", "Crispy", "Rusty",
+        "Frozen", "Toxic", "Dizzy", "Mighty", "Sneaky", "Hungry", "Clumsy", "Ruthless", "Reckless", "Smooth", "Wild",
+        "Cosmic", "Lazy", "Brave" };
+    static const char *const Nouns[] = { "Pickle", "Fox", "Wolf", "Panda", "Noodle", "Falcon", "Biscuit", "Tiger", "Goblin",
+        "Waffle", "Walrus", "Badger", "Muffin", "Otter", "Pigeon", "Raccoon", "Ninja", "Sloth", "Bandit", "Gremlin",
+        "Potato", "Mantis" };
+    static const char *const Tags[] = { "zyn", "kxng", "vxlt", "rzr", "nyx", "qrow", "skyy", "jvst", "drx", "fzn", "tzar",
+        "myst", "kryo", "voxx", "zeph", "ryze", "aeon", "lxrd", "byte", "phnx" };
+    static const char *const Leet[] = { "n1ghtfall", "d4rkmatter", "sn1per", "h4zard", "gh0stly", "cl4ssic", "v3nom",
+        "r3dline", "st4rfall", "b4ndit", "pr0digy", "k1ller", "sp3ctre", "t0xic", "z3ro", "ph4ntom", "bl4zed", "fr0stbite" };
+
+    // well-known handles from the CS scene
+    static const char *const Handles[] = { "s1mple", "ZywOo", "NiKo", "device", "donk", "m0NESY", "sh1ro", "Twistzz", "ropz", "broky", "rain", "karrigan", "frozen", "Jame", "b1t", "Perfecto", "NAF", "EliGE", "jks", "Ax1Le", "Hobbit", "magixx", "dupreeh", "Xyp9x", "gla1ve", "Magisk", "cadiaN", "stavn", "jabbi", "blameF", "Snappi", "chopper", "electroNic", "flameZ", "mezii", "apEX", "Spinx", "kyxsan", "hunter-", "w0nderful", "tabseN", "syrsoN", "Brollan", "Aleksib", "iM", "jL", "Boombl4", "flamie", "GuardiaN", "olofmeister", "FalleN", "fer", "coldzera", "TACO", "kennyS", "shox", "GeT_RiGhT", "f0rest", "Fnx", "boltz", "KSCERATO", "yuurih", "arT", "drop", "saffee", "HEN1", "lucas1", "pashaBiceps", "NEO", "TaZ", "Snax", "byali", "Zero", "JW", "flusha", "KRIMZ", "Golden", "SmithZz", "Skadoodle", "Stewie2K", "tarik", "autimatic", "RUSH", "n0thing", "fox", "hiko", "ShahZaM", "Sick", "dazed", "s0m", "ANDROID", "vanity", "daps", "nitr0", "steel", "Ethan", "oSee", "yay", "Kjaerbye", "jdm64", "Rickeh", "gob_b", "tiziaN", "LEGIJA", "Krimbo", "ScreaM", "Happy", "shroud", "Zeus", "Dosia", "Edward", "markeloff", "seized", "AdreN", "Hooch" };
+
+    const auto pick = [&](auto &list) -> std::string
+    {
+        return list[random() % (sizeof(list) / sizeof(list[0]))];
+    };
+    const auto digits = [&](int n)
+    {
+        std::string text;
+        for (int i = 0; i < n; i++)
+        {
+            text += static_cast<char>('0' + random() % 10);
+        }
+        return text;
+    };
+
+    std::vector<std::string> names;
+    std::unordered_set<std::string> seen;
+    for (size_t attempts = 0; names.size() < count && attempts < count * 50; attempts++)
+    {
+        std::string name;
+        switch (random() % 10)
+        {
+        case 8:
+        case 9: name = pick(Handles); break;
+        case 0: name = pick(Words) + digits(2); break;
+        case 1: name = pick(Words) + "_" + digits(2); break;
+        case 2: name = pick(Names) + "_" + static_cast<char>('a' + random() % 26); break;
+        case 3: name = pick(Names) + "." + digits(2); break;
+        case 4: name = pick(Adjectives) + pick(Nouns); break;
+        case 5: name = pick(Tags); break;
+        case 6: name = pick(Leet) + (random() % 2 ? digits(2) : std::string{}); break;
+        default: name = pick(Names) + pick(Words) + (random() % 2 ? digits(1) : std::string{}); break;
+        }
+
+        if (name.size() <= 24 && seen.insert(name).second)
+        {
+            names.push_back(std::move(name));
+        }
+    }
+    return names;
+}
+
+bool GameSchemaPatch::ApplyBotNames(const std::vector<std::string> &customNames)
+{
+    std::string original;
+    if (!ReadWholeFile(FileExists(BotProfileBackupPath) ? BotProfileBackupPath : BotProfilePath, original))
+    {
+        return false;
+    }
+
+    // the individual bots come after this comment; the lines above it are the templates
+    const size_t marker = original.find("These are the individual bot profiles");
+    if (marker == std::string::npos)
+    {
+        Platform::Print("bot names: botprofile.db has no bot profiles section, names not changed\n");
+        return false;
+    }
+
+    // a bot profile starts with a line like  "Elite+Rifle Cliffe"  : templates joined with +, then the name
+    static const std::regex header{ R"re(^([ \t]*[A-Za-z0-9_]+(?:\+[A-Za-z0-9_]+)*[ \t]+)([A-Za-z0-9_.\-]+)([ \t]*)$)re" };
+
+    std::vector<std::string> lines;
+    {
+        std::istringstream stream{ original };
+        std::string line;
+        while (std::getline(stream, line))
+        {
+            lines.push_back(line);
+        }
+    }
+
+    // CRLF files keep their line endings
+    const bool crlf = original.find("\r\n") != std::string::npos;
+    size_t lineStart = 0;
+    std::vector<size_t> bots;
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        if (lineStart >= marker)
+        {
+            std::string plain = lines[i];
+            if (!plain.empty() && plain.back() == '\r')
+            {
+                plain.pop_back();
+            }
+            if (plain.find('=') == std::string::npos && plain != "End" && std::regex_match(plain, header))
+            {
+                bots.push_back(i);
+            }
+        }
+        lineStart += lines[i].size() + 1;
+    }
+
+    std::random_device device;
+    std::mt19937 random{ device() };
+    std::vector<std::string> names;
+    for (const std::string &name : customNames)
+    {
+        names.push_back(name);
+    }
+    std::shuffle(names.begin(), names.end(), random);
+    for (std::string &name : GenerateGamerNames(random, bots.size() + 8))
+    {
+        names.push_back(std::move(name));
+    }
+
+    size_t next = 0;
+    for (size_t index : bots)
+    {
+        std::string plain = lines[index];
+        const bool hasCr = !plain.empty() && plain.back() == '\r';
+        if (hasCr)
+        {
+            plain.pop_back();
+        }
+
+        std::smatch match;
+        if (std::regex_match(plain, match, header) && next < names.size())
+        {
+            lines[index] = match[1].str() + names[next++] + match[3].str() + (hasCr ? "\r" : "");
+        }
+    }
+
+    std::string patched;
+    for (const std::string &line : lines)
+    {
+        patched += line + "\n";
+    }
+    if (crlf)
+    {
+        // lines already carry their \r
+    }
+
+    if (!FileExists(BotProfileBackupPath) && !WriteWholeFile(BotProfileBackupPath, original))
+    {
+        Platform::Print("bot names: could not create the backup %s (errno %d), not patching\n", BotProfileBackupPath, errno);
+        return false;
+    }
+    if (!WriteWholeFile(BotProfilePath, patched))
+    {
+        Platform::Print("bot names: could not write %s (errno %d)\n", BotProfilePath, errno);
+        return false;
+    }
+
+    Platform::Print("bot names: %zu bot profiles renamed in %s\n", bots.size(), BotProfilePath);
+    return true;
+}
+
+bool GameSchemaPatch::RestoreBotNames()
+{
+    if (!FileExists(BotProfileBackupPath))
+    {
+        return false;
+    }
+
+    std::string original;
+    if (!ReadWholeFile(BotProfileBackupPath, original) || !WriteWholeFile(BotProfilePath, original))
+    {
+        Platform::Print("could not restore %s from %s\n", BotProfilePath, BotProfileBackupPath);
+        return false;
+    }
+
+    remove(BotProfileBackupPath);
     return true;
 }

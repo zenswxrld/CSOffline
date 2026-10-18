@@ -61,6 +61,7 @@ GCConfig::GCConfig()
     m_customCasePreviews = config.GetNumber("custom_case_previews", m_customCasePreviews);
     m_goldTradeUpRecipes = config.GetNumber("gold_tradeup_recipes", m_goldTradeUpRecipes);
     m_careerTracking = config.GetNumber("career_tracking", m_careerTracking);
+    m_botNames = config.GetNumber("bot_names", m_botNames);
     m_customCaseCollections = config.GetNumber("custom_case_collections", m_customCaseCollections);
     m_caseStoreMenu = config.GetNumber("case_store_menu", m_caseStoreMenu);
     m_panoramaDebug = config.GetNumber("panorama_debug", m_panoramaDebug);
@@ -153,6 +154,15 @@ GCConfig::GCConfig()
     }
 
     m_itemDeleteMenu = config.GetNumber("item_delete_menu", m_itemDeleteMenu);
+
+    if (const KeyValue *rank = config.GetSubkey("rank_system"))
+    {
+        m_rankSystem.enabled = rank->GetNumber("enabled", m_rankSystem.enabled);
+        m_rankSystem.winPoints = rank->GetNumber("win_points", m_rankSystem.winPoints);
+        m_rankSystem.lossPoints = rank->GetNumber("loss_points", m_rankSystem.lossPoints);
+        m_rankSystem.scoreboard = rank->GetNumber("scoreboard", m_rankSystem.scoreboard);
+        m_rankSystem.startRank = std::clamp<uint32_t>(rank->GetNumber("start_rank", m_rankSystem.startRank), 1, 18);
+    }
 
     if (const KeyValue *xp = config.GetSubkey("xp"))
     {
