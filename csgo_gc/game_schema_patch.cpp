@@ -1324,6 +1324,9 @@ static std::vector<std::string> GenerateGamerNames(std::mt19937 &random, size_t 
     static const char *const Leet[] = { "n1ghtfall", "d4rkmatter", "sn1per", "h4zard", "gh0stly", "cl4ssic", "v3nom",
         "r3dline", "st4rfall", "b4ndit", "pr0digy", "k1ller", "sp3ctre", "t0xic", "z3ro", "ph4ntom", "bl4zed", "fr0stbite" };
 
+    // well-known handles from the CS scene
+    static const char *const Handles[] = { "s1mple", "ZywOo", "NiKo", "device", "donk", "m0NESY", "sh1ro", "Twistzz", "ropz", "broky", "rain", "karrigan", "frozen", "Jame", "b1t", "Perfecto", "NAF", "EliGE", "jks", "Ax1Le", "Hobbit", "magixx", "dupreeh", "Xyp9x", "gla1ve", "Magisk", "cadiaN", "stavn", "jabbi", "blameF", "Snappi", "chopper", "electroNic", "flameZ", "mezii", "apEX", "Spinx", "kyxsan", "hunter-", "w0nderful", "tabseN", "syrsoN", "Brollan", "Aleksib", "iM", "jL", "Boombl4", "flamie", "GuardiaN", "olofmeister", "FalleN", "fer", "coldzera", "TACO", "kennyS", "shox", "GeT_RiGhT", "f0rest", "Fnx", "boltz", "KSCERATO", "yuurih", "arT", "drop", "saffee", "HEN1", "lucas1", "pashaBiceps", "NEO", "TaZ", "Snax", "byali", "Zero", "JW", "flusha", "KRIMZ", "Golden", "SmithZz", "Skadoodle", "Stewie2K", "tarik", "autimatic", "RUSH", "n0thing", "fox", "hiko", "ShahZaM", "Sick", "dazed", "s0m", "ANDROID", "vanity", "daps", "nitr0", "steel", "Ethan", "oSee", "yay", "Kjaerbye", "jdm64", "Rickeh", "gob_b", "tiziaN", "LEGIJA", "Krimbo", "ScreaM", "Happy", "shroud", "Zeus", "Dosia", "Edward", "markeloff", "seized", "AdreN", "Hooch" };
+
     const auto pick = [&](auto &list) -> std::string
     {
         return list[random() % (sizeof(list) / sizeof(list[0]))];
@@ -1343,8 +1346,10 @@ static std::vector<std::string> GenerateGamerNames(std::mt19937 &random, size_t 
     for (size_t attempts = 0; names.size() < count && attempts < count * 50; attempts++)
     {
         std::string name;
-        switch (random() % 8)
+        switch (random() % 10)
         {
+        case 8:
+        case 9: name = pick(Handles); break;
         case 0: name = pick(Words) + digits(2); break;
         case 1: name = pick(Words) + "_" + digits(2); break;
         case 2: name = pick(Names) + "_" + static_cast<char>('a' + random() % 26); break;
