@@ -49,6 +49,16 @@ struct MatchDropConfig
 // experience earned from playing (bot matches too). every xpPerLevel fills a
 // player level and a level-up can drop an item. max level can be reset for a
 // service medal, like the real game
+// competitive ranks, Silver I (1) to The Global Elite (18). a won match in a competitive, wingman or danger zone
+// match earns rank points and a lost one costs some; every rank needs more points than the one before
+struct RankSystemConfig
+{
+    bool enabled{ true };
+    uint32_t winPoints{ 25 };
+    uint32_t lossPoints{ 15 };
+    uint32_t startRank{ 1 };
+};
+
 struct XpConfig
 {
     bool enabled{ true };
@@ -181,6 +191,7 @@ public:
     const MatchDropConfig &MatchDrops() const { return m_matchDrops; }
     const StarShopConfig &StarShop() const { return m_starShop; }
     const XpConfig &XpRewards() const { return m_xpConfig; }
+    const RankSystemConfig &RankSystem() const { return m_rankSystem; }
     const BotSkinsConfig &BotSkins() const { return m_botSkins; }
     bool ItemDeleteMenu() const { return m_itemDeleteMenu; }
 
@@ -235,6 +246,7 @@ private:
     int m_level{ 0 };
     int m_xp{ 0 };
     XpConfig m_xpConfig;
+    RankSystemConfig m_rankSystem;
 
     // default to valve weights
     std::vector<RarityWeight> m_rarityWeights{

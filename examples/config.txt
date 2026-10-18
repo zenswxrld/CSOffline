@@ -1,4 +1,5 @@
-// all of these should be quite self-explanatory
+// all of these should be quite self-explanatory. the wins here are the numbers you start with: matches you win
+// from now on are added on top and shown on your profile (competitive, wingman, danger zone)
 "ranks"
 {
 	"competitive_rank"	"18"
@@ -27,8 +28,8 @@
 	"3"	"400000"
 	"4"	"80000"
 	"5"	"16000"
-	"6"	"3200"
-	"99"	"1280"
+	"6"	"8000"
+	"99"	"8000"
 }
 
 // case pity: counts cases opened since your last gold (knife/glove). after
@@ -37,8 +38,8 @@
 "case_pity"
 {
 	"enabled"			"1"
-	"soft_pity_start"	"25"
-	"guaranteed_at"		"50"
+	"soft_pity_start"	"1"
+	"guaranteed_at"		"100"
 
 	// while you wait for a gold, purples, pinks and reds get more likely. each
 	// rarity's chance is multiplied by up to this much, climbing case by case
@@ -56,16 +57,14 @@
 "match_drops"
 {
 	"enabled"		"1"
-	"drop_chance"	"1.0"	// chance of getting a drop at all
-	"case_chance"	"0.35"	// chance the drop is a case instead of a skin
-	"custom_case_chance"	"0.5"	// of the cases that drop, the chance it is one of your custom cases (custom_cases.txt)
-	"drops_per_match"	"1"	// separate drops rolled when a match ends (1-20)
+	"drop_chance"	"100"	// chance of getting a drop at all
+	"case_chance"	"25"	// chance the drop is a case instead of a skin
+	"custom_case_chance"	"25"	// of the cases that drop, the chance it is one of your custom cases (custom_cases.txt)
+	"drops_per_match"	"3"	// separate drops rolled when a match ends (1-20)
 
 	// skin drop rarity weights (relative, like rarity_weights above)
 	"skin_rarity_weights"
 	{
-		"1"	"45"	// consumer
-		"2"	"30"	// industrial
 		"3"	"17"	// mil-spec
 		"4"	"6"		// restricted
 		"5"	"1.5"	// classified
@@ -107,6 +106,18 @@
 // achievements that pay stars. RCON: career, goals [all], achievements. needs the star shop.
 "career_tracking"	"1"
 
+// competitive ranks, Silver I to The Global Elite. winning a competitive, wingman or danger zone match gives
+// win_points rank points and losing one takes loss_points off; each rank needs more points than the one before
+// (The Global Elite is 5200 points). you start at start_rank (1 = Silver I). this replaces the rank numbers in
+// "ranks" above, which are only used when it is off. a draw changes nothing
+"rank_system"
+{
+	"enabled"		"1"
+	"win_points"	"25"
+	"loss_points"	"15"
+	"start_rank"	"1"
+}
+
 // player level and experience. XP comes from kills, headshots, MVPs, bomb plants and defuses and
 // finishing a match, in bot games too. every per_level XP is one level (max 40). each level-up
 // drops a case or skin. at level 40 XP stops until you claim a service medal from your profile,
@@ -141,7 +152,7 @@
 // show your custom skins. this edits the game's csgo/scripts/items/items_game.txt
 // (the original is kept as items_game.txt.csgo_gc_backup and is put back when
 // this is turned off). restart the game after changing custom_cases.txt.
-"custom_case_previews"	"0"
+"custom_case_previews"	"1"
 
 // star shop. stars are earned by playing and shown on the operation page (the newest
 // operation in items_game.txt, Riptide) as its star balance, which is where they are
@@ -169,13 +180,13 @@
 
 	// how many of each the operation page's shop has room for, newest first (0 = all of them).
 	// SkinStop (the star button) lists every case and package and is not limited by these
-	"max_cases"					"12"
-	"max_capsules"				"10"
+	"max_cases"					"0"
+	"max_capsules"				"0"
 	"max_souvenir_packages"		"0"
 
 	// how many sticker capsules SkinStop lists: the most popular ones (the early tournaments, then each
 	// Major's Legends capsule, CS20 and a few community ones). 0 = all of them
-	"shop_capsules"				"20"
+	"shop_capsules"				"0"
 
 	// what selling pays (0 = nothing): skins by rarity, knives and gloves, and also stickers, patches and
 	// graffiti (a percent of the skin price of the same rarity), music kits, and cases, capsules, souvenir
@@ -190,7 +201,7 @@
 		"classified"	"25"
 		"covert"		"50"
 		"knife_glove"	"150"
-		"sticker_percent"	"50"
+		"sticker_percent"	"25"
 		"music_kit"			"10"
 		"container_percent"	"30"
 		"agent_percent"		"50"
@@ -198,11 +209,11 @@
 
 	// stars earned
 	"kill"				"1"
-	"headshot"			"1"	// on top of the kill
-	"mvp"				"3"
-	"plant"				"2"
+	"headshot"			"4"	// on top of the kill
+	"mvp"				"5"
+	"plant"				"3"
 	"defuse"			"3"
-	"match_complete"	"5"
+	"match_complete"	"50"
 }
 
 // EXPERIMENTAL: bots get skins. each bot gets a colour theme for the match (red, blue,
@@ -213,7 +224,7 @@
 // match starts, set this back to 0
 "bot_skins"
 {
-	"enabled"	"0"
+	"enabled"	"1"
 	// also swap the bot's knife for a themed one (a Karambit, Butterfly, ...).
 	// 0 = weapon skins only, the bots keep their normal knife
 	"knives"	"1"
@@ -222,12 +233,12 @@
 // for debugging the menus: saves the game's UI scripts to csgo_gc/panorama_dump/ and
 // logs what the game thinks about the operation (lines starting with [csgo_gc]).
 // turn it on, start the game, and send the files and log lines
-"panorama_debug"	"0"
+"panorama_debug"	"1"
 
 // how much further than normal viewmodel_offset_x/y/z can go. 1 = the game's own
 // limits (about -2 to 2), 10 = ten times that, so e.g. "viewmodel_offset_x 15" works.
 // set the numbers in the console as usual once this is on
-"viewmodel_range"	"1"
+"viewmodel_range"	"10"
 
 // remove keys, cases, stickers, etc. after they've been used
 "destroy_used_items"	"1"
@@ -249,7 +260,7 @@
 // empty password accepts any Source RCON password.
 "rcon"
 {
-	"enabled"		"0"
+	"enabled"		"1"
 	"bind_address"	"127.0.0.1"
 	"port"			"37016"
 	"password"		""

@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "case_opening.h"
 #include "gc_client.h"
+#include "game_types.h"
 #include "gc_message.h"
 #include "game_schema_patch.h"
 #include "keyvalue.h"
@@ -4217,6 +4218,56 @@ static bool CareerTracksGoalsAchievementsAndPersists()
     return valid;
 }
 
+static bool WonMatchesCountAndMoveRanks()
+{
+    constexpr uint64_t SteamId = 76561197960265729ull;
+    RemoveGoldTradeUpFixtures();
+    if (!WriteGoldTradeUpFixtures())
+    {
+        RemoveGoldTradeUpFixtures();
+        return false;
+    }
+
+    bool valid = true;
+    {
+        ClientGC gc{ SteamId };
+        LocalMatchResult result{ 1, GameTypes::GameTypeClassic, GameTypes::ClassicCompetitive };
+        gc.PostToGC(GCEvent::LocalPlayerMatchEnd, 0, &result, sizeof(result));
+
+        std::vector<EventData> events;
+        valid &= WaitForHostMessagesUntil(gc, k_EMsgGCCStrike15_v2_ClientGCRankUpdate, events);
+
+        bool sawRankUpdate = false;
+        for (const EventData &event : events)
+        {
+            CMsgGCCStrike15_v2_ClientGCRankUpdate update;
+            if ((static_cast<uint32_t>(event.id) & ~ProtobufMask) == k_EMsgGCCStrike15_v2_ClientGCRankUpdate
+                && ParseHostProtobuf(event, update))
+            {
+                for (const PlayerRankingInfo &rank : update.rankings())
+                {
+                    if (rank.rank_type_id() == RankTypeCompetitive)
+                    {
+                        // a win is 25 points; the career file may already hold wins from earlier runs
+                        sawRankUpdate = true;
+                        valid &= rank.rank_id() >= 1 && rank.wins() >= 1;
+                    }
+                }
+            }
+        }
+        valid &= sawRankUpdate;
+    }
+
+    // the rank steps follow the points: 100 is Silver II, 5200 The Global Elite, and a danger zone rank stops at 15
+    valid &= Career::RankFromPoints(0, 18) == 1 && Career::RankFromPoints(99, 18) == 1
+        && Career::RankFromPoints(100, 18) == 2 && Career::RankFromPoints(5200, 18) == 18
+        && Career::RankFromPoints(99999, 18) == 18 && Career::RankFromPoints(99999, 15) == 15
+        && std::string{ Career::RankName(18) } == "The Global Elite";
+
+    RemoveGoldTradeUpFixtures();
+    return valid;
+}
+
 static bool LanguageTokensGoLastInTheTokensBlock()
 {
     std::string language =
@@ -5177,6 +5228,7 @@ int main()
         { "GoldTradeUpContractsProduceKnives", GoldTradeUpContractsProduceKnives },
         { "CasePityGuaranteesGoldWithinLimit", CasePityGuaranteesGoldWithinLimit },
         { "MatchEndGivesOneDrop", MatchEndGivesOneDrop },
+        { "WonMatchesCountAndMoveRanks", WonMatchesCountAndMoveRanks },
         { "StoreListsEveryWeaponCaseAndKey", StoreListsEveryWeaponCaseAndKey },
         { "CustomCaseReplacesContents", CustomCaseReplacesContents },
         { "CaseStoreListsPricedCustomCasesAsSpecialOffers", CaseStoreListsPricedCustomCasesAsSpecialOffers },

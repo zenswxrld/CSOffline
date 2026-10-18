@@ -154,6 +154,14 @@ GCConfig::GCConfig()
 
     m_itemDeleteMenu = config.GetNumber("item_delete_menu", m_itemDeleteMenu);
 
+    if (const KeyValue *rank = config.GetSubkey("rank_system"))
+    {
+        m_rankSystem.enabled = rank->GetNumber("enabled", m_rankSystem.enabled);
+        m_rankSystem.winPoints = rank->GetNumber("win_points", m_rankSystem.winPoints);
+        m_rankSystem.lossPoints = rank->GetNumber("loss_points", m_rankSystem.lossPoints);
+        m_rankSystem.startRank = std::clamp<uint32_t>(rank->GetNumber("start_rank", m_rankSystem.startRank), 1, 18);
+    }
+
     if (const KeyValue *xp = config.GetSubkey("xp"))
     {
         m_xpConfig.enabled = xp->GetNumber("enabled", m_xpConfig.enabled);

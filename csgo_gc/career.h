@@ -76,6 +76,18 @@ public:
     std::vector<Unlock> RecordStarsEarned(uint32_t amount);
     std::vector<Unlock> RecordMatchEvent(MatchEvent event);
 
+    // a won match, counted under a stat such as wins_competitive, wins_wingman, wins_dangerzone or wins_casual
+    std::vector<Unlock> RecordMatchWin(const std::string &stat);
+
+    // rank points kept as a stat (points_competitive ...); a loss takes points off, never below 0
+    void AddRankPoints(const std::string &stat, int64_t delta);
+
+    // the rank (1 = Silver I ... 18 = The Global Elite, or up to maxRank) a number of points is worth, the points
+    // a rank starts at, and a rank's name
+    static uint32_t RankFromPoints(uint64_t points, uint32_t maxRank);
+    static uint64_t PointsForRank(uint32_t rank);
+    static const char *RankName(uint32_t rank);
+
     uint64_t Stat(const std::string &name) const;
 
     std::string StatsText() const;

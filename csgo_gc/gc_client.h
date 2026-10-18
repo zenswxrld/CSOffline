@@ -98,7 +98,9 @@ private:
     // Increment the equipped StatTrak music kit when the local player receives round MVP.
     void LocalPlayerRoundMVP();
     // Roll an end-of-match item drop.
-    void LocalPlayerMatchEnd();
+    void LocalPlayerMatchEnd(const LocalMatchResult &result);
+    int WinsFor(const char *stat) const;
+    uint32_t RankFor(const char *pointsStat, uint32_t maxRank) const;
     // award stars for something the local player did
     void LocalPlayerStars(StarShop::Reason reason);
     void LocalPlayerXp(StarShop::Reason reason);

@@ -491,8 +491,15 @@ void ClientGC::HandleEvent(GCEvent type, uint64_t id, const std::vector<uint8_t>
         break;
 
     case GCEvent::LocalPlayerMatchEnd:
-        LocalPlayerMatchEnd();
+    {
+        LocalMatchResult result{};
+        if (buffer.size() == sizeof(result))
+        {
+            memcpy(&result, buffer.data(), sizeof(result));
+        }
+        LocalPlayerMatchEnd(result);
         break;
+    }
 
     case GCEvent::LocalPlayerStars:
         if (buffer.size() == sizeof(uint32_t))
@@ -2193,20 +2200,20 @@ void ClientGC::SendRankUpdate()
 
     PlayerRankingInfo *rank = message.add_rankings();
     rank->set_account_id(AccountId());
-    rank->set_rank_id(GetConfig().CompetitiveRank());
-    rank->set_wins(GetConfig().CompetitiveWins());
+    rank->set_rank_id(GetConfig().RankSystem().enabled ? RankFor("points_competitive", 18) : GetConfig().CompetitiveRank());
+    rank->set_wins(GetConfig().CompetitiveWins() + WinsFor("wins_competitive"));
     rank->set_rank_type_id(RankTypeCompetitive);
 
     rank = message.add_rankings();
     rank->set_account_id(AccountId());
-    rank->set_rank_id(GetConfig().WingmanRank());
-    rank->set_wins(GetConfig().WingmanWins());
+    rank->set_rank_id(GetConfig().RankSystem().enabled ? RankFor("points_wingman", 18) : GetConfig().WingmanRank());
+    rank->set_wins(GetConfig().WingmanWins() + WinsFor("wins_wingman"));
     rank->set_rank_type_id(RankTypeWingman);
 
     rank = message.add_rankings();
     rank->set_account_id(AccountId());
-    rank->set_rank_id(GetConfig().DangerZoneRank());
-    rank->set_wins(GetConfig().DangerZoneWins());
+    rank->set_rank_id(GetConfig().RankSystem().enabled ? RankFor("points_dangerzone", 15) : GetConfig().DangerZoneRank());
+    rank->set_wins(GetConfig().DangerZoneWins() + WinsFor("wins_dangerzone"));
     rank->set_rank_type_id(RankTypeDangerZone);
 
     SendMessageToGame(false, k_EMsgGCCStrike15_v2_ClientGCRankUpdate, message);
@@ -2512,7 +2519,19 @@ void ClientGC::LocalPlayerRoundMVP()
     SendMessageToGame(true, k_ESOMsg_Update, update);
 }
 
-void ClientGC::LocalPlayerMatchEnd()
+uint32_t ClientGC::RankFor(const char *pointsStat, uint32_t maxRank) const
+{
+    const RankSystemConfig &ranks = GetConfig().RankSystem();
+    const uint64_t points = Career::PointsForRank(ranks.startRank) + m_career.Stat(pointsStat);
+    return Career::RankFromPoints(points, maxRank);
+}
+
+int ClientGC::WinsFor(const char *stat) const
+{
+    return static_cast<int>(m_career.Stat(stat));
+}
+
+void ClientGC::LocalPlayerMatchEnd(const LocalMatchResult &result)
 {
     // cs_win_panel_match can be seen more than once for the same match (e.g. a
     // reconnect), so allow at most one drop per minute
@@ -2526,6 +2545,60 @@ void ClientGC::LocalPlayerMatchEnd()
         return;
     }
     m_lastMatchDropTime = now;
+
+    if (result.outcome != 0)
+    {
+        // the mode decides which win count it goes to. classic: casual 0, competitive 1, wingman 2 (scrim 2v2),
+        // 5v5 scrim counts as competitive; free for all is Danger Zone
+        const char *stat = "wins_casual";
+        if (result.gameType == GameTypes::GameTypeClassic)
+        {
+            if (result.gameMode == GameTypes::ClassicCompetitive || result.gameMode == GameTypes::ClassicScrimComp5v5)
+            {
+                stat = "wins_competitive";
+            }
+            else if (result.gameMode == GameTypes::ClassicScrimComp2v2)
+            {
+                stat = "wins_wingman";
+            }
+        }
+        else if (result.gameType == GameTypes::GameTypeFreeForAll)
+        {
+            stat = "wins_dangerzone";
+        }
+
+        std::string text;
+        if (result.outcome > 0)
+        {
+            GrantCareerRewards(m_career.RecordMatchWin(stat));
+            PublishCareer();
+            text = std::string{ "Match won! " } + stat + ": " + std::to_string(WinsFor(stat));
+        }
+
+        // competitive, wingman and danger zone matches earn or cost rank points
+        const RankSystemConfig &ranks = GetConfig().RankSystem();
+        const char *pointsStat = !strcmp(stat, "wins_competitive") ? "points_competitive"
+            : !strcmp(stat, "wins_wingman") ? "points_wingman" : !strcmp(stat, "wins_dangerzone") ? "points_dangerzone" : nullptr;
+        if (ranks.enabled && pointsStat)
+        {
+            const uint32_t maxRank = !strcmp(pointsStat, "points_dangerzone") ? 15 : 18;
+            const uint32_t before = RankFor(pointsStat, maxRank);
+            m_career.AddRankPoints(pointsStat, result.outcome > 0 ? static_cast<int64_t>(ranks.winPoints)
+                                                                   : -static_cast<int64_t>(ranks.lossPoints));
+            const uint32_t after = RankFor(pointsStat, maxRank);
+            if (after != before)
+            {
+                text += std::string{ text.empty() ? "" : " - " } + (after > before ? "RANK UP! " : "Rank down: ")
+                    + "you are now " + Career::RankName(after);
+            }
+        }
+
+        if (!text.empty())
+        {
+            SendStarsMessage(text);
+        }
+        SendRankUpdate();
+    }
 
     LocalPlayerStars(StarShop::Reason::MatchComplete);
     if (m_matchStars)
@@ -2688,6 +2761,16 @@ std::string ClientGC::RconLevel(const RconRequest &request)
         text += ", " + std::to_string(m_inventory.PlayerXp()) + "/" + std::to_string(xp.perLevel) + " XP";
     }
     text += xp.enabled ? "" : " (xp is off in config.txt)";
+    text += "\nWins: competitive " + std::to_string(GetConfig().CompetitiveWins() + WinsFor("wins_competitive"))
+        + ", wingman " + std::to_string(GetConfig().WingmanWins() + WinsFor("wins_wingman"))
+        + ", danger zone " + std::to_string(GetConfig().DangerZoneWins() + WinsFor("wins_dangerzone"))
+        + ", casual " + std::to_string(WinsFor("wins_casual"));
+    if (GetConfig().RankSystem().enabled)
+    {
+        text += std::string{ "\nRanks: competitive " } + Career::RankName(RankFor("points_competitive", 18))
+            + ", wingman " + Career::RankName(RankFor("points_wingman", 18))
+            + ", danger zone rank " + std::to_string(RankFor("points_dangerzone", 15));
+    }
     return text;
 }
 
