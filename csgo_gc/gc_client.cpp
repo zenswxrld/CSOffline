@@ -557,6 +557,8 @@ const ClientGC::RconCommandDef *ClientGC::RconCommands(size_t &count)
         { "sell_item", "sell_item <itemid>", &ClientGC::RconSellItem },
         { "give_stars", "give_stars <amount>", &ClientGC::RconGiveStars },
         { "career", "career", &ClientGC::RconCareer },
+        { "level", "level", &ClientGC::RconLevel },
+        { "give_xp", "give_xp <amount>", &ClientGC::RconGiveXp },
         { "goals", "goals [all]", &ClientGC::RconGoals },
         { "achievements", "achievements", &ClientGC::RconAchievements },
         { "refresh_inventory", "refresh_inventory", &ClientGC::RconRefreshInventory },
@@ -2072,7 +2074,7 @@ void ClientGC::BuildMatchmakingHello(CMsgGCCStrike15_v2_MatchmakingGC2ClientHell
     message.mutable_commendation()->set_cmd_teaching(GetConfig().CommendedTeaching());
     message.mutable_commendation()->set_cmd_leader(GetConfig().CommendedLeader());
     message.set_player_level(m_inventory.PlayerLevel());
-    message.set_player_cur_xp(m_inventory.PlayerXp());
+    message.set_player_cur_xp(NativeXp());
 }
 
 void ClientGC::BuildClientWelcome(CMsgClientWelcome &message, const CMsgClientHello &hello,
@@ -2557,6 +2559,11 @@ void ClientGC::LocalPlayerMatchEnd()
             + std::to_string(m_inventory.PlayerLevel()) + ", " + std::to_string(m_inventory.PlayerXp())
             + "/" + std::to_string(GetConfig().XpRewards().perLevel) + ")");
         m_matchXp = 0;
+
+        // the game's level screens read the XP from the matchmaking hello
+        CMsgGCCStrike15_v2_MatchmakingGC2ClientHello matchmakingHello;
+        BuildMatchmakingHello(matchmakingHello);
+        SendMessageToGame(false, k_EMsgGCCStrike15_v2_MatchmakingGC2ClientHello, matchmakingHello);
     }
 }
 
@@ -2589,27 +2596,22 @@ void ClientGC::PublishStarChange(const Inventory::StarChange &change)
     }
 }
 
-void ClientGC::LocalPlayerXp(StarShop::Reason reason)
+uint32_t ClientGC::NativeXp() const
+{
+    // the game's own level screens read "327680000 + the XP in the level" and take 5000 XP as a full level, so
+    // the XP is scaled to that whatever per_level says
+    constexpr uint32_t NativeBase = 327680000;
+    constexpr uint32_t NativeLevelXp = 5000;
+    const uint32_t perLevel = std::max<uint32_t>(1, GetConfig().XpRewards().perLevel);
+    const uint64_t xp = static_cast<uint64_t>(std::max(m_inventory.PlayerXp(), 0)) * NativeLevelXp / perLevel;
+    return NativeBase + static_cast<uint32_t>(std::min<uint64_t>(xp, NativeLevelXp - 1));
+}
+
+void ClientGC::ApplyXp(uint32_t amount, bool save)
 {
     const XpConfig &xp = GetConfig().XpRewards();
-    if (!xp.enabled)
-    {
-        return;
-    }
-
-    uint32_t amount = 0;
-    switch (reason)
-    {
-    case StarShop::Reason::Kill: amount = xp.perKill; break;
-    case StarShop::Reason::Headshot: amount = xp.perHeadshot; break;
-    case StarShop::Reason::Mvp: amount = xp.perMvp; break;
-    case StarShop::Reason::Plant: amount = xp.perPlant; break;
-    case StarShop::Reason::Defuse: amount = xp.perDefuse; break;
-    case StarShop::Reason::MatchComplete: amount = xp.perMatch; break;
-    }
-
     Inventory::XpChange change;
-    if (!m_inventory.AddPlayerXp(amount, xp.perLevel, reason == StarShop::Reason::MatchComplete, change))
+    if (!m_inventory.AddPlayerXp(amount, xp.perLevel, save, change))
     {
         return;
     }
@@ -2643,11 +2645,69 @@ void ClientGC::LocalPlayerXp(StarShop::Reason reason)
         text += ". Max level! Claim your service medal from your profile to reset";
     }
 
-    CMsgGCCStrike15_v2_GC2ClientTextMsg textMsg;
-    textMsg.set_id(0);
-    textMsg.set_type(0);
-    textMsg.set_payload(text);
-    SendMessageToGame(false, k_EMsgGCCStrike15_v2_GC2ClientTextMsg, textMsg);
+    SendStarsMessage(text);
+}
+
+void ClientGC::LocalPlayerXp(StarShop::Reason reason)
+{
+    const XpConfig &xp = GetConfig().XpRewards();
+    if (!xp.enabled)
+    {
+        return;
+    }
+
+    uint32_t amount = 0;
+    switch (reason)
+    {
+    case StarShop::Reason::Kill: amount = xp.perKill; break;
+    case StarShop::Reason::Headshot: amount = xp.perHeadshot; break;
+    case StarShop::Reason::Mvp: amount = xp.perMvp; break;
+    case StarShop::Reason::Plant: amount = xp.perPlant; break;
+    case StarShop::Reason::Defuse: amount = xp.perDefuse; break;
+    case StarShop::Reason::MatchComplete: amount = xp.perMatch; break;
+    }
+
+    ApplyXp(amount, reason == StarShop::Reason::MatchComplete);
+}
+
+std::string ClientGC::RconLevel(const RconRequest &request)
+{
+    if (!request.args.empty())
+    {
+        return Usage("level");
+    }
+
+    const XpConfig &xp = GetConfig().XpRewards();
+    std::string text = "Level " + std::to_string(m_inventory.PlayerLevel()) + " of " + std::to_string(CSGOMaxPlayerLevel);
+    if (m_inventory.PlayerLevel() >= CSGOMaxPlayerLevel)
+    {
+        text += ", max level: claim your service medal from your profile to reset";
+    }
+    else
+    {
+        text += ", " + std::to_string(m_inventory.PlayerXp()) + "/" + std::to_string(xp.perLevel) + " XP";
+    }
+    text += xp.enabled ? "" : " (xp is off in config.txt)";
+    return text;
+}
+
+std::string ClientGC::RconGiveXp(const RconRequest &request)
+{
+    uint32_t amount = 0;
+    if (request.args.size() != 1 || !TryParseNumber(request.args[0], amount) || !amount || amount > 10000000)
+    {
+        return Usage("give_xp <amount, 1 to 10000000>");
+    }
+
+    const int before = m_inventory.PlayerLevel();
+    ApplyXp(amount, true);
+
+    // the game's level screens read the XP from the matchmaking hello
+    CMsgGCCStrike15_v2_MatchmakingGC2ClientHello matchmakingHello;
+    BuildMatchmakingHello(matchmakingHello);
+    SendMessageToGame(false, k_EMsgGCCStrike15_v2_MatchmakingGC2ClientHello, matchmakingHello);
+
+    return "OK " + RconLevel(RconRequest{ "level", {} }) + (m_inventory.PlayerLevel() > before ? " (level up!)" : "");
 }
 
 void ClientGC::LocalPlayerStars(StarShop::Reason reason)

@@ -2361,7 +2361,7 @@ static bool ValidatePrestigeClaimEvents(const std::vector<EventData> &events,
             CMsgGCCStrike15_v2_MatchmakingGC2ClientHello hello;
             foundMatchmakingHello = ParseHostProtobuf(events[i], hello)
                 && hello.player_level() == 1
-                && hello.player_cur_xp() == 0;
+                && hello.player_cur_xp() == 327680000; // the game's base value for 0 XP in the level
         }
         else if (type == k_EMsgGCCStrike15_v2_Client2GCRequestPrestigeCoin)
         {
@@ -2497,7 +2497,7 @@ static bool ServiceMedalsFollowBuildYearAndPersistPrestige()
             && ParseHostProtobuf(event, welcome)
             && matchmakingHello.ParseFromString(welcome.game_data2())
             && matchmakingHello.player_level() == 1
-            && matchmakingHello.player_cur_xp() == 0;
+            && matchmakingHello.player_cur_xp() == 327680000;
     }
 
     valid &= SetPersistedPlayerProgress(CSGOMaxPlayerLevel, 4999);
