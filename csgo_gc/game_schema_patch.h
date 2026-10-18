@@ -121,4 +121,14 @@ namespace GameSchemaPatch
 
     // puts the original file back if it was patched. returns true when restored
     bool Restore();
+
+    // the bots' names (csgo/botprofile.db): every bot profile gets a made-up gamer name, shuffled on each start. the
+    // original file is kept as botprofile.db.csgo_gc_backup. false when the file isn't there. customNames
+    // (csgo_gc/bot_names.txt, one per line) are used before the built-in ones
+    constexpr const char *BotProfilePath = "csgo/botprofile.db";
+    constexpr const char *BotProfileBackupPath = "csgo/botprofile.db.csgo_gc_backup";
+    bool ApplyBotNames(const std::vector<std::string> &customNames);
+
+    // puts the original botprofile.db back (when bot names are turned off)
+    bool RestoreBotNames();
 }

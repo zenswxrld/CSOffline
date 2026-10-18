@@ -3292,6 +3292,66 @@ static bool EventFavoritesPersistAndPreserveRequestJobs()
     return valid;
 }
 
+static bool BotNamesAreRenamedAndRestored()
+{
+    const std::string sample =
+        "Default\r\n\tDifficulty = 2\r\nEnd\r\n\r\nTemplate Elite\r\n\tSkill = 100\r\nEnd\r\n\r\n"
+        "// These are the individual bot profiles\r\n\r\nElite+Rifle Cliffe\r\n\tVoicePitch = 100\r\nEnd\r\n"
+        "Elite Bonnie\r\n\tVoicePitch = 90\r\nEnd\r\n";
+
+    if (!TestFilesystem::MakeDirectory("csgo"))
+    {
+        return false;
+    }
+    FILE *file = std::fopen(GameSchemaPatch::BotProfilePath, "wb");
+    if (!file)
+    {
+        return false;
+    }
+    std::fwrite(sample.data(), 1, sample.size(), file);
+    std::fclose(file);
+
+    bool ok = GameSchemaPatch::ApplyBotNames({ "ZenFan" });
+
+    std::string patched;
+    if (FILE *in = std::fopen(GameSchemaPatch::BotProfilePath, "rb"))
+    {
+        char buffer[512];
+        size_t n;
+        while ((n = std::fread(buffer, 1, sizeof(buffer), in)) > 0)
+        {
+            patched.append(buffer, n);
+        }
+        std::fclose(in);
+    }
+
+    ok &= patched.find("Cliffe") == std::string::npos && patched.find("Bonnie") == std::string::npos;
+    ok &= patched.find("Elite+Rifle ") != std::string::npos && patched.find("Template Elite\r\n") != std::string::npos;
+    ok &= patched.find("Difficulty = 2") != std::string::npos && patched.find("VoicePitch = 90") != std::string::npos;
+    ok &= patched.find("ZenFan") != std::string::npos;
+
+    // a second run starts from the backup, so the originals are still what gets replaced
+    ok &= GameSchemaPatch::ApplyBotNames({});
+    ok &= GameSchemaPatch::RestoreBotNames();
+
+    std::string restored;
+    if (FILE *in = std::fopen(GameSchemaPatch::BotProfilePath, "rb"))
+    {
+        char buffer[512];
+        size_t n;
+        while ((n = std::fread(buffer, 1, sizeof(buffer), in)) > 0)
+        {
+            restored.append(buffer, n);
+        }
+        std::fclose(in);
+    }
+    ok &= restored == sample;
+
+    TestFilesystem::RemoveFile(GameSchemaPatch::BotProfilePath);
+    TestFilesystem::RemoveDirectory("csgo");
+    return ok;
+}
+
 static bool OfflineGCRequestsReceiveMinimalResponses()
 {
     constexpr uint64_t SteamId = 76561197960265729ull;
@@ -5292,6 +5352,7 @@ int main()
             SeasonalMissionCardSelectionValidatesAndPersists },
         { "EventFavoritesPersistAndPreserveRequestJobs",
             EventFavoritesPersistAndPreserveRequestJobs },
+        { "BotNamesAreRenamedAndRestored", BotNamesAreRenamedAndRestored },
         { "OfflineGCRequestsReceiveMinimalResponses",
             OfflineGCRequestsReceiveMinimalResponses },
     };
