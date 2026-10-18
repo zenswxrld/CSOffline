@@ -3776,7 +3776,7 @@ static bool GoldTradeUpContractsProduceKnives()
             && covert.destroyCount == 5 && covert.created
             && covert.createdItem.def_index() == 507
             && covert.createdItem.quality() == ItemSchema::QualityUnusual
-            && covert.createdItem.rarity() == ItemSchema::RarityUnusual // knives are shown as unusual, not Covert
+            && covert.createdItem.rarity() == ItemSchema::RarityImmortal // knives are shown as Contraband (gold), not Covert, so the trade-up lists skip them
             && FindAttributeUint32(covert.createdItem, ItemSchema::AttributeTexturePrefab, paintKit) && paintKit == 44
             && FindAttributeFloat(covert.createdItem, ItemSchema::AttributeTextureWear, covertWear)
             && std::fabs(covertWear - 0.2f) < 0.0001f;
@@ -4097,6 +4097,46 @@ static bool ScoreboardRanksPatchTheAdapter()
     return valid;
 }
 
+static bool MatchEndScreensPatchTheAdapterAndGates()
+{
+    std::string adapter =
+        "\t\tXPDataJSO: function _XPDataJSO ( panel ) {return _APIAccessor( panel.XpDataJSO, k_XpDataJSO );},\n"
+        "\t\tSkillgroupDataJSO: function _SkillgroupDataJSO ( panel ) {return _APIAccessor( panel.SkillgroupDataJSO, k_SkillgroupDataJSO );},\n"
+        "\t\tDropListJSO: function _DropListJSO ( panel ) {return _APIAccessor( panel.DropListJSO, k_DropListJSO );},\n";
+    bool valid = PanoramaHook::PatchMatchEndAdapter(adapter) == 3
+        && adapter.find("return CsgoGcEomFor( 'xp', _APIAccessor( panel.XpDataJSO, k_XpDataJSO ) );}") != std::string::npos
+        && adapter.find("return CsgoGcEomFor( 'skill', _APIAccessor( panel.SkillgroupDataJSO, k_SkillgroupDataJSO ) );}") != std::string::npos
+        && adapter.find("return CsgoGcEomFor( 'drops', _APIAccessor( panel.DropListJSO, k_DropListJSO ) );}") != std::string::npos
+        && adapter.find("var CsgoGcEomFor = function") != std::string::npos;
+
+    std::string other = "var x = 1;";
+    valid &= PanoramaHook::PatchMatchEndAdapter(other) == 0 && other == "var x = 1;";
+
+    std::string rank = "\t\tif ( !_m_cP.bXpDataReady && !MockAdapter.GetMockData() )\n\t\t{\n";
+    valid &= PanoramaHook::PatchMatchEndGate(rank, "bXpDataReady", "xp") == 1
+        && rank.find("if ( !_m_cP.bXpDataReady && !MockAdapter.GetMockData() && !( typeof CsgoGcEom === 'object' && CsgoGcEom && CsgoGcEom.xp ) )")
+            != std::string::npos;
+    valid &= PanoramaHook::PatchMatchEndGate(other, "bXpDataReady", "xp") == 0;
+    return valid;
+}
+
+static bool PlayerCardShowsTheSkillGroups()
+{
+    std::string card =
+        "\tvar _SetAllSkillGroups = function()\n\t{\n\t\t                            \n"
+        "\t\tvar elSkillGroupContainer = $.GetContextPanel().FindChildInLayoutFile( 'JsPlayerCardSkillGroupContainer' );\n"
+        "\t\telSkillGroupContainer.AddClass( 'hidden' );\n\t\treturn;\n\t\t\n\t\t_SetSkillGroup( 'competitive' );\n\t};\n";
+    bool valid = PanoramaHook::PatchPlayerCardRanks(card) == 1
+        && card.find("return;") == std::string::npos
+        && card.find("try { _SetAllSkillGroupsInner(); }") != std::string::npos
+        && card.find("var _SetAllSkillGroupsInner = function()") != std::string::npos
+        && card.find("_SetSkillGroup( 'competitive' );") != std::string::npos;
+
+    std::string other = "var x = 1;";
+    valid &= PanoramaHook::PatchPlayerCardRanks(other) == 0;
+    return valid;
+}
+
 static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
 {
     std::string text =
@@ -4307,6 +4347,7 @@ static bool WonMatchesCountAndMoveRanks()
 
     bool valid = true;
     {
+        PanoramaHook::g_matchEndPending = false; // earlier tests' match ends left theirs
         ClientGC gc{ SteamId };
         LocalMatchResult result{ 1, GameTypes::GameTypeClassic, GameTypes::ClassicCompetitive };
         gc.PostToGC(GCEvent::LocalPlayerMatchEnd, 0, &result, sizeof(result));
@@ -4333,6 +4374,19 @@ static bool WonMatchesCountAndMoveRanks()
             }
         }
         valid &= sawRankUpdate;
+
+        // the end-of-match skill group screen is handed the rank change
+        for (int i = 0; i < 300 && !PanoramaHook::g_matchEndPending; ++i)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds{ 10 });
+        }
+        std::string json;
+        {
+            std::lock_guard lock{ PanoramaHook::g_matchEndMutex };
+            json = PanoramaHook::g_matchEndJson;
+        }
+        valid &= PanoramaHook::g_matchEndPending && json.find("\"skill\":{\"num_wins\":") != std::string::npos
+            && json.find("\"old_rank\":") != std::string::npos && json.find("\"new_rank\":") != std::string::npos;
     }
 
     // the rank steps follow the points: 100 is Silver II, 5200 The Global Elite, and a danger zone rank stops at 15
@@ -5314,6 +5368,8 @@ int main()
         { "MatchEndGivesOneDrop", MatchEndGivesOneDrop },
         { "WonMatchesCountAndMoveRanks", WonMatchesCountAndMoveRanks },
         { "ScoreboardRanksPatchTheAdapter", ScoreboardRanksPatchTheAdapter },
+        { "MatchEndScreensPatchTheAdapterAndGates", MatchEndScreensPatchTheAdapterAndGates },
+        { "PlayerCardShowsTheSkillGroups", PlayerCardShowsTheSkillGroups },
         { "StoreListsEveryWeaponCaseAndKey", StoreListsEveryWeaponCaseAndKey },
         { "CustomCaseReplacesContents", CustomCaseReplacesContents },
         { "CaseStoreListsPricedCustomCasesAsSpecialOffers", CaseStoreListsPricedCustomCasesAsSpecialOffers },

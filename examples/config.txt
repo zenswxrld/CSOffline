@@ -114,6 +114,10 @@
 // shows bots by name only, without the "BOT " in front (edits csgo/resource/csgo_english.txt; restart the game twice)
 "hide_bot_tag"	"1"
 
+// the screens after a match: the items you got, your XP bar and level up, and your skill group (rank) in competitive and
+// wingman. the game only shows them from server data a local game doesn't have, so csgo_gc feeds them
+"end_of_match_screens"	"1"
+
 // competitive ranks, Silver I to The Global Elite. winning a competitive, wingman or danger zone match gives
 // win_points rank points and losing one takes loss_points off; each rank needs more points than the one before
 // (The Global Elite is 5200 points). you start at start_rank (1 = Silver I). this replaces the rank numbers in

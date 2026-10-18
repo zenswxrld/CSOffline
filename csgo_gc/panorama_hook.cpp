@@ -154,6 +154,96 @@ var CsgoGcLevelFor = function ( xuid, real )
     return count;
 }
 
+int PanoramaHook::PatchMatchEndAdapter(std::string &source)
+{
+    // XPDataJSO: function _XPDataJSO ( panel ) {return _APIAccessor( panel.XpDataJSO, k_XpDataJSO );},
+    struct Accessor
+    {
+        const char *property;
+        const char *kind;
+    };
+    static const Accessor accessors[] = { { "XpDataJSO", "xp" }, { "SkillgroupDataJSO", "skill" }, { "DropListJSO", "drops" } };
+
+    int count = 0;
+    for (const Accessor &accessor : accessors)
+    {
+        const std::regex accessorFn{ std::string{ R"re((function\s+_\w+\s*\(\s*panel\s*\)\s*\{\s*return\s+)(_APIAccessor\(\s*panel\.)re" }
+            + accessor.property + R"re([^;]*\))(\s*;\s*\}))re" };
+        if (std::regex_search(source, accessorFn))
+        {
+            source = std::regex_replace(source, accessorFn, std::string{ "$1CsgoGcEomFor( '" } + accessor.kind + "', $2 )$3",
+                std::regex_constants::format_first_only);
+            count++;
+        }
+    }
+    if (count != 3)
+    {
+        return 0;
+    }
+
+    source += R"js(
+
+var CsgoGcEom = null;
+var CsgoGcEomFor = function ( kind, real )
+{
+	try
+	{
+		if ( !CsgoGcEom || !CsgoGcEom[ kind ] )
+		{
+			return real;
+		}
+		if ( kind === 'drops' )
+		{
+			if ( real && Object.keys( real ).length )
+			{
+				return real;
+			}
+			var drops = CsgoGcEom.drops;
+			var me = GameStateAPI.GetLocalPlayerXuid();
+			Object.keys( drops ).forEach( function ( key ) { drops[ key ].owner_xuid = me; } );
+			return drops;
+		}
+		return real ? real : CsgoGcEom[ kind ];
+	}
+	catch ( e ) {}
+	return real;
+};
+)js";
+    return count;
+}
+
+int PanoramaHook::PatchPlayerCardRanks(std::string &source)
+{
+    static const std::regex hidden{ R"re((var\s+_SetAllSkillGroups\s*=\s*function\s*\(\s*\)\s*\{[^]*?)elSkillGroupContainer\.AddClass\(\s*'hidden'\s*\)\s*;\s*return\s*;)re" };
+    static const std::regex header{ R"re(var\s+_SetAllSkillGroups\s*=\s*function\s*\(\s*\))re" };
+    if (!std::regex_search(source, hidden))
+    {
+        return 0;
+    }
+
+    // the early return goes; the rest of the function runs inside a try so a missing panel can't break the card
+    source = std::regex_replace(source, hidden, "$1", std::regex_constants::format_first_only);
+    source = std::regex_replace(source, header,
+        "var _SetAllSkillGroups = function() { try { _SetAllSkillGroupsInner(); } catch ( e ) {} };\n\tvar _SetAllSkillGroupsInner = function()",
+        std::regex_constants::format_first_only);
+    return 1;
+}
+
+int PanoramaHook::PatchMatchEndGate(std::string &source, const char *readyFlag, const char *kind)
+{
+    // if ( !_m_cP.bXpDataReady && !MockAdapter.GetMockData() )
+    const std::regex gate{ std::string{ R"re((!_m_cP\.)re" } + readyFlag + R"re(\s*&&\s*!MockAdapter\.GetMockData\(\)))re" };
+    if (!std::regex_search(source, gate))
+    {
+        return 0;
+    }
+
+    source = std::regex_replace(source, gate,
+        std::string{ "$1 && !( typeof CsgoGcEom === 'object' && CsgoGcEom && CsgoGcEom." } + kind + " )",
+        std::regex_constants::format_first_only);
+    return 1;
+}
+
 static std::string s_sellTable = "{}";
 
 void PanoramaHook::SetSellData(std::string table)
@@ -1343,6 +1433,7 @@ bool s_installDone;
 
 void *s_uiEngine;
 void *s_mainMenuPanel;
+void *s_endOfMatchPanels[4];
 std::string s_caseStoreData;
 bool s_caseStoreDataSent;
 int64_t s_starsSent = -2; // what the UI was last told
@@ -1525,14 +1616,62 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
     prices.knifeOrGlove = starShop.sellKnifeOrGlove;
     prices.stickerPercent = starShop.sellStickerPercent;
 
-    if (GetConfig().RankSystem().scoreboard && PathIsFile(path, "mock_adapter.js"))
+    if (GetConfig().RankSystem().scoreboard && PathIsFile(path, "playercard.js"))
     {
         std::string patched = source;
-        const int changes = PanoramaHook::PatchScoreboardRanks(patched,
-            { PanoramaHook::g_rankCompetitive.load(), PanoramaHook::g_rankWingman.load(), PanoramaHook::g_playerLevel.load() });
-        Platform::Print("Panorama: scoreboard ranks %s (competitive %d, wingman %d, level %d)\n",
-            changes ? "added" : "not added, mock_adapter.js didn't match", PanoramaHook::g_rankCompetitive.load(), PanoramaHook::g_rankWingman.load(),
-            PanoramaHook::g_playerLevel.load());
+        const bool changed = PanoramaHook::PatchPlayerCardRanks(patched) != 0;
+        Platform::Print("Panorama: profile card skill groups %s\n", changed ? "shown" : "not changed, playercard.js didn't match");
+        if (changed)
+        {
+            s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
+            return;
+        }
+    }
+
+    // the end-of-match page's scripts are in one context; Tick() runs the match's data in them
+    static const char *const EndOfMatchScripts[] = { "endofmatch.js", "endofmatch-drops.js", "endofmatch-rank.js",
+        "endofmatch-skillgroup.js" };
+    for (size_t i = 0; i < std::size(EndOfMatchScripts); ++i)
+    {
+        if (PathIsFile(path, EndOfMatchScripts[i]))
+        {
+            s_uiEngine = engine;
+            s_endOfMatchPanels[i] = panel;
+        }
+    }
+
+    const bool matchEndScreens = GetConfig().MatchEndScreens();
+    if (matchEndScreens && (PathIsFile(path, "endofmatch-rank.js") || PathIsFile(path, "endofmatch-skillgroup.js")))
+    {
+        const bool rank = PathIsFile(path, "endofmatch-rank.js");
+        std::string patched = source;
+        if (PanoramaHook::PatchMatchEndGate(patched, rank ? "bXpDataReady" : "bSkillgroupDataReady", rank ? "xp" : "skill"))
+        {
+            Platform::Print("Panorama: %s screen can show the GC's data\n", rank ? "XP" : "skill group");
+            s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
+            return;
+        }
+        Platform::Print("Panorama: %s didn't match, that end-of-match screen stays blank\n", rank ? "endofmatch-rank.js" : "endofmatch-skillgroup.js");
+    }
+
+    if ((GetConfig().RankSystem().scoreboard || matchEndScreens) && PathIsFile(path, "mock_adapter.js"))
+    {
+        std::string patched = source;
+        int changes = 0;
+        if (GetConfig().RankSystem().scoreboard)
+        {
+            changes += PanoramaHook::PatchScoreboardRanks(patched,
+                { PanoramaHook::g_rankCompetitive.load(), PanoramaHook::g_rankWingman.load(), PanoramaHook::g_playerLevel.load() });
+            Platform::Print("Panorama: scoreboard ranks %s (competitive %d, wingman %d, level %d)\n",
+                changes ? "added" : "not added, mock_adapter.js didn't match", PanoramaHook::g_rankCompetitive.load(),
+                PanoramaHook::g_rankWingman.load(), PanoramaHook::g_playerLevel.load());
+        }
+        if (matchEndScreens)
+        {
+            const int screens = PanoramaHook::PatchMatchEndAdapter(patched);
+            Platform::Print("Panorama: end-of-match drops, XP and skill group %s\n", screens ? "added" : "not added, mock_adapter.js didn't match");
+            changes += screens;
+        }
         if (changes)
         {
             s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
@@ -1721,6 +1860,28 @@ static const char DiagnosticScript[] = R"js(
 
 void PanoramaHook::Tick()
 {
+    if (s_originalRunScript && g_matchEndPending.exchange(false))
+    {
+        std::string json;
+        {
+            std::lock_guard lock{ g_matchEndMutex };
+            json = g_matchEndJson;
+        }
+
+        const std::string script = "CsgoGcEom = " + json + ";";
+        int sent = 0;
+        for (void *panel : s_endOfMatchPanels)
+        {
+            if (panel)
+            {
+                s_originalRunScript(s_uiEngine, nullptr, panel, script.c_str(),
+                    "file://{resources}/scripts/csgo_gc_endofmatch.js", 0, 0, 0, 0);
+                sent++;
+            }
+        }
+        Platform::Print("Panorama: end-of-match data sent to %d script context(s): %s\n", sent, json.c_str());
+    }
+
     if (!s_originalRunScript || !s_mainMenuPanel)
     {
         return;

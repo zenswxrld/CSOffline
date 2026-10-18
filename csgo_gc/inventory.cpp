@@ -178,7 +178,7 @@ CSOEconItem Inventory::ClientView(const CSOEconItem &item) const
     }
 
     CSOEconItem shown = item;
-    shown.set_rarity(ItemSchema::RarityUnusual);
+    shown.set_rarity(ItemSchema::RarityImmortal);
     return shown;
 }
 
