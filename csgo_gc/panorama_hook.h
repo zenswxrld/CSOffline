@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <mutex>
 #include <string>
 
 class ItemSchema;
@@ -80,6 +81,29 @@ namespace PanoramaHook
         g_rankCompetitive = ranks.competitive;
         g_rankWingman = ranks.wingman;
         g_playerLevel = ranks.level;
+    }
+
+    // the end-of-match screens (drops, XP bar, skill group) read their data from the game server, which has nothing for
+    // a listen server. the scripts are patched to use this instead: the GC fills it in when the match ends and the
+    // next Tick() hands it to the end-of-match page. returns the number of changes
+    int PatchMatchEndAdapter(std::string &source);
+
+    // the final client hides the skill groups on the profile card (_SetAllSkillGroups hides the container and returns
+    // before doing anything). this lets it run, so the card shows your competitive, wingman and danger zone ranks.
+    // returns 1 when changed
+    int PatchPlayerCardRanks(std::string &source);
+    int PatchMatchEndGate(std::string &source, const char *readyFlag, const char *kind);
+
+    // {"drops": {...}, "xp": {...}, "skill": {...}} as the screens expect; "{}" for nothing
+    inline std::mutex g_matchEndMutex;
+    inline std::string g_matchEndJson;
+    inline std::atomic<bool> g_matchEndPending{ false };
+
+    inline void SetMatchEndScreens(std::string json)
+    {
+        std::lock_guard lock{ g_matchEndMutex };
+        g_matchEndJson = std::move(json);
+        g_matchEndPending = true;
     }
 
     // lets a context menu entry whose name starts with '!' show that text as it is (the menu would look the

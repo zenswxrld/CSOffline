@@ -2551,6 +2551,12 @@ void ClientGC::LocalPlayerMatchEnd(const LocalMatchResult &result)
     }
     m_lastMatchDropTime = now;
 
+    // the skill group screen: wins and the rank before and after (competitive and wingman only)
+    bool showSkill = false;
+    int skillWins = 0;
+    uint32_t skillOld = 0;
+    uint32_t skillNew = 0;
+
     if (result.outcome != 0)
     {
         // the mode decides which win count it goes to. classic: casual 0, competitive 1, wingman 2 (scrim 2v2),
@@ -2591,6 +2597,14 @@ void ClientGC::LocalPlayerMatchEnd(const LocalMatchResult &result)
             m_career.AddRankPoints(pointsStat, result.outcome > 0 ? static_cast<int64_t>(ranks.winPoints)
                                                                    : -static_cast<int64_t>(ranks.lossPoints));
             const uint32_t after = RankFor(pointsStat, maxRank);
+            if (maxRank == 18)
+            {
+                showSkill = true;
+                skillOld = before;
+                skillNew = after;
+                skillWins = !strcmp(pointsStat, "points_competitive") ? GetConfig().CompetitiveWins() + WinsFor("wins_competitive")
+                                                                      : GetConfig().WingmanWins() + WinsFor("wins_wingman");
+            }
             if (after != before)
             {
                 text += std::string{ text.empty() ? "" : " - " } + (after > before ? "RANK UP! " : "Rank down: ")
@@ -2623,6 +2637,7 @@ void ClientGC::LocalPlayerMatchEnd(const LocalMatchResult &result)
         }
 
         SendMessageToGame(true, k_ESOMsg_Create, newItem);
+        RecordMatchDrop(newItem);
 
         CMsgGCCStrike15_v2_GC2ClientTextMsg textMsg;
         textMsg.set_id(0);
@@ -2630,6 +2645,54 @@ void ClientGC::LocalPlayerMatchEnd(const LocalMatchResult &result)
         textMsg.set_payload("You received a match drop: " + itemName);
         SendMessageToGame(false, k_EMsgGCCStrike15_v2_GC2ClientTextMsg, textMsg);
     }
+
+    // hand the end-of-match screens (drops, XP bar, skill group) what happened
+    {
+        std::string json = "{";
+        if (!m_matchDropIds.empty())
+        {
+            json += "\"drops\":{";
+            for (size_t i = 0; i < m_matchDropIds.size(); ++i)
+            {
+                const std::string id = std::to_string(m_matchDropIds[i]);
+                json += std::string{ i ? "," : "" } + "\"" + std::to_string(i) + "\":{\"item_id\":\"" + id + "\",\"faux_item_id\":\"" + id
+                    + "\",\"reason\":0,\"is_local\":true,\"owner_xuid\":\"\",\"display_time\":2}";
+            }
+            json += "}";
+        }
+        if (m_matchXp)
+        {
+            // the game's XP bar takes 5000 XP as a full level
+            const uint64_t perLevel = std::max<uint32_t>(1, GetConfig().XpRewards().perLevel);
+            const auto scaled = [&](uint64_t xp) { return xp * 5000 / perLevel; };
+            const uint32_t eventsXp = m_matchXp - std::min(m_matchXp, m_matchXpComplete);
+            const int startLevel = m_xpStartLevel >= 0 ? m_xpStartLevel : m_inventory.PlayerLevel();
+            const int startXp = m_xpStartLevel >= 0 ? m_xpStartXp : m_inventory.PlayerXp();
+            json += std::string{ json.size() > 1 ? "," : "" } + "\"xp\":{\"current_level\":" + std::to_string(startLevel)
+                + ",\"current_xp\":" + std::to_string(scaled(static_cast<uint64_t>(std::max(startXp, 0)))) + ",\"xp_earned\":{";
+            bool first = true;
+            if (eventsXp)
+            {
+                json += "\"1\":" + std::to_string(scaled(eventsXp));
+                first = false;
+            }
+            if (m_matchXpComplete)
+            {
+                json += std::string{ first ? "" : "," } + "\"2\":" + std::to_string(scaled(m_matchXpComplete));
+            }
+            json += "}}";
+        }
+        if (showSkill)
+        {
+            json += std::string{ json.size() > 1 ? "," : "" } + "\"skill\":{\"num_wins\":" + std::to_string(skillWins)
+                + ",\"old_rank\":" + std::to_string(skillOld) + ",\"new_rank\":" + std::to_string(skillNew) + "}";
+        }
+        json += "}";
+        PanoramaHook::SetMatchEndScreens(std::move(json));
+    }
+    m_xpStartLevel = -1;
+    m_matchXpComplete = 0;
+    m_matchDropIds.clear();
 
     if (m_matchXp)
     {
@@ -2685,9 +2748,23 @@ uint32_t ClientGC::NativeXp() const
     return NativeBase + static_cast<uint32_t>(std::min<uint64_t>(xp, NativeLevelXp - 1));
 }
 
+void ClientGC::RecordMatchDrop(const CMsgSOSingleObject &object)
+{
+    CSOEconItem item;
+    if (item.ParseFromString(object.object_data()) && item.id())
+    {
+        m_matchDropIds.push_back(item.id());
+    }
+}
+
 void ClientGC::ApplyXp(uint32_t amount, bool save)
 {
     const XpConfig &xp = GetConfig().XpRewards();
+    if (m_xpStartLevel < 0)
+    {
+        m_xpStartLevel = m_inventory.PlayerLevel();
+        m_xpStartXp = m_inventory.PlayerXp();
+    }
     Inventory::XpChange change;
     if (!m_inventory.AddPlayerXp(amount, xp.perLevel, save, change))
     {
@@ -2714,6 +2791,7 @@ void ClientGC::ApplyXp(uint32_t amount, bool save)
         if (m_inventory.CreateMatchDrop(newItem, itemName, true))
         {
             SendMessageToGame(true, k_ESOMsg_Create, newItem);
+            RecordMatchDrop(newItem);
             text += " - reward: " + itemName;
         }
     }
@@ -2745,7 +2823,12 @@ void ClientGC::LocalPlayerXp(StarShop::Reason reason)
     case StarShop::Reason::MatchComplete: amount = xp.perMatch; break;
     }
 
+    const uint32_t before = m_matchXp;
     ApplyXp(amount, reason == StarShop::Reason::MatchComplete);
+    if (reason == StarShop::Reason::MatchComplete)
+    {
+        m_matchXpComplete += m_matchXp - before;
+    }
 }
 
 std::string ClientGC::RconLevel(const RconRequest &request)

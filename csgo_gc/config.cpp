@@ -62,6 +62,8 @@ GCConfig::GCConfig()
     m_goldTradeUpRecipes = config.GetNumber("gold_tradeup_recipes", m_goldTradeUpRecipes);
     m_careerTracking = config.GetNumber("career_tracking", m_careerTracking);
     m_botNames = config.GetNumber("bot_names", m_botNames);
+    m_hideBotTag = config.GetNumber("hide_bot_tag", m_hideBotTag);
+    m_matchEndScreens = config.GetNumber("end_of_match_screens", m_matchEndScreens);
     m_customCaseCollections = config.GetNumber("custom_case_collections", m_customCaseCollections);
     m_caseStoreMenu = config.GetNumber("case_store_menu", m_caseStoreMenu);
     m_panoramaDebug = config.GetNumber("panorama_debug", m_panoramaDebug);

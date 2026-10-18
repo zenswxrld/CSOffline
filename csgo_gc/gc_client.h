@@ -107,6 +107,13 @@ private:
     void ApplyXp(uint32_t amount, bool save);
     uint32_t NativeXp() const;
     uint32_t m_matchXp{}; // experience earned since the last match end message
+    // what the end-of-match screens show: the XP earned for completing the match, the level and XP the match started
+    // with and the items that dropped (match drops and level up rewards)
+    uint32_t m_matchXpComplete{};
+    int m_xpStartLevel{ -1 };
+    int m_xpStartXp{};
+    std::vector<uint64_t> m_matchDropIds;
+    void RecordMatchDrop(const CMsgSOSingleObject &object);
     // the operation whose redeemable balance is the star count, if the star shop is on
     std::optional<uint32_t> StarSeason() const;
     uint32_t StarBalance() const;

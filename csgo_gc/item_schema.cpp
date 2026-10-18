@@ -328,6 +328,11 @@ ItemSchema::ItemSchema(bool loadFiles)
         }
 
         GameSchemaPatch::LanguageTokens languageTokens;
+        if (GetConfig().HideBotTag())
+        {
+            // the scoreboard, kill feed and name tags show bots as "BOT <name>" through this token
+            languageTokens.emplace_back("SFUI_bot_decorated_name", "%s1");
+        }
         for (const CustomPaintKit &kit : m_customPaintKits)
         {
             if (!kit.nameToken.empty())
