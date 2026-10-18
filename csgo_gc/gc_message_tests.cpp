@@ -4359,6 +4359,13 @@ static bool LanguageTokensGoLastInTheTokensBlock()
 
     std::string noTokens = "\"lang\"\n{\n\t\"Language\"\t\"English\"\n}\n";
     valid &= !GameSchemaPatch::AddLanguageTokens(noTokens, tokens);
+
+    // the game's own tokens are rewritten in place instead of being listed twice
+    std::string botLanguage = "\"lang\"\n{\n\t\"Tokens\"\n\t{\n\t\t\"SFUI_bot_decorated_name\"\t\"BOT %s1\"\n\t\t\"B\"\t\"b\"\n\t}\n}\n";
+    valid &= GameSchemaPatch::AddLanguageTokens(botLanguage, { { "SFUI_bot_decorated_name", "%s1" }, { "PaintKit_z_Tag", "Zed" } });
+    valid &= botLanguage.find("\"SFUI_bot_decorated_name\"\t\"%s1\"") != std::string::npos
+        && botLanguage.find("BOT %s1") == std::string::npos && botLanguage.find("\"B\"\t\"b\"") != std::string::npos
+        && botLanguage.find("\"PaintKit_z_Tag\"\t\t\"Zed\"") != std::string::npos;
     return valid;
 }
 

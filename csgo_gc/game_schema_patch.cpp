@@ -680,9 +680,27 @@ bool GameSchemaPatch::AddLanguageTokens(std::string &text, const LanguageTokens 
     std::string lines;
     for (const auto &token : tokens)
     {
+        // a token the language file already has gets its text replaced, so the game never sees it twice
+        // (only the game's own SFUI_ tokens; the added finish names are new and there are thousands of them)
+        std::smatch found;
+        if (token.first.rfind("SFUI_", 0) == 0
+            && std::regex_search(text, found, std::regex{ "(\"" + token.first + "\"[ \\t]+\")[^\"\r\n]*(\")", std::regex::icase }))
+        {
+            text.replace(found.position(0), found.length(0), found[1].str() + token.second + found[2].str());
+            continue;
+        }
+
         lines += "\t\t\"" + token.first + "\"\t\t\"" + token.second + "\"" + eol;
     }
-    text.insert(InsertionPoint(text, block.close), lines);
+    if (!lines.empty())
+    {
+        // the replacements above moved the block's end
+        if (!FindBlock(text, { "lang", "Tokens" }, block))
+        {
+            return false;
+        }
+        text.insert(InsertionPoint(text, block.close), lines);
+    }
     return true;
 }
 

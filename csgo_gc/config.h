@@ -170,6 +170,7 @@ public:
     bool GoldTradeUpRecipes() const { return m_goldTradeUpRecipes; }
     bool CareerTracking() const { return m_careerTracking; }
     bool BotNames() const { return m_botNames; }
+    bool HideBotTag() const { return m_hideBotTag; }
     bool CustomCaseCollections() const { return m_customCaseCollections; }
     bool CaseStoreMenu() const { return m_caseStoreMenu; }
     bool PanoramaDebug() const { return m_panoramaDebug; }
@@ -229,6 +230,7 @@ private:
     bool m_goldTradeUpRecipes{ true };
     bool m_careerTracking{ true };
     bool m_botNames{ true };
+    bool m_hideBotTag{ true };
     bool m_customCaseCollections{ false };
     bool m_caseStoreMenu{ true };
     bool m_panoramaDebug{ false };
