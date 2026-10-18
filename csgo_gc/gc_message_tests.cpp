@@ -4020,6 +4020,23 @@ static bool ContextMenuGetsASellEntry()
     return valid;
 }
 
+static bool ScoreboardRanksPatchTheAdapter()
+{
+    std::string adapter =
+        "\t\tGetPlayerCompetitiveRanking: function _GetPlayerCompetitiveRanking ( xuid ) {return _APIAccessor( GameStateAPI.GetPlayerCompetitiveRanking( xuid ), k_GetPlayerCompetitiveRanking );},\n"
+        "\t\tGetPlayerXpLevel: function _GetPlayerXpLevel ( xuid ) {return _APIAccessor( GameStateAPI.GetPlayerXpLevel( xuid ), k_GetPlayerXpLevel, xuid );},\n";
+    bool valid = PanoramaHook::PatchScoreboardRanks(adapter, { 7, 3, 21 }) == 2
+        && adapter.find("return CsgoGcRankFor( xuid, _APIAccessor( GameStateAPI.GetPlayerCompetitiveRanking( xuid ), k_GetPlayerCompetitiveRanking ) );}")
+            != std::string::npos
+        && adapter.find("return CsgoGcLevelFor( xuid, _APIAccessor( GameStateAPI.GetPlayerXpLevel( xuid ), k_GetPlayerXpLevel, xuid ) );}")
+            != std::string::npos
+        && adapter.find("var CsgoGcRanks = { comp: 7, wing: 3, level: 21 };") != std::string::npos;
+
+    std::string other = "var x = 1;";
+    valid &= PanoramaHook::PatchScoreboardRanks(other, { 7, 3, 21 }) == 0 && other == "var x = 1;";
+    return valid;
+}
+
 static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
 {
     std::string text =
@@ -5229,6 +5246,7 @@ int main()
         { "CasePityGuaranteesGoldWithinLimit", CasePityGuaranteesGoldWithinLimit },
         { "MatchEndGivesOneDrop", MatchEndGivesOneDrop },
         { "WonMatchesCountAndMoveRanks", WonMatchesCountAndMoveRanks },
+        { "ScoreboardRanksPatchTheAdapter", ScoreboardRanksPatchTheAdapter },
         { "StoreListsEveryWeaponCaseAndKey", StoreListsEveryWeaponCaseAndKey },
         { "CustomCaseReplacesContents", CustomCaseReplacesContents },
         { "CaseStoreListsPricedCustomCasesAsSpecialOffers", CaseStoreListsPricedCustomCasesAsSpecialOffers },

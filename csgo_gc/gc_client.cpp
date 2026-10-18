@@ -2,6 +2,7 @@
 #include "gc_client.h"
 #include "appid.h"
 #include "game_types.h"
+#include "panorama_hook.h"
 #include "graffiti.h"
 #include "item_utils.h"
 #include "keyvalue.h"
@@ -2196,6 +2197,10 @@ void ClientGC::SendEmptyDeepStats(const CMsgGCCStrike15_ClientDeepStats &request
 
 void ClientGC::SendRankUpdate()
 {
+    const bool system = GetConfig().RankSystem().enabled;
+    PanoramaHook::SetScoreboardRanks({ static_cast<int>(system ? RankFor("points_competitive", 18) : GetConfig().CompetitiveRank()),
+        static_cast<int>(system ? RankFor("points_wingman", 18) : GetConfig().WingmanRank()), m_inventory.PlayerLevel() });
+
     CMsgGCCStrike15_v2_ClientGCRankUpdate message;
 
     PlayerRankingInfo *rank = message.add_rankings();

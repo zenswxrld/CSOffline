@@ -57,6 +57,8 @@ struct RankSystemConfig
     uint32_t winPoints{ 25 };
     uint32_t lossPoints{ 15 };
     uint32_t startRank{ 1 };
+    // show your rank and level, and bots near yours, on the scoreboard (Tab) in competitive and wingman matches
+    bool scoreboard{ true };
 };
 
 struct XpConfig
