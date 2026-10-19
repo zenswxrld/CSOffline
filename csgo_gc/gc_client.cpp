@@ -514,6 +514,10 @@ void ClientGC::HandleEvent(GCEvent type, uint64_t id, const std::vector<uint8_t>
         }
         break;
 
+    case GCEvent::LocalPlayerDeath:
+        m_career.RecordDeath();
+        break;
+
     case GCEvent::SyncLocalPlayerMusicKitState:
         if (buffer.size() == sizeof(uint32_t))
         {
@@ -2599,6 +2603,11 @@ void ClientGC::LocalPlayerMatchEnd(const LocalMatchResult &result)
             GrantCareerRewards(m_career.RecordMatchWin(stat));
             PublishCareer();
             text = std::string{ "Match won! " } + stat + ": " + std::to_string(WinsFor(stat));
+        }
+        else
+        {
+            m_career.RecordMatchLoss(stat);
+            PublishCareer();
         }
 
         // competitive, wingman and danger zone matches earn or cost rank points
