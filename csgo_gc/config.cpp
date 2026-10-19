@@ -65,6 +65,7 @@ GCConfig::GCConfig()
     m_hideBotTag = config.GetNumber("hide_bot_tag", m_hideBotTag);
     m_matchEndScreens = config.GetNumber("end_of_match_screens", m_matchEndScreens);
     m_botPing = config.GetNumber("bot_ping", m_botPing);
+    m_botDifficultyByRank = config.GetNumber("bot_difficulty_by_rank", m_botDifficultyByRank);
     m_customCaseCollections = config.GetNumber("custom_case_collections", m_customCaseCollections);
     m_caseStoreMenu = config.GetNumber("case_store_menu", m_caseStoreMenu);
     m_panoramaDebug = config.GetNumber("panorama_debug", m_panoramaDebug);

@@ -4166,6 +4166,23 @@ static bool BotPingReplacesTheBotLabel()
     return valid;
 }
 
+static bool BotDifficultyFollowsTheRank()
+{
+    std::string play =
+        "\tfunction _UpdateBotDifficultyButton()\n\t{\n\t\tvar botDiff = GameInterfaceAPI.GetSettingString( 'player_botdifflast_s' );\n"
+        "\t\tGameTypesAPI.SetCustomBotDifficulty( botDiff );\n\t};\n"
+        "\tfunction _BotDifficultyChanged()\n\t{\n\t\tvar botDiff = elDropDownEntry.id;\n\t};\n";
+    bool valid = PanoramaHook::PatchBotDifficulty(play) == 1
+        && play.find("var botDiff = CsgoGcDifficulty( GameInterfaceAPI.GetSettingString( 'player_botdifflast_s' ) );") != std::string::npos
+        && play.find("var botDiff = CsgoGcDifficulty( elDropDownEntry.id );") != std::string::npos
+        && play.find("csgo_gc_bot_difficulty") != std::string::npos;
+
+    std::string other = "var x = 1;";
+    valid &= PanoramaHook::PatchBotDifficulty(other) == 0;
+
+    return valid;
+}
+
 static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
 {
     std::string text =
@@ -4403,6 +4420,9 @@ static bool WonMatchesCountAndMoveRanks()
             }
         }
         valid &= sawRankUpdate;
+
+        // the bots' difficulty follows the rank (0 to 3)
+        valid &= PanoramaHook::g_botDifficulty >= 0 && PanoramaHook::g_botDifficulty <= 3;
 
         // the end-of-match skill group screen is handed the rank change
         for (int i = 0; i < 300 && !PanoramaHook::g_matchEndPending; ++i)
@@ -5400,6 +5420,7 @@ int main()
         { "MatchEndScreensPatchTheAdapterAndGates", MatchEndScreensPatchTheAdapterAndGates },
         { "PlayerCardShowsTheSkillGroups", PlayerCardShowsTheSkillGroups },
         { "BotPingReplacesTheBotLabel", BotPingReplacesTheBotLabel },
+        { "BotDifficultyFollowsTheRank", BotDifficultyFollowsTheRank },
         { "StoreListsEveryWeaponCaseAndKey", StoreListsEveryWeaponCaseAndKey },
         { "CustomCaseReplacesContents", CustomCaseReplacesContents },
         { "CaseStoreListsPricedCustomCasesAsSpecialOffers", CaseStoreListsPricedCustomCasesAsSpecialOffers },
