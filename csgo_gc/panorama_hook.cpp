@@ -680,8 +680,8 @@ var CsgoGcCaseStore = ( function()
 	var ACCENT = '#6fd3ff';
 	var PRIMARY = '#2d6fb0';        // the colour of the buttons that do something
 	var PRIMARY_EDGE = '#7db4ea';
-	var HOME_CARDS = 6;   // cards in a band on the Home page
-	var PAGE_SIZE = 14;   // cards on a page of a category
+	var HOME_CARDS = 8;   // cards in a row on the Home page (a 1920 wide screen fits 8)
+	var PAGE_SIZE = 24;   // cards on a page of a category (8 across, 3 down)
 
 	var m_data = [];
 	var m_names = [];
@@ -1235,37 +1235,75 @@ static const char CaseStoreScriptPart2[] = R"js(
 		return list;
 	}
 
-	// Home: a band for each category, like the operation page's rows: its title on the left, a row of cards
+	// one block of Home: a heading with the item count and a VIEW ALL link, then a row of cards
+	function _MakeSection( parent, category, limit, fullWidth )
+	{
+		var entries = _Entries( category[ 0 ], [] );
+		if ( !entries.length )
+		{
+			return 0;
+		}
+
+		var shown = Math.min( entries.length, limit );
+		var block = _Panel( parent, { width: fullWidth ? '100%' : ( shown * 210 ) + 'px', flowChildren: 'down', margin: '0px 30px 16px 0px' } );
+		var head = _Panel( block, { width: '100%', height: '36px', flowChildren: 'right', margin: '0px 0px 8px 0px', borderBottom: '2px solid #6fd3ff55' } );
+		_Label( head, category[ 1 ], { fontSize: '17px', color: '#ffffff', fontWeight: 'bold', letterSpacing: '2px', verticalAlign: 'center' } );
+		_Label( head, entries.length + ( entries.length === 1 ? ' item' : ' items' ), { fontSize: '13px', color: ACCENT, verticalAlign: 'center', margin: '0px 0px 0px 14px', width: 'fill-parent-flow( 1.0 )' } );
+		if ( entries.length > shown || fullWidth )
+		{
+			_Button( head, 'VIEW ALL  \u203a', { height: '28px', padding: '0px 16px', verticalAlign: 'center', horizontalAlign: 'right', backgroundColor: '#ffffff1a', border: '1px solid #ffffff44' },
+				function() { _SelectCategory( category[ 0 ] ); }, { fontSize: '12px', fontWeight: 'bold', letterSpacing: '2px' } );
+		}
+
+		var row = _Panel( block, { flowChildren: 'right' } );
+		entries.slice( 0, shown ).forEach( function( index ) { _MakeCard( row, index ); } );
+		return shown;
+	}
+
+	function _CategoryByKey( key )
+	{
+		for ( var i = 0; i < CATEGORIES.length; i++ )
+		{
+			if ( CATEGORIES[ i ][ 0 ] === key )
+			{
+				return CATEGORIES[ i ];
+			}
+		}
+		return null;
+	}
+
+	// Home: the special offers, the random agent and as many custom cases as fit go in one row, then a row for every
+	// other category with its first eight, so the whole width is used
 	function _RenderHome()
 	{
 		var shown = 0;
-		CATEGORIES.forEach( function( category )
+		var featured = _Panel( m_content, { width: '100%', flowChildren: 'right' } );
+		var used = 0;
+		[ [ 'offers', 3 ], [ 'agent', 3 ], [ 'custom', 0 ] ].forEach( function( item )
 		{
-			var entries = _Entries( category[ 0 ], [] );
-			if ( !entries.length )
+			var category = _CategoryByKey( item[ 0 ] );
+			if ( !category )
 			{
 				return;
 			}
 
-			var color = KIND_COLORS[ category[ 2 ][ 0 ] ] || '#ffffff';
-			var band = _Panel( m_content, { width: '100%', height: '304px', margin: '0px 0px 14px 0px', flowChildren: 'right',
-				backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #10243bf0 ), to( #1a3a5c88 ) )', borderTop: '1px solid #ffffff22' } );
-			var left = _Panel( band, { width: '250px', height: '100%', flowChildren: 'down', padding: '20px 18px 0px 22px', backgroundColor: '#0a1a2ecc' } );
-			var logo = _Panel( left, { width: '84px', height: '64px', margin: '0px 0px 10px 0px' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
-			logo.itemid = _FauxId( m_data[ entries[ 0 ] ][ 7 ] || m_data[ entries[ 0 ] ][ 0 ] );
-			logo.hittest = false;
-			_Label( left, category[ 1 ], { fontSize: '19px', color: '#ffffff', fontWeight: 'bold', letterSpacing: '2px' } );
-			_Label( left, category[ 3 ], { fontSize: '13px', color: '#b7c6d8', margin: '8px 0px 0px 0px', width: '100%' } );
-			_Label( left, entries.length + ( entries.length === 1 ? ' item' : ' items' ), { fontSize: '13px', color: ACCENT, margin: '10px 0px 0px 0px' } );
-			if ( entries.length > HOME_CARDS )
+			var limit = item[ 1 ];
+			if ( !limit )
 			{
-				_Button( left, 'VIEW ALL', { width: '140px', height: '34px', margin: '16px 0px 0px 0px', backgroundColor: PRIMARY, border: '1px solid ' + PRIMARY_EDGE },
-					function() { _SelectCategory( category[ 0 ] ); }, { fontSize: '14px', fontWeight: 'bold', letterSpacing: '2px' } );
+				// what is left of a 1920 wide screen
+				limit = Math.max( 2, Math.min( HOME_CARDS, Math.floor( ( 1790 - used ) / 210 ) ) );
 			}
+			var count = _MakeSection( featured, category, limit, false );
+			used += count * 210 + 30;
+			shown += count;
+		} );
 
-			var row = _Panel( band, { height: '100%', flowChildren: 'right', padding: '16px 0px 0px 6px' } );
-			entries.slice( 0, HOME_CARDS ).forEach( function( index ) { _MakeCard( row, index ); } );
-			shown += Math.min( entries.length, HOME_CARDS );
+		CATEGORIES.forEach( function( category )
+		{
+			if ( category[ 0 ] !== 'offers' && category[ 0 ] !== 'agent' && category[ 0 ] !== 'custom' )
+			{
+				shown += _MakeSection( m_content, category, HOME_CARDS, true );
+			}
 		} );
 
 		m_count.text = m_data.length + ' items';
@@ -1336,9 +1374,11 @@ static const char CaseStoreScriptPart2[] = R"js(
 		for ( var key in m_sideButtons )
 		{
 			var active = key === m_category;
-			m_sideButtons[ key ].style.backgroundColor = active ? '#ffffff1c' : '#00000000';
-			m_sideButtons[ key ].style.borderLeft = active ? '4px solid #ffffff' : '4px solid #00000000';
-			m_sideButtons[ key ].GetChild( 0 ).style.color = active ? '#ffffff' : '#aab6c4';
+			var button = m_sideButtons[ key ];
+			button.style.backgroundColor = active ? ACCENT : '#0a1a2eb8';
+			button.style.border = active ? '1px solid ' + ACCENT : '1px solid #ffffff2a';
+			button.GetChild( 0 ).style.color = active ? '#06283d' : '#dbe8f6';
+			button.GetChild( 1 ).style.color = active ? '#0b3a57' : '#8fa6bd';
 		}
 	}
 
@@ -1366,11 +1406,13 @@ static const char CaseStoreScriptPart2[] = R"js(
 		_ShowStars();
 	}
 
-	function _AddSidebarButton( side, key, title )
+	// a category chip in the row above the cards
+	function _AddSidebarButton( row, key, title )
 	{
-		var button = _Panel( side, { width: '100%', height: '44px', flowChildren: 'right', padding: '0px 18px 0px 20px', backgroundColor: '#00000000', borderLeft: '4px solid #00000000' }, 'Button' );
-		_Label( button, title, { fontSize: '14px', color: '#aab6c4', fontWeight: 'bold', letterSpacing: '1px', verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )' } );
-		m_sideCounts[ key ] = _Label( button, '', { fontSize: '13px', color: '#7e8a99', verticalAlign: 'center', horizontalAlign: 'right' } );
+		var button = _Panel( row, { height: '34px', flowChildren: 'right', padding: '0px 16px', margin: '0px 8px 0px 0px', backgroundColor: '#0a1a2eb8', border: '1px solid #ffffff2a' }, 'Button' );
+		_Label( button, title, { fontSize: '13px', color: '#dbe8f6', fontWeight: 'bold', letterSpacing: '1px', verticalAlign: 'center' } ).hittest = false;
+		m_sideCounts[ key ] = _Label( button, '', { fontSize: '12px', color: '#8fa6bd', verticalAlign: 'center', margin: '0px 0px 0px 10px' } );
+		m_sideCounts[ key ].hittest = false;
 		button.SetPanelEvent( 'onactivate', function() { _SelectCategory( key ); } );
 		m_sideButtons[ key ] = button;
 	}
@@ -1417,22 +1459,22 @@ static const char CaseStoreScriptPart2[] = R"js(
 
 		_BuildTabs( header );
 
-		// the shop: categories on the left, the cards on the right
-		var shopPanel = _Panel( m_overlay, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'right' } );
+		// the shop: a row of category chips and the search above, the cards below using the whole width
+		var shopPanel = _Panel( m_overlay, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', padding: '12px 56px 0px 56px' } );
 		m_tabPanels.shop = shopPanel;
 
-		var side = _Panel( shopPanel, { width: '260px', height: '100%', flowChildren: 'down', padding: '16px 0px 0px 0px', backgroundColor: '#0e1622a0', borderRight: '1px solid #ffffff1c' } );
-		_AddSidebarButton( side, 'home', 'HOME' );
+		var chips = _Panel( shopPanel, { width: '100%', height: '42px', flowChildren: 'right' } );
+		_AddSidebarButton( chips, 'home', 'HOME' );
 		CATEGORIES.forEach( function( category )
 		{
 			if ( m_data.some( function( entry ) { return category[ 2 ].indexOf( entry[ 2 ] ) !== -1; } ) )
 			{
-				_AddSidebarButton( side, category[ 0 ], category[ 1 ] );
+				_AddSidebarButton( chips, category[ 0 ], category[ 1 ] );
 			}
 		} );
 
-		var main = _Panel( shopPanel, { width: 'fill-parent-flow( 1.0 )', height: '100%', flowChildren: 'down', padding: '0px 40px 0px 24px' } );
-		var bar = _Panel( main, { width: '100%', flowChildren: 'right', padding: '12px 0px 10px 0px' } );
+		var main = shopPanel;
+		var bar = _Panel( main, { width: '100%', height: '40px', flowChildren: 'right', padding: '0px 0px 8px 0px' } );
 		m_search = _Panel( bar, {
 			width: '300px', height: '32px', verticalAlign: 'center', fontSize: '15px', color: '#ffffff',
 			backgroundColor: '#ffffff14', border: '1px solid #ffffff30', padding: '5px 10px 0px 10px', marginRight: '18px'
