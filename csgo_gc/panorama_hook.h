@@ -92,6 +92,11 @@ namespace PanoramaHook
     // before doing anything). this lets it run, so the card shows your competitive, wingman and danger zone ranks.
     // returns 1 when changed
     int PatchPlayerCardRanks(std::string &source);
+
+    // bots show a made-up ping on the scoreboard (steady with a little wobble) instead of the "BOT" label: the adapter
+    // answers GetPlayerPing for them and the scoreboard stops printing the label. each returns 1 when changed
+    int PatchBotPingAdapter(std::string &source);
+    int PatchBotPingLabel(std::string &source);
     int PatchMatchEndGate(std::string &source, const char *readyFlag, const char *kind);
 
     // {"drops": {...}, "xp": {...}, "skill": {...}} as the screens expect; "{}" for nothing

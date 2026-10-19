@@ -203,7 +203,8 @@ var CsgoGcEomFor = function ( kind, real )
 			Object.keys( drops ).forEach( function ( key ) { drops[ key ].owner_xuid = me; } );
 			return drops;
 		}
-		return real ? real : CsgoGcEom[ kind ];
+		// the game answers these with empty numbers for a local game, so ours win
+		return CsgoGcEom[ kind ];
 	}
 	catch ( e ) {}
 	return real;
@@ -214,18 +215,89 @@ var CsgoGcEomFor = function ( kind, real )
 
 int PanoramaHook::PatchPlayerCardRanks(std::string &source)
 {
-    static const std::regex hidden{ R"re((var\s+_SetAllSkillGroups\s*=\s*function\s*\(\s*\)\s*\{[^]*?)elSkillGroupContainer\.AddClass\(\s*'hidden'\s*\)\s*;\s*return\s*;)re" };
-    static const std::regex header{ R"re(var\s+_SetAllSkillGroups\s*=\s*function\s*\(\s*\))re" };
-    if (!std::regex_search(source, hidden))
+    // each of these functions starts by hiding its panel and returning; the rest of the function is what the game
+    // used to run. the early return goes, and the function runs inside a try so a missing panel can't break the card
+    struct Target
+    {
+        const char *name;
+        const char *panelVariable;
+    };
+    static const Target targets[] = { { "_SetAllSkillGroups", "elSkillGroupContainer" }, { "_SetRank", "elRank" } };
+
+    int count = 0;
+    for (const Target &target : targets)
+    {
+        const std::regex hidden{ std::string{ R"re((var\s+)re" } + target.name + R"re(\s*=\s*function\s*\(\s*\)\s*\{[\s\S]*?))re"
+            + target.panelVariable + R"re(\.AddClass\(\s*'hidden'\s*\)\s*;\s*return\s*;)re" };
+        if (!std::regex_search(source, hidden))
+        {
+            continue;
+        }
+
+        const std::string name = target.name;
+        source = std::regex_replace(source, hidden, "$1", std::regex_constants::format_first_only);
+        const std::regex header{ "var\\s+" + name + "\\s*=\\s*function\\s*\\(\\s*\\)" };
+        source = std::regex_replace(source, header,
+            "var " + name + " = function() { try { " + name + "Inner(); } catch ( e ) {} };\n\tvar " + name + "Inner = function()",
+            std::regex_constants::format_first_only);
+        count++;
+    }
+    return count;
+}
+
+int PanoramaHook::PatchBotPingAdapter(std::string &source)
+{
+    // GetPlayerPing: function _GetPlayerPing ( xuid ) {return _APIAccessor( GameStateAPI.GetPlayerPing( xuid ), k_GetPlayerPing, xuid );},
+    static const std::regex pingFn{
+        R"re((GetPlayerPing:\s*function\s+_GetPlayerPing\s*\(\s*xuid\s*\)\s*\{\s*return\s+)(_APIAccessor\([^;]*\))(\s*;\s*\}))re" };
+    if (!std::regex_search(source, pingFn))
     {
         return 0;
     }
 
-    // the early return goes; the rest of the function runs inside a try so a missing panel can't break the card
-    source = std::regex_replace(source, hidden, "$1", std::regex_constants::format_first_only);
-    source = std::regex_replace(source, header,
-        "var _SetAllSkillGroups = function() { try { _SetAllSkillGroupsInner(); } catch ( e ) {} };\n\tvar _SetAllSkillGroupsInner = function()",
-        std::regex_constants::format_first_only);
+    source = std::regex_replace(source, pingFn, "$1CsgoGcPingFor( xuid, $2 )$3", std::regex_constants::format_first_only);
+    source += R"js(
+
+var CsgoGcPingFor = function ( xuid, real )
+{
+	try
+	{
+		if ( !GameStateAPI.IsFakePlayer( xuid ) )
+		{
+			return real;
+		}
+
+		var s = String( xuid );
+		try { s += GameStateAPI.GetPlayerName( xuid ); } catch ( e ) {}
+		var h = 0;
+		for ( var i = 0; i < s.length; i++ )
+		{
+			h = ( h * 31 + s.charCodeAt( i ) ) % 1000003;
+		}
+
+		// a steady ping per bot between 12 and 68, moving a few ms every couple of seconds
+		var base = 12 + ( h % 57 );
+		var step = Math.floor( Date.now() / 2500 );
+		var wobble = ( ( ( h + step * 7919 ) % 11 ) - 5 );
+		return Math.max( 5, base + wobble );
+	}
+	catch ( e ) {}
+	return real;
+};
+)js";
+    return 1;
+}
+
+int PanoramaHook::PatchBotPingLabel(std::string &source)
+{
+    // if ( MockAdapter.IsFakePlayer( xuid ) ) { szCustomLabel = "#SFUI_scoreboard_lbl_bot"; }
+    static const std::regex botLabel{ R"re(if\s*\(\s*MockAdapter\.IsFakePlayer\(\s*xuid\s*\)\s*\)(\s*\{\s*szCustomLabel\s*=\s*"#SFUI_scoreboard_lbl_bot"))re" };
+    if (!std::regex_search(source, botLabel))
+    {
+        return 0;
+    }
+
+    source = std::regex_replace(source, botLabel, "if ( false )$1", std::regex_constants::format_first_only);
     return 1;
 }
 
@@ -1654,7 +1726,19 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
         Platform::Print("Panorama: %s didn't match, that end-of-match screen stays blank\n", rank ? "endofmatch-rank.js" : "endofmatch-skillgroup.js");
     }
 
-    if ((GetConfig().RankSystem().scoreboard || matchEndScreens) && PathIsFile(path, "mock_adapter.js"))
+    if (GetConfig().BotPing() && PathIsFile(path, "scoreboard.js"))
+    {
+        std::string patched = source;
+        const bool changed = PanoramaHook::PatchBotPingLabel(patched) != 0;
+        Platform::Print("Panorama: scoreboard bot ping %s\n", changed ? "shown instead of the BOT label" : "not changed, scoreboard.js didn't match");
+        if (changed)
+        {
+            s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
+            return;
+        }
+    }
+
+    if ((GetConfig().RankSystem().scoreboard || matchEndScreens || GetConfig().BotPing()) && PathIsFile(path, "mock_adapter.js"))
     {
         std::string patched = source;
         int changes = 0;
@@ -1665,6 +1749,12 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
             Platform::Print("Panorama: scoreboard ranks %s (competitive %d, wingman %d, level %d)\n",
                 changes ? "added" : "not added, mock_adapter.js didn't match", PanoramaHook::g_rankCompetitive.load(),
                 PanoramaHook::g_rankWingman.load(), PanoramaHook::g_playerLevel.load());
+        }
+        if (GetConfig().BotPing())
+        {
+            const int ping = PanoramaHook::PatchBotPingAdapter(patched);
+            Platform::Print("Panorama: bot ping %s\n", ping ? "added" : "not added, mock_adapter.js didn't match");
+            changes += ping;
         }
         if (matchEndScreens)
         {
