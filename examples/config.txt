@@ -2,20 +2,20 @@
 // from now on are added on top and shown on your profile (competitive, wingman, danger zone)
 "ranks"
 {
-	"competitive_rank"	"18"
-	"competitive_wins"	"666"
-	"wingman_rank"	"18"
-	"wingman_wins"	"777"
-	"dangerzone_rank"	"15"
-	"dangerzone_wins"	"888"
+	"competitive_rank"	"0"
+	"competitive_wins"	"0"
+	"wingman_rank"	"0"
+	"wingman_wins"	"0"
+	"dangerzone_rank"	"0"
+	"dangerzone_wins"	"0"
 }
 
 "vac_banned"	"0"
-"cmd_friendly"	"666"
-"cmd_teaching"	"777"
-"cmd_leader"	"888"
-"player_level"	"39"
-"player_cur_xp"	"4999"
+"cmd_friendly"	"14"
+"cmd_teaching"	"23"
+"cmd_leader"	"12"
+"player_level"	"1"
+"player_cur_xp"	"0"
 
 // 1 reports the account as prime (unchanged behavior), 0 reports it as non-prime
 "prime_status"	"1"
@@ -28,7 +28,7 @@
 	"3"	"400000"
 	"4"	"80000"
 	"5"	"16000"
-	"6"	"8000"
+	"6"	"11000"
 	"99"	"8000"
 }
 
@@ -57,9 +57,9 @@
 "match_drops"
 {
 	"enabled"		"1"
-	"drop_chance"	"100"	// chance of getting a drop at all
-	"case_chance"	"25"	// chance the drop is a case instead of a skin
-	"custom_case_chance"	"25"	// of the cases that drop, the chance it is one of your custom cases (custom_cases.txt)
+	"drop_chance"	"1.0"	// chance of getting a drop at all
+	"case_chance"	"0.25"	// chance the drop is a case instead of a skin
+	"custom_case_chance"	"0.25"	// of the cases that drop, the chance it is one of your custom cases (custom_cases.txt)
 	"drops_per_match"	"3"	// separate drops rolled when a match ends (1-20)
 
 	// skin drop rarity weights (relative, like rarity_weights above)
@@ -151,7 +151,7 @@
 // how many seconds the screens after a match stay up before the next match starts (the game's own is about 15, too
 // short for the drops, XP and rank screens). sent to the game as mp_match_restart_delay at the start of every round.
 // 0 leaves the game's own time
-"end_of_match_seconds"	"40"
+"end_of_match_seconds"	"60"
 
 // competitive ranks, Silver I to The Global Elite. winning a competitive, wingman or danger zone match gives
 // win_points rank points and losing one takes loss_points off; each rank needs more points than the one before
@@ -180,7 +180,7 @@
 	"per_defuse"	"25"
 	"per_match"		"600"
 	"per_level"		"5000"
-	"level_up_drops"	"1"
+	"level_up_drops"	"3"
 }
 
 // KNOWN TO BREAK: gives each custom case a collection of its own in items_game.txt, meant to let their skins be
@@ -220,7 +220,7 @@
 
 	// prices in stars. a case comes with its key
 	"case_price"		"10"
-	"capsule_price"		"5"
+	"capsule_price"		"20"
 	"souvenir_price"	"25"
 	"custom_case_price"	"100"	// cases from custom_cases.txt, shown first in the shop
 	"agent_price"		"50"	// a random agent, any of them
@@ -274,14 +274,14 @@
 	"enabled"	"1"
 	// also swap the bot's knife for a themed one (a Karambit, Butterfly, ...).
 	// 0 = weapon skins only, the bots keep their normal knife
-	"knives"	"1"
+	"knives"	"0"
 }
 
 // bots talk in the chat: "gl hf" at the start, reactions when you kill them or they kill you, the bomb, round and match
 // results and "gg" at the end, each one a moment after it happens. they show in the chat with the bot's own name, like
 // real players. printed by the server's own chat function, found in server.dll (Windows, final server.dll only). a game
 // that doesn't match just stays quiet. if the game crashes in a bot match, set this back to 0
-"bot_chat"	"0"
+"bot_chat"	"1"
 
 // for debugging the menus: saves the game's UI scripts to csgo_gc/panorama_dump/ and
 // logs what the game thinks about the operation (lines starting with [csgo_gc]).
@@ -291,7 +291,7 @@
 // how much further than normal viewmodel_offset_x/y/z can go. 1 = the game's own
 // limits (about -2 to 2), 10 = ten times that, so e.g. "viewmodel_offset_x 15" works.
 // set the numbers in the console as usual once this is on
-"viewmodel_range"	"10"
+"viewmodel_range"	"20"
 
 // remove keys, cases, stickers, etc. after they've been used
 "destroy_used_items"	"1"

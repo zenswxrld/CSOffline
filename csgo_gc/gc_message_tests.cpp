@@ -4568,6 +4568,9 @@ static bool WonMatchesCountAndMoveRanks()
         }
         valid &= PanoramaHook::g_matchEndPending && json.find("\"skill\":{\"num_wins\":") != std::string::npos
             && json.find("\"old_rank\":") != std::string::npos && json.find("\"new_rank\":") != std::string::npos;
+        // under 10 wins the screen must not show a rank: it gets rank 0 both times and says how many wins are left
+        valid &= json.find("\"old_rank\":0,\"new_rank\":0") != std::string::npos
+            && json.find("\"rank_change\"") == std::string::npos;
     }
 
     // the rank steps follow the points: 100 is Silver II, 5200 The Global Elite, and a danger zone rank stops at 15
