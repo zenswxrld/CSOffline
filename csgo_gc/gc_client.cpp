@@ -2198,8 +2198,15 @@ void ClientGC::SendEmptyDeepStats(const CMsgGCCStrike15_ClientDeepStats &request
 void ClientGC::SendRankUpdate()
 {
     const bool system = GetConfig().RankSystem().enabled;
-    PanoramaHook::SetScoreboardRanks({ static_cast<int>(system ? RankFor("points_competitive", 18) : GetConfig().CompetitiveRank()),
-        static_cast<int>(system ? RankFor("points_wingman", 18) : GetConfig().WingmanRank()), m_inventory.PlayerLevel() });
+    // your rank on the scoreboard stays blank (unranked) until you have the wins the game asks for (10); the bots'
+    // ranks are based on the rank you would have
+    constexpr int WinsNeededForRank = 10;
+    const int competitiveRank = static_cast<int>(system ? RankFor("points_competitive", 18) : GetConfig().CompetitiveRank());
+    const int wingmanRank = static_cast<int>(system ? RankFor("points_wingman", 18) : GetConfig().WingmanRank());
+    const int competitiveWins = GetConfig().CompetitiveWins() + WinsFor("wins_competitive");
+    const int wingmanWins = GetConfig().WingmanWins() + WinsFor("wins_wingman");
+    PanoramaHook::SetScoreboardRanks({ competitiveWins >= WinsNeededForRank ? competitiveRank : 0,
+        wingmanWins >= WinsNeededForRank ? wingmanRank : 0, m_inventory.PlayerLevel(), competitiveRank, wingmanRank });
 
     if (system && GetConfig().BotDifficultyByRank())
     {

@@ -64,9 +64,11 @@ namespace PanoramaHook
     // get a rank and level near yours. only in competitive and wingman matches. returns the number of changes
     struct ScoreboardRanks
     {
-        int competitive{};
+        int competitive{}; // your rank, 0 while you are unranked (not enough wins yet)
         int wingman{};
         int level{};
+        int botCompetitive{ -1 }; // what the bots' ranks are based on; -1 = your rank
+        int botWingman{ -1 };
     };
     int PatchScoreboardRanks(std::string &source, const ScoreboardRanks &ranks);
 
@@ -75,12 +77,16 @@ namespace PanoramaHook
     inline std::atomic<int> g_rankCompetitive{ 0 };
     inline std::atomic<int> g_rankWingman{ 0 };
     inline std::atomic<int> g_playerLevel{ 0 };
+    inline std::atomic<int> g_botRankCompetitive{ -1 };
+    inline std::atomic<int> g_botRankWingman{ -1 };
 
     inline void SetScoreboardRanks(const ScoreboardRanks &ranks)
     {
         g_rankCompetitive = ranks.competitive;
         g_rankWingman = ranks.wingman;
         g_playerLevel = ranks.level;
+        g_botRankCompetitive = ranks.botCompetitive;
+        g_botRankWingman = ranks.botWingman;
     }
 
     // the end-of-match screens (drops, XP bar, skill group) read their data from the game server, which has nothing for

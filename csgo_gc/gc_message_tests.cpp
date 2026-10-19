@@ -4091,7 +4091,7 @@ static bool ScoreboardRanksPatchTheAdapter()
             != std::string::npos
         && adapter.find("return CsgoGcLevelFor( xuid, _APIAccessor( GameStateAPI.GetPlayerXpLevel( xuid ), k_GetPlayerXpLevel, xuid ) );}")
             != std::string::npos
-        && adapter.find("var CsgoGcRanks = { comp: 7, wing: 3, level: 21 };") != std::string::npos;
+        && adapter.find("var CsgoGcRanks = { comp: 7, wing: 3, level: 21, botComp: 7, botWing: 3 };") != std::string::npos;
 
     std::string other = "var x = 1;";
     valid &= PanoramaHook::PatchScoreboardRanks(other, { 7, 3, 21 }) == 0 && other == "var x = 1;";

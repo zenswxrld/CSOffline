@@ -97,8 +97,11 @@ int PanoramaHook::PatchScoreboardRanks(std::string &source, const ScoreboardRank
         return 0;
     }
 
+    const int botComp = ranks.botCompetitive >= 0 ? ranks.botCompetitive : ranks.competitive;
+    const int botWing = ranks.botWingman >= 0 ? ranks.botWingman : ranks.wingman;
     source += "\n\nvar CsgoGcRanks = { comp: " + std::to_string(ranks.competitive) + ", wing: " + std::to_string(ranks.wingman)
-        + ", level: " + std::to_string(ranks.level) + R"js( };
+        + ", level: " + std::to_string(ranks.level) + ", botComp: " + std::to_string(botComp) + ", botWing: " + std::to_string(botWing)
+        + R"js( };
 var CsgoGcBotHash = function ( xuid )
 {
 	var s = String( xuid );
@@ -122,17 +125,19 @@ var CsgoGcRankFor = function ( xuid, real )
 		}
 
 		var mine = wingman ? CsgoGcRanks.wing : CsgoGcRanks.comp;
-		if ( mine <= 0 )
+		var near = wingman ? CsgoGcRanks.botWing : CsgoGcRanks.botComp;
+		if ( near <= 0 && mine <= 0 )
 		{
 			return real;
 		}
 		if ( xuid === GameStateAPI.GetLocalPlayerXuid() )
 		{
-			return mine;
+			// 0 while you are unranked: not enough wins yet
+			return mine > 0 ? mine : 0;
 		}
-		if ( GameStateAPI.IsFakePlayer( xuid ) )
+		if ( GameStateAPI.IsFakePlayer( xuid ) && near > 0 )
 		{
-			return Math.max( 1, Math.min( 18, mine + ( CsgoGcBotHash( xuid ) % 5 ) - 2 ) );
+			return Math.max( 1, Math.min( 18, near + ( CsgoGcBotHash( xuid ) % 5 ) - 2 ) );
 		}
 	}
 	catch ( e ) {}
