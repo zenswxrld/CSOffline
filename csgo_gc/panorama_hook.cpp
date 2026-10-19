@@ -324,6 +324,20 @@ var CsgoGcPingFor = function ( xuid, real )
     return 1;
 }
 
+int PanoramaHook::PatchInventoryRefresh(std::string &source)
+{
+    // if( $.GetContextPanel().BHasClass( _m_HiddenContentClassname ) || _m_isCapabliltyPopupOpen )
+    static const std::regex guard{
+        R"re((if\s*\(\s*\$\.GetContextPanel\(\)\.BHasClass\(\s*_m_HiddenContentClassname\s*\))\s*\|\|\s*_m_isCapabliltyPopupOpen(\s*\)))re" };
+    if (!std::regex_search(source, guard))
+    {
+        return 0;
+    }
+
+    source = std::regex_replace(source, guard, "$1$2", std::regex_constants::format_first_only);
+    return 1;
+}
+
 int PanoramaHook::PatchBotClanTags(std::string &source)
 {
     // GetPlayerClanTag: function _GetPlayerClanTag ( xuid ) {return _APIAccessor( GameStateAPI.GetPlayerClanTag( xuid ), k_GetPlayerClanTag );},
@@ -1802,6 +1816,18 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
             return;
         }
         Platform::Print("Panorama: %s didn't match, that end-of-match screen stays blank\n", rank ? "endofmatch-rank.js" : "endofmatch-skillgroup.js");
+    }
+
+    if (GetConfig().InventoryRefreshFix() && PathIsFile(path, "mainmenu_inventory.js"))
+    {
+        std::string patched = source;
+        const bool changed = PanoramaHook::PatchInventoryRefresh(patched) != 0;
+        Platform::Print("Panorama: inventory refresh %s\n", changed ? "no longer skipped while a popup is counted as open" : "not changed, mainmenu_inventory.js didn't match");
+        if (changed)
+        {
+            s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
+            return;
+        }
     }
 
     if (GetConfig().BotDifficultyByRank() && PathIsFile(path, "mainmenu_play.js"))

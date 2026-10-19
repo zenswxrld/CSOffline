@@ -188,6 +188,7 @@ public:
     bool MatchEndScreens() const { return m_matchEndScreens; }
     bool BotPing() const { return m_botPing; }
     bool BotClanTags() const { return m_botClanTags; }
+    bool InventoryRefreshFix() const { return m_inventoryRefreshFix; }
     int MatchEndSeconds() const { return m_matchEndSeconds; }
     bool RestoreHowl() const { return m_restoreHowl; }
     bool BotDifficultyByRank() const { return m_botDifficultyByRank; }
@@ -256,6 +257,7 @@ private:
     bool m_matchEndScreens{ true };
     bool m_botPing{ true };
     bool m_botClanTags{ true };
+    bool m_inventoryRefreshFix{ true };
     int m_matchEndSeconds{ 40 };
     bool m_restoreHowl{ true };
     bool m_botDifficultyByRank{ true };

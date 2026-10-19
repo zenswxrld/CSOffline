@@ -131,6 +131,10 @@
 // match has new ones
 "bot_clan_tags"	"1"
 
+// the inventory sometimes keeps showing the old list until you go back to the main screen and return. this stops it
+// ignoring updates while it thinks a popup (opening a case, stickers, name tags) is still open
+"inventory_refresh_fix"	"1"
+
 // puts the M4A4 | Howl back in the Huntsman Weapon Case (Valve removed it): it drops from the case again, as one of its
 // Covert skins, and shows in the case's contents. this edits items_game.txt: delete csgo/scripts/items/items_game.txt
 // once after changing it and restart the game twice

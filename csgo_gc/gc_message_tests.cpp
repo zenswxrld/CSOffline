@@ -4287,6 +4287,20 @@ static bool BotsGetClanTagsOnTheScoreboard()
     return valid;
 }
 
+static bool InventoryRefreshIgnoresAStuckPopupFlag()
+{
+    std::string page =
+        "\tvar _InventoryUpdated = function()\n\t{\n\t\t_ShowHideXrayBtn();\n\t\t\n"
+        "\t\tif( $.GetContextPanel().BHasClass( _m_HiddenContentClassname ) || _m_isCapabliltyPopupOpen )\n\t\t\treturn;\n";
+    bool valid = PanoramaHook::PatchInventoryRefresh(page) == 1
+        && page.find("if( $.GetContextPanel().BHasClass( _m_HiddenContentClassname ) )") != std::string::npos
+        && page.find("_m_isCapabliltyPopupOpen") == std::string::npos;
+
+    std::string other = "var x = 1;";
+    valid &= PanoramaHook::PatchInventoryRefresh(other) == 0;
+    return valid;
+}
+
 static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
 {
     std::string text =
@@ -5525,6 +5539,7 @@ int main()
         { "MatchEndScreensPatchTheAdapterAndGates", MatchEndScreensPatchTheAdapterAndGates },
         { "PlayerCardShowsTheSkillGroups", PlayerCardShowsTheSkillGroups },
         { "BotPingReplacesTheBotLabel", BotPingReplacesTheBotLabel },
+        { "InventoryRefreshIgnoresAStuckPopupFlag", InventoryRefreshIgnoresAStuckPopupFlag },
         { "BotsGetClanTagsOnTheScoreboard", BotsGetClanTagsOnTheScoreboard },
         { "HowlGoesBackInTheHuntsmanCase", HowlGoesBackInTheHuntsmanCase },
         { "BotsChatAboutWhatHappens", BotsChatAboutWhatHappens },
