@@ -97,6 +97,12 @@ namespace PanoramaHook
     // answers GetPlayerPing for them and the scoreboard stops printing the label. each returns 1 when changed
     int PatchBotPingAdapter(std::string &source);
     int PatchBotPingLabel(std::string &source);
+
+    // bot difficulty follows your competitive rank (0 easy to 3 expert; -1 leaves the Play menu's choice alone). the
+    // GC sets g_botDifficulty, Tick() stores it as a game setting and the Play menu script uses it instead of the
+    // difficulty dropdown. PatchBotDifficulty makes that change to mainmenu_play.js and returns 1 when changed
+    inline std::atomic<int> g_botDifficulty{ -1 };
+    int PatchBotDifficulty(std::string &source);
     int PatchMatchEndGate(std::string &source, const char *readyFlag, const char *kind);
 
     // {"drops": {...}, "xp": {...}, "skill": {...}} as the screens expect; "{}" for nothing

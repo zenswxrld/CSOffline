@@ -22,6 +22,7 @@
 #include "tradeup_hook.h"
 #include "server_hook.h"
 #include "bot_skins.h"
+#include "bot_chat.h"
 #include "viewmodel_range.h"
 #include "panorama_hook.h"
 #include "star_shop.h"
@@ -297,6 +298,11 @@ public:
 
         const char *eventName = event->GetName();
 
+        if (GetConfig().BotChat().enabled)
+        {
+            PostBotChatEvent(eventName, event);
+        }
+
         // who is winning: the local player's team (player_team) against the winners of each round (round_end)
         if (!strcmp(eventName, "begin_new_match") || !strcmp(eventName, "round_announce_match_start"))
         {
@@ -420,6 +426,95 @@ public:
     }
 
 private:
+    // the bots' chat reacts to what happens
+    static void PostBotChatEvent(const char *eventName, IGameEvent *event)
+    {
+        const int local = s_engineClient->GetLocalPlayer();
+
+        auto lookup = [&](int userId, PlayerInfo &info, bool &isLocal, bool &isBot)
+        {
+            const int entity = userId > 0 ? s_engineClient->GetPlayerForUserID(userId) : 0;
+            if (entity <= 0 || !s_engineClient->GetPlayerInfo(entity, &info))
+            {
+                return false;
+            }
+            isLocal = entity == local;
+            isBot = info.fakePlayer;
+            return true;
+        };
+
+        BotChat::Event chat;
+        if (!strcmp(eventName, "round_start"))
+        {
+            // who is in the match: every bot
+            std::vector<std::string> bots;
+            int roundsPlayed = s_roundsWon + s_roundsLost;
+            for (int entity = 1; entity <= 64; ++entity)
+            {
+                PlayerInfo info{};
+                if (s_engineClient->GetPlayerInfo(entity, &info) && info.fakePlayer && info.name[0])
+                {
+                    bots.emplace_back(info.name);
+                }
+            }
+            BotChat::SetBots(std::move(bots));
+            chat.type = BotChat::EventType::RoundStart;
+            chat.roundsPlayed = roundsPlayed;
+        }
+        else if (!strcmp(eventName, "player_death"))
+        {
+            PlayerInfo victim{};
+            PlayerInfo attacker{};
+            bool victimLocal = false, victimBot = false, attackerLocal = false, attackerBot = false;
+            const bool haveVictim = lookup(event->GetInt("userid"), victim, victimLocal, victimBot);
+            const bool haveAttacker = lookup(event->GetInt("attacker"), attacker, attackerLocal, attackerBot);
+            if (!haveVictim)
+            {
+                return;
+            }
+            chat.type = BotChat::EventType::Kill;
+            chat.victim = victim.name;
+            chat.victimBot = victimBot;
+            chat.victimLocal = victimLocal;
+            chat.headshot = event->GetBool("headshot");
+            if (haveAttacker)
+            {
+                chat.attacker = attacker.name;
+                chat.attackerBot = attackerBot;
+                chat.attackerLocal = attackerLocal;
+            }
+        }
+        else if (!strcmp(eventName, "round_end"))
+        {
+            const int winner = event->GetInt("winner");
+            chat.type = BotChat::EventType::RoundEnd;
+            chat.localWon = (winner == 2 || winner == 3) && winner == s_localTeam;
+        }
+        else if (!strcmp(eventName, "bomb_planted"))
+        {
+            chat.type = BotChat::EventType::BombPlanted;
+        }
+        else if (!strcmp(eventName, "bomb_defused"))
+        {
+            chat.type = BotChat::EventType::BombDefused;
+        }
+        else if (!strcmp(eventName, "bomb_exploded"))
+        {
+            chat.type = BotChat::EventType::BombExploded;
+        }
+        else if (!strcmp(eventName, "cs_win_panel_match"))
+        {
+            chat.type = BotChat::EventType::MatchEnd;
+            chat.localWon = s_roundsWon > s_roundsLost;
+        }
+        else
+        {
+            return;
+        }
+
+        BotChat::OnGameEvent(chat);
+    }
+
     // kills, headshots, plants and defuses by the local player earn stars
     static void PostStarEvent(const char *eventName, IGameEvent *event)
     {
@@ -507,6 +602,7 @@ static bool s_clientRoundMVPListenerRegistered = false;
 static bool s_clientRoundStartListenerRegistered = false;
 static bool s_clientMatchEndListenerRegistered = false;
 static bool s_clientStarListenersRegistered = false;
+static bool s_clientBotChatListenersRegistered = false;
 static bool s_serverRoundMVPListenerRegistered = false;
 
 static void InitializeClientGameInterfaces()
@@ -596,6 +692,19 @@ static void UpdateGameEventListeners()
             }
         }
 
+        if (!s_clientBotChatListenersRegistered && GetConfig().BotChat().enabled)
+        {
+            // a listener that is already registered for an event (the match end and star shop ones) just says no
+            for (const char *name : { "round_start", "round_end", "player_death", "bomb_planted", "bomb_defused",
+                     "bomb_exploded", "cs_win_panel_match" })
+            {
+                s_gameEventManager->AddListener(&s_clientGameEventListener, name, false);
+            }
+            s_clientBotChatListenersRegistered = true;
+            BotChat::Reset();
+            Platform::Print("Registered bot chat listeners\n");
+        }
+
         if (!s_clientStarListenersRegistered && GetConfig().StarShop().enabled)
         {
             const bool ok = s_gameEventManager->AddListener(&s_clientGameEventListener, "player_death", false)
@@ -608,7 +717,7 @@ static void UpdateGameEventListeners()
     else
     {
         if (s_clientRoundMVPListenerRegistered || s_clientRoundStartListenerRegistered
-            || s_clientMatchEndListenerRegistered || s_clientStarListenersRegistered)
+            || s_clientMatchEndListenerRegistered || s_clientStarListenersRegistered || s_clientBotChatListenersRegistered)
         {
             s_gameEventManager->RemoveListener(&s_clientGameEventListener);
             if (s_clientRoundMVPListenerRegistered)
@@ -623,6 +732,7 @@ static void UpdateGameEventListeners()
             s_clientRoundStartListenerRegistered = false;
             s_clientMatchEndListenerRegistered = false;
             s_clientStarListenersRegistered = false;
+            s_clientBotChatListenersRegistered = false;
         }
     }
 
@@ -1973,6 +2083,7 @@ static void Hk_SteamAPI_RunCallbacks()
         PanoramaHook::SetSellData(StarShop::BuildSellTable(s_clientGC->m_gc.GetItemSchema(), GetConfig().StarShop()));
     }
     PanoramaHook::Tick();
+    BotChat::Tick();
 
     if (s_clientGC)
     {

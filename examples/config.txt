@@ -117,6 +117,10 @@
 // bots show a made-up ping (12 to 68, wobbling a little) on the scoreboard instead of the "BOT" label
 "bot_ping"	"1"
 
+// bot difficulty follows your competitive rank: Silver easy, Gold Nova normal, Master Guardian hard, Legendary Eagle and
+// up expert. needs the rank system, and it replaces the Play menu's bot difficulty dropdown
+"bot_difficulty_by_rank"	"1"
+
 // the screens after a match: the items you got, your XP bar and level up, and your skill group (rank) in competitive and
 // wingman. the game only shows them from server data a local game doesn't have, so csgo_gc feeds them
 "end_of_match_screens"	"1"
@@ -244,6 +248,12 @@
 	// 0 = weapon skins only, the bots keep their normal knife
 	"knives"	"1"
 }
+
+// bots talk in the chat: "gl hf" at the start, reactions when you kill them or they kill you, the bomb, round and match
+// results and "gg" at the end, each one a moment after it happens. they show in the chat with the bot's own name, like
+// real players. printed by the server's own chat function, found in server.dll (Windows, final server.dll only). a game
+// that doesn't match just stays quiet. if the game crashes in a bot match, set this back to 0
+"bot_chat"	"0"
 
 // for debugging the menus: saves the game's UI scripts to csgo_gc/panorama_dump/ and
 // logs what the game thinks about the operation (lines starting with [csgo_gc]).

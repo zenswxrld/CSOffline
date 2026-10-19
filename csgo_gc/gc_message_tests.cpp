@@ -10,6 +10,7 @@
 #include "panorama_hook.h"
 #include "star_shop.h"
 #include "bot_skins.h"
+#include "bot_chat.h"
 #include "viewmodel_range.h"
 #include "test_filesystem.h"
 
@@ -4166,6 +4167,88 @@ static bool BotPingReplacesTheBotLabel()
     return valid;
 }
 
+static bool BotDifficultyFollowsTheRank()
+{
+    std::string play =
+        "\tfunction _UpdateBotDifficultyButton()\n\t{\n\t\tvar botDiff = GameInterfaceAPI.GetSettingString( 'player_botdifflast_s' );\n"
+        "\t\tGameTypesAPI.SetCustomBotDifficulty( botDiff );\n\t};\n"
+        "\tfunction _BotDifficultyChanged()\n\t{\n\t\tvar botDiff = elDropDownEntry.id;\n\t};\n";
+    bool valid = PanoramaHook::PatchBotDifficulty(play) == 1
+        && play.find("var botDiff = CsgoGcDifficulty( GameInterfaceAPI.GetSettingString( 'player_botdifflast_s' ) );") != std::string::npos
+        && play.find("var botDiff = CsgoGcDifficulty( elDropDownEntry.id );") != std::string::npos
+        && play.find("csgo_gc_bot_difficulty") != std::string::npos;
+
+    std::string other = "var x = 1;";
+    valid &= PanoramaHook::PatchBotDifficulty(other) == 0;
+
+    return valid;
+}
+
+static bool BotsChatAboutWhatHappens()
+{
+    using namespace std::chrono;
+    const auto start = steady_clock::now();
+    bool valid = true;
+
+    BotChat::Reset(7);
+    BotChat::SetBots({ "frost47", "Kjaerbye" });
+
+    // you kill a bot with a headshot, over many tries: a bot sometimes says something, in its own name, never at once
+    int spoken = 0;
+    for (int i = 0; i < 40; ++i)
+    {
+        BotChat::Event kill;
+        kill.type = BotChat::EventType::Kill;
+        kill.victim = "frost47";
+        kill.victimBot = true;
+        kill.attacker = "zenny";
+        kill.attackerLocal = true;
+        kill.headshot = true;
+        const auto now = start + seconds{ i * 20 };
+        BotChat::OnEvent(kill, now);
+
+        std::vector<std::string> lines;
+        BotChat::Take(now, lines); // nothing is due right away
+        valid &= lines.empty();
+        BotChat::Take(now + seconds{ 10 }, lines);
+        for (const std::string &line : lines)
+        {
+            const std::string plain = BotChat::PlainText(line);
+            valid &= plain.rfind("frost47: ", 0) == 0 && plain.size() > 10;
+            spoken++;
+        }
+    }
+    valid &= spoken > 5 && spoken < 40;
+
+    // the first round gets a greeting from one of the bots
+    BotChat::Reset(3);
+    BotChat::SetBots({ "frost47", "Kjaerbye" });
+    BotChat::Event greeting;
+    greeting.type = BotChat::EventType::RoundStart;
+    BotChat::OnEvent(greeting, start);
+    std::vector<std::string> lines;
+    BotChat::Take(start + seconds{ 10 }, lines);
+    valid &= lines.size() == 1;
+
+    // the end of the match always gets a "gg"
+    BotChat::Reset(5);
+    BotChat::SetBots({ "frost47" });
+    BotChat::Event over;
+    over.type = BotChat::EventType::MatchEnd;
+    BotChat::OnEvent(over, start);
+    lines.clear();
+    BotChat::Take(start + seconds{ 10 }, lines);
+    valid &= lines.size() == 1 && BotChat::PlainText(lines[0]).rfind("frost47: ", 0) == 0;
+
+    // no bots, no chat
+    BotChat::Reset(5);
+    lines.clear();
+    BotChat::OnEvent(over, start);
+    BotChat::Take(start + seconds{ 10 }, lines);
+    valid &= lines.empty();
+    return valid;
+}
+
 static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
 {
     std::string text =
@@ -4403,6 +4486,9 @@ static bool WonMatchesCountAndMoveRanks()
             }
         }
         valid &= sawRankUpdate;
+
+        // the bots' difficulty follows the rank (0 to 3)
+        valid &= PanoramaHook::g_botDifficulty >= 0 && PanoramaHook::g_botDifficulty <= 3;
 
         // the end-of-match skill group screen is handed the rank change
         for (int i = 0; i < 300 && !PanoramaHook::g_matchEndPending; ++i)
@@ -5400,6 +5486,8 @@ int main()
         { "MatchEndScreensPatchTheAdapterAndGates", MatchEndScreensPatchTheAdapterAndGates },
         { "PlayerCardShowsTheSkillGroups", PlayerCardShowsTheSkillGroups },
         { "BotPingReplacesTheBotLabel", BotPingReplacesTheBotLabel },
+        { "BotsChatAboutWhatHappens", BotsChatAboutWhatHappens },
+        { "BotDifficultyFollowsTheRank", BotDifficultyFollowsTheRank },
         { "StoreListsEveryWeaponCaseAndKey", StoreListsEveryWeaponCaseAndKey },
         { "CustomCaseReplacesContents", CustomCaseReplacesContents },
         { "CaseStoreListsPricedCustomCasesAsSpecialOffers", CaseStoreListsPricedCustomCasesAsSpecialOffers },

@@ -2201,6 +2201,13 @@ void ClientGC::SendRankUpdate()
     PanoramaHook::SetScoreboardRanks({ static_cast<int>(system ? RankFor("points_competitive", 18) : GetConfig().CompetitiveRank()),
         static_cast<int>(system ? RankFor("points_wingman", 18) : GetConfig().WingmanRank()), m_inventory.PlayerLevel() });
 
+    if (system && GetConfig().BotDifficultyByRank())
+    {
+        // Silver 1-4 easy, Gold Nova 5-8 normal, Master Guardian 9-12 hard, Legendary Eagle and up expert
+        const uint32_t rank = RankFor("points_competitive", 18);
+        PanoramaHook::g_botDifficulty = rank <= 4 ? 0 : rank <= 8 ? 1 : rank <= 12 ? 2 : 3;
+    }
+
     CMsgGCCStrike15_v2_ClientGCRankUpdate message;
 
     PlayerRankingInfo *rank = message.add_rankings();

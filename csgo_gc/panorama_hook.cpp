@@ -245,6 +245,36 @@ int PanoramaHook::PatchPlayerCardRanks(std::string &source)
     return count;
 }
 
+int PanoramaHook::PatchBotDifficulty(std::string &source)
+{
+    static const std::regex last{ R"re((var\s+botDiff\s*=\s*)(GameInterfaceAPI\.GetSettingString\(\s*'player_botdifflast_s'\s*\)))re" };
+    static const std::regex chosen{ R"re((var\s+botDiff\s*=\s*)(elDropDownEntry\.id))re" };
+    if (!std::regex_search(source, last) || !std::regex_search(source, chosen))
+    {
+        return 0;
+    }
+
+    source = std::regex_replace(source, last, "$1CsgoGcDifficulty( $2 )", std::regex_constants::format_first_only);
+    source = std::regex_replace(source, chosen, "$1CsgoGcDifficulty( $2 )", std::regex_constants::format_first_only);
+    source += R"js(
+
+var CsgoGcDifficulty = function ( chosen )
+{
+	try
+	{
+		var byRank = GameInterfaceAPI.GetSettingString( 'csgo_gc_bot_difficulty' );
+		if ( byRank === '0' || byRank === '1' || byRank === '2' || byRank === '3' )
+		{
+			return byRank;
+		}
+	}
+	catch ( e ) {}
+	return chosen;
+};
+)js";
+    return 1;
+}
+
 int PanoramaHook::PatchBotPingAdapter(std::string &source)
 {
     // GetPlayerPing: function _GetPlayerPing ( xuid ) {return _APIAccessor( GameStateAPI.GetPlayerPing( xuid ), k_GetPlayerPing, xuid );},
@@ -1506,6 +1536,7 @@ bool s_installDone;
 void *s_uiEngine;
 void *s_mainMenuPanel;
 void *s_endOfMatchPanels[4];
+int s_botDifficultySent = -1;
 std::string s_caseStoreData;
 bool s_caseStoreDataSent;
 int64_t s_starsSent = -2; // what the UI was last told
@@ -1726,6 +1757,18 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
         Platform::Print("Panorama: %s didn't match, that end-of-match screen stays blank\n", rank ? "endofmatch-rank.js" : "endofmatch-skillgroup.js");
     }
 
+    if (GetConfig().BotDifficultyByRank() && PathIsFile(path, "mainmenu_play.js"))
+    {
+        std::string patched = source;
+        const bool changed = PanoramaHook::PatchBotDifficulty(patched) != 0;
+        Platform::Print("Panorama: bot difficulty by rank %s\n", changed ? "added to the Play menu" : "not added, mainmenu_play.js didn't match");
+        if (changed)
+        {
+            s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
+            return;
+        }
+    }
+
     if (GetConfig().BotPing() && PathIsFile(path, "scoreboard.js"))
     {
         std::string patched = source;
@@ -1833,6 +1876,7 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
         s_mainMenuPanel = panel;
         s_caseStoreDataSent = false;
         s_starsSent = -2;
+        s_botDifficultySent = -1;
         s_originalRunScript(engine, edx, panel, PanoramaHook::CaseStoreScript().c_str(), CaseStoreScriptPath, 0, 0, 0, 0);
         Platform::Print("Panorama: Case Store added to the main menu\n");
         s_mainMenuLoadedAt = std::chrono::steady_clock::now();
@@ -1975,6 +2019,17 @@ void PanoramaHook::Tick()
     if (!s_originalRunScript || !s_mainMenuPanel)
     {
         return;
+    }
+
+    const int difficulty = g_botDifficulty.load();
+    if (difficulty >= 0 && difficulty != s_botDifficultySent)
+    {
+        s_botDifficultySent = difficulty;
+        const std::string value = std::to_string(difficulty);
+        const std::string script = "try { GameInterfaceAPI.SetSettingString( 'csgo_gc_bot_difficulty', '" + value
+            + "' ); GameTypesAPI.SetCustomBotDifficulty( '" + value + "' ); } catch ( e ) {}";
+        s_originalRunScript(s_uiEngine, nullptr, s_mainMenuPanel, script.c_str(), CaseStoreDataPath, 0, 0, 0, 0);
+        Platform::Print("Panorama: bot difficulty set to %d for your rank\n", difficulty);
     }
 
     // the answers change once the game has its account data, so ask a few times
