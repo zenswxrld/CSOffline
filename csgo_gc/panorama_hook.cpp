@@ -203,7 +203,8 @@ var CsgoGcEomFor = function ( kind, real )
 			Object.keys( drops ).forEach( function ( key ) { drops[ key ].owner_xuid = me; } );
 			return drops;
 		}
-		return real ? real : CsgoGcEom[ kind ];
+		// the game answers these with empty numbers for a local game, so ours win
+		return CsgoGcEom[ kind ];
 	}
 	catch ( e ) {}
 	return real;
