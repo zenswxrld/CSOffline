@@ -685,6 +685,7 @@ var CsgoGcCaseStore = ( function()
 	var m_data = [];
 	var m_names = [];
 	var m_overlay = null;
+	var m_frame = null;
 	var m_content = null;
 	var m_pager = null;
 	var m_pageLabel = null;
@@ -1169,7 +1170,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 
 	function _BuildTabs( header )
 	{
-		var row = _Panel( m_overlay, { width: '100%', height: '42px', flowChildren: 'right', padding: '0px 32px', borderBottom: '1px solid #ffffff22', backgroundColor: '#0e162266' } );
+		var row = _Panel( m_frame, { width: '100%', height: '42px', flowChildren: 'right', padding: '0px 32px', borderBottom: '1px solid #ffffff22', backgroundColor: '#0e162266' } );
 		TABS.forEach( function( tab )
 		{
 			m_tabButtons[ tab[ 0 ] ] = _Button( row, tab[ 1 ], { width: '170px', height: '100%', margin: '0px 2px 0px 0px', backgroundColor: '#00000000', borderBottom: '3px solid #00000000' },
@@ -1179,7 +1180,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 
 	function _BuildTabPanel( name )
 	{
-		var panel = _Panel( m_overlay, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', overflow: 'squish scroll', padding: '8px 56px 0px 56px' } );
+		var panel = _Panel( m_frame, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', overflow: 'squish scroll', padding: '8px 56px 0px 56px' } );
 		panel.visible = false;
 		m_tabPanels[ name ] = panel;
 		return panel;
@@ -1239,7 +1240,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 	// The original custom-case textures are only displayed, never replaced or recoloured.
 	function _BandArtwork( band, entries )
 	{
-		var art = _Panel( band, { width: '100%', height: '100%', ignoreParentFlow: true,
+		var art = _Panel( band, { width: '100%', height: '100%',
 			backgroundImage: BACKGROUND, backgroundSize: 'cover', backgroundPosition: 'center',
 			backgroundRepeat: 'no-repeat', opacity: '0.22' } );
 		art.hittest = false;
@@ -1253,7 +1254,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 			picture.itemid = _FauxId( entry[ 7 ] || entry[ 0 ] );
 			picture.hittest = false;
 		} );
-		var shade = _Panel( band, { width: '100%', height: '100%', ignoreParentFlow: true,
+		var shade = _Panel( band, { width: '100%', height: '100%',
 			backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #102b40d9 ), to( #12354d30 ) )' } );
 		shade.hittest = false;
 	}
@@ -1275,10 +1276,11 @@ static const char CaseStoreScriptPart2[] = R"js(
 				return;
 			}
 
-			var band = _Panel( m_content, { width: '100%', height: '258px', margin: '0px 0px 14px 0px', flowChildren: 'right',
+			var band = _Panel( m_content, { width: '100%', height: '258px', margin: '0px 0px 14px 0px',
 				backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #102a40cc ), to( #365b7170 ) )', borderTop: '1px solid #ffffff18' } );
 			_BandArtwork( band, entries );
-			var left = _Panel( band, { width: '232px', height: '100%', flowChildren: 'down', padding: '18px 18px 0px 22px' } );
+			var body = _Panel( band, { width: '100%', height: '100%', flowChildren: 'right' } );
+			var left = _Panel( body, { width: '232px', height: '100%', flowChildren: 'down', padding: '18px 18px 0px 22px' } );
 			var logo = _Panel( left, { width: '84px', height: '64px', margin: '0px 0px 10px 0px' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
 			logo.itemid = _FauxId( m_data[ entries[ 0 ] ][ 7 ] || m_data[ entries[ 0 ] ][ 0 ] );
 			logo.hittest = false;
@@ -1291,7 +1293,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 					function() { _SelectCategory( category[ 0 ] ); }, { fontSize: '14px', fontWeight: 'bold', letterSpacing: '2px' } );
 			}
 
-			var row = _Panel( band, { width: 'fill-parent-flow( 1.0 )', height: '100%', flowChildren: 'right', padding: '16px 10px 0px 12px' } );
+			var row = _Panel( body, { width: 'fill-parent-flow( 1.0 )', height: '100%', flowChildren: 'right', padding: '16px 10px 0px 12px' } );
 			entries.slice( 0, HOME_CARDS ).forEach( function( index ) { _MakeCard( row, index, true ); } );
 			shown += Math.min( entries.length, HOME_CARDS );
 		} );
@@ -1407,7 +1409,8 @@ static const char CaseStoreScriptPart2[] = R"js(
 	{
 		var context = $.GetContextPanel();
 		m_overlay = _Panel( context, {
-			width: '100%', height: '100%', flowChildren: 'down',
+			// Default non-flow layout stacks the backdrop and foreground in the same bounds.
+			width: '100%', height: '100%',
 			padding: '0px 0px 0px 0px', backgroundColor: '#0d0a09'
 		}, 'Panel', 'CsgoGcCaseStore' );
 		// take every click and hover, so nothing of the main menu underneath (its Play button, say) reacts
@@ -1423,9 +1426,12 @@ static const char CaseStoreScriptPart2[] = R"js(
 		// Tint only the backdrop. washColor on the overlay also tints labels and item images.
 		_Style( m_overlay, { backgroundImage: BACKGROUND, backgroundSize: 'cover', backgroundPosition: 'center',
 			backgroundRepeat: 'no-repeat' } );
-		var backdrop = _Panel( m_overlay, { width: '100%', height: '100%', ignoreParentFlow: true,
+		var backdrop = _Panel( m_overlay, { width: '100%', height: '100%',
 			backgroundColor: 'gradient( linear, 0% 0%, 0% 100%, from( #39718ed9 ), color-stop( 0.45, #173b55df ), to( #091d30f5 ) )' } );
 		backdrop.hittest = false;
+		backdrop.hittestchildren = false;
+		// Only this foreground container participates in the shop's vertical flow.
+		m_frame = _Panel( m_overlay, { width: '100%', height: '100%', flowChildren: 'down' }, 'Panel', 'CsgoGcCaseStoreFrame' );
 
 		var popups = context.FindChild( 'PopupManager' );
 		if ( popups )
@@ -1434,7 +1440,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 		}
 
 		// title, subtitle and balance
-		var header = _Panel( m_overlay, { width: '100%', height: '88px', flowChildren: 'right', padding: '20px 32px 10px 32px', borderBottom: '1px solid #ffffff30' } );
+		var header = _Panel( m_frame, { width: '100%', height: '88px', flowChildren: 'right', padding: '20px 32px 10px 32px', borderBottom: '1px solid #ffffff30' } );
 		var titles = _Panel( header, { flowChildren: 'down', width: 'fill-parent-flow( 1.0 )' } );
 		_Label( titles, 'SkinStop', { fontSize: '26px', color: '#ffffff', fontWeight: 'bold', letterSpacing: '1px' } );
 		_Label( titles, 'Use your Stars to get rewards of your choosing.', { fontSize: '14px', color: '#e2e8f0' } );
@@ -1449,7 +1455,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 		_BuildTabs( header );
 
 		// Full-width shop rows with a compact category strip above them.
-		var shopPanel = _Panel( m_overlay, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', padding: '0px 32px' } );
+		var shopPanel = _Panel( m_frame, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', padding: '0px 32px' } );
 		m_tabPanels.shop = shopPanel;
 
 		var side = _Panel( shopPanel, { width: '100%', height: '40px', flowChildren: 'right', backgroundColor: '#0e263b70', borderBottom: '1px solid #ffffff18' } );
@@ -1490,7 +1496,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 		_SelectTab( 'shop' );
 
 		// back button along the bottom
-		var footer = _Panel( m_overlay, { width: '100%', height: '44px', borderTop: '1px solid #ffffff30' } );
+		var footer = _Panel( m_frame, { width: '100%', height: '44px', borderTop: '1px solid #ffffff30' } );
 		_Button( footer, 'BACK', { horizontalAlign: 'right', verticalAlign: 'center', marginRight: '32px', width: '100px', height: '34px', backgroundColor: '#ffffff08' }, _Close, { fontSize: '15px', fontWeight: 'bold', letterSpacing: '2px' } );
 
 		_StyleSidebar();
