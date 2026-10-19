@@ -4249,6 +4249,29 @@ static bool BotsChatAboutWhatHappens()
     return valid;
 }
 
+static bool HowlGoesBackInTheHuntsmanCase()
+{
+    std::string text =
+        "\"items_game\"\n{\n"
+        "\t\"item_sets\"\n\t{\n\t\t\"set_community_3\"\n\t\t{\n\t\t\t\"items\"\n\t\t\t{\n"
+        "\t\t\t\t\"[cu_ak47_rubber]weapon_ak47\"\t\t\"1\"\n\t\t\t}\n\t\t}\n\t}\n"
+        "\t\"client_loot_lists\"\n\t{\n\t\t\"crate_community_3_ancient\"\n\t\t{\n"
+        "\t\t\t\"[cu_ak47_rubber]weapon_ak47\"\t\t\"1\"\n\t\t}\n\t}\n}\n";
+
+    bool valid = GameSchemaPatch::RestoreHowl(text) == 2;
+    const size_t first = text.find("[cu_m4a1_howling]weapon_m4a1");
+    const size_t second = text.find("[cu_m4a1_howling]weapon_m4a1", first + 1);
+    valid &= first != std::string::npos && second != std::string::npos
+        && text.find("[cu_ak47_rubber]weapon_ak47") < first && first < second;
+
+    // already there: nothing more is added
+    valid &= GameSchemaPatch::RestoreHowl(text) == 0;
+
+    std::string other = "\"items_game\"\n{\n}\n";
+    valid &= GameSchemaPatch::RestoreHowl(other) == 0;
+    return valid;
+}
+
 static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
 {
     std::string text =
@@ -5486,6 +5509,7 @@ int main()
         { "MatchEndScreensPatchTheAdapterAndGates", MatchEndScreensPatchTheAdapterAndGates },
         { "PlayerCardShowsTheSkillGroups", PlayerCardShowsTheSkillGroups },
         { "BotPingReplacesTheBotLabel", BotPingReplacesTheBotLabel },
+        { "HowlGoesBackInTheHuntsmanCase", HowlGoesBackInTheHuntsmanCase },
         { "BotsChatAboutWhatHappens", BotsChatAboutWhatHappens },
         { "BotDifficultyFollowsTheRank", BotDifficultyFollowsTheRank },
         { "StoreListsEveryWeaponCaseAndKey", StoreListsEveryWeaponCaseAndKey },

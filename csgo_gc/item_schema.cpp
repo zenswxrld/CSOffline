@@ -350,10 +350,11 @@ ItemSchema::ItemSchema(bool loadFiles)
         }
 
         if (!previews.empty() || !recipes.empty() || mixStatTrak || patchStarShop || !addedCases.empty()
-            || !paintKits.kitsText.empty())
+            || !paintKits.kitsText.empty() || GetConfig().RestoreHowl())
         {
             GameSchemaPatch::Apply(previews, recipes, mixStatTrak, patchStarShop ? &starShop : nullptr,
-                addedCases.empty() ? nullptr : &addedCases, paintKits.kitsText.empty() ? nullptr : &paintKits);
+                addedCases.empty() ? nullptr : &addedCases, paintKits.kitsText.empty() ? nullptr : &paintKits,
+                GetConfig().RestoreHowl());
         }
         else
         {
