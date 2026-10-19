@@ -159,6 +159,61 @@ var CsgoGcLevelFor = function ( xuid, real )
     return count;
 }
 
+const char *PanoramaHook::RankBannerScript()
+{
+    return R"js(
+( function ()
+{
+	try
+	{
+		var change = ( typeof CsgoGcEom === 'object' && CsgoGcEom ) ? CsgoGcEom.rank_change : null;
+		if ( !change )
+		{
+			return;
+		}
+
+		var root = $.GetContextPanel();
+		$.Schedule( 4.0, function ()
+		{
+			try
+			{
+				var up = change.new > change.old;
+				var id = 'csgo_gc_rank_banner';
+				var previous = root.FindChildTraverse( id );
+				if ( previous )
+				{
+					previous.DeleteAsync( 0 );
+				}
+
+				var banner = $.CreatePanel( 'Label', root, id );
+				banner.text = ( up ? 'RANK UP   ' : 'RANK DOWN   ' ) + $.Localize( 'RankName_' + change.old ) + '  >  ' + $.Localize( 'RankName_' + change.new );
+				banner.style.fontSize = '34px';
+				banner.style.fontWeight = 'bold';
+				banner.style.color = up ? '#9be06c' : '#e8695a';
+				banner.style.backgroundColor = '#000000cc';
+				banner.style.padding = '14px 40px';
+				banner.style.horizontalAlign = 'center';
+				banner.style.verticalAlign = 'top';
+				banner.style.marginTop = '130px';
+				banner.style.zIndex = 50;
+				$.DispatchEvent( 'PlaySoundEffect', up ? 'UIPanorama.XP.NewRank' : 'UIPanorama.XP.Ticker', 'MOUSE' );
+
+				$.Schedule( 7.0, function ()
+				{
+					if ( banner && banner.IsValid() )
+					{
+						banner.DeleteAsync( 0 );
+					}
+				} );
+			}
+			catch ( e ) {}
+		} );
+	}
+	catch ( e ) {}
+} )();
+)js";
+}
+
 int PanoramaHook::PatchMatchEndAdapter(std::string &source)
 {
     // XPDataJSO: function _XPDataJSO ( panel ) {return _APIAccessor( panel.XpDataJSO, k_XpDataJSO );},
@@ -2081,7 +2136,11 @@ void PanoramaHook::Tick()
             json = g_matchEndJson;
         }
 
-        const std::string script = "CsgoGcEom = " + json + ";";
+        std::string script = "CsgoGcEom = " + json + ";";
+        if (json.find("\"rank_change\"") != std::string::npos)
+        {
+            script += RankBannerScript();
+        }
         int sent = 0;
         for (void *panel : s_endOfMatchPanels)
         {

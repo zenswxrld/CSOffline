@@ -2710,6 +2710,12 @@ void ClientGC::LocalPlayerMatchEnd(const LocalMatchResult &result)
         {
             json += std::string{ json.size() > 1 ? "," : "" } + "\"skill\":{\"num_wins\":" + std::to_string(skillWins)
                 + ",\"old_rank\":" + std::to_string(skillOld) + ",\"new_rank\":" + std::to_string(skillNew) + "}";
+
+            // a banner on the scoreboard when a rank you can see (10 wins or more) changed
+            if (skillOld != skillNew && skillWins >= 10)
+            {
+                json += ",\"rank_change\":{\"old\":" + std::to_string(skillOld) + ",\"new\":" + std::to_string(skillNew) + "}";
+            }
         }
         json += "}";
         PanoramaHook::SetMatchEndScreens(std::move(json));
