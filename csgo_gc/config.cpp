@@ -225,6 +225,8 @@ GCConfig::GCConfig()
         m_botSkins.knives = botSkins->GetNumber("knives", m_botSkins.knives);
     }
 
+    m_botChat.enabled = config.GetNumber("bot_chat", m_botChat.enabled);
+
     m_vacBanned = config.GetNumber("vac_banned", m_vacBanned);
     m_commendedFriendly = config.GetNumber("cmd_friendly", m_commendedFriendly);
     m_commendedTeaching = config.GetNumber("cmd_teaching", m_commendedTeaching);

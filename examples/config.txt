@@ -249,6 +249,12 @@
 	"knives"	"1"
 }
 
+// bots talk in the chat: "gl hf" at the start, reactions when you kill them or they kill you, the bomb, round and match
+// results and "gg" at the end, each one a moment after it happens. they show in the chat with the bot's own name, like
+// real players. printed by the server's own chat function, found in server.dll (Windows, final server.dll only). a game
+// that doesn't match just stays quiet. if the game crashes in a bot match, set this back to 0
+"bot_chat"	"0"
+
 // for debugging the menus: saves the game's UI scripts to csgo_gc/panorama_dump/ and
 // logs what the game thinks about the operation (lines starting with [csgo_gc]).
 // turn it on, start the game, and send the files and log lines

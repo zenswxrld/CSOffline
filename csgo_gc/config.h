@@ -127,6 +127,11 @@ struct BotSkinsConfig
     bool knives{ true }; // also give bots a themed knife (off: weapon skins only)
 };
 
+struct BotChatConfig
+{
+    bool enabled{ false };
+};
+
 // for Platform::Print calls
 enum LogOutput
 {
@@ -200,6 +205,7 @@ public:
     const XpConfig &XpRewards() const { return m_xpConfig; }
     const RankSystemConfig &RankSystem() const { return m_rankSystem; }
     const BotSkinsConfig &BotSkins() const { return m_botSkins; }
+    const BotChatConfig &BotChat() const { return m_botChat; }
     bool ItemDeleteMenu() const { return m_itemDeleteMenu; }
 
 private:
@@ -275,6 +281,7 @@ private:
     MatchDropConfig m_matchDrops;
     StarShopConfig m_starShop;
     BotSkinsConfig m_botSkins;
+    BotChatConfig m_botChat;
 };
 
 const GCConfig &GetConfig();
