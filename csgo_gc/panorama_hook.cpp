@@ -673,15 +673,14 @@ var CsgoGcCaseStore = ( function()
 	var GOLD = '#f5c542';
 	// the operation page's look: a light label under each picture, the price in the star blue, a cyan accent
 	var PRICE_COLOR = '#2b86c9';
-	var PRICE_SHORT = '#c93a35';
-	var LABEL_BAND = '#c9cfd7e8';
+	var LABEL_BAND = '#c6d0d8ed';
 	var LABEL_TEXT = '#1d2430';
 	var LABEL_SUBTEXT = '#556070';
-	var ACCENT = '#6fd3ff';
+	var ACCENT = '#91e8f5';
 	var PRIMARY = '#2d6fb0';        // the colour of the buttons that do something
 	var PRIMARY_EDGE = '#7db4ea';
-	var HOME_CARDS = 8;   // cards in a row on the Home page (a 1920 wide screen fits 8)
-	var PAGE_SIZE = 24;   // cards on a page of a category (8 across, 3 down)
+	var HOME_CARDS = 6;   // cards in a band on the Home page
+	var PAGE_SIZE = 12;   // cards on a page of a category
 
 	var m_data = [];
 	var m_names = [];
@@ -729,7 +728,8 @@ var CsgoGcCaseStore = ( function()
 
 	function _Label( parent, text, styles )
 	{
-		var label = _Panel( parent, styles, 'Label' );
+		var label = _Panel( parent, { fontFamily: 'Stratum2' }, 'Label' );
+		_Style( label, styles || {} );
 		label.text = text;
 		return label;
 	}
@@ -867,7 +867,7 @@ var CsgoGcCaseStore = ( function()
 		);
 	}
 
-	// dims the buy buttons that cost more than the balance, and turns a price red
+	// Keep catalogue prices blue, like the operation shop; show affordability in the buy bar.
 	function _ShowAffordability()
 	{
 		if ( m_current )
@@ -881,13 +881,13 @@ var CsgoGcCaseStore = ( function()
 
 		m_cards.forEach( function( card )
 		{
-			card.price.style.color = ( m_stars < 0 || card.cost <= m_stars ) ? PRICE_COLOR : PRICE_SHORT;
+			card.price.style.color = PRICE_COLOR;
 		} );
 	}
 
 	// one card, like the operation page's: a big picture, a bar in the item's colour, then name and price.
 	// clicking it shows what's inside and the buy bar
-	function _MakeCard( parent, index )
+	function _MakeCard( parent, index, featured )
 	{
 		var entry = m_data[ index ];
 		var kind = entry[ 2 ];
@@ -901,18 +901,18 @@ var CsgoGcCaseStore = ( function()
 		var subtitle = entry[ 6 ] || ( ( KIND_NAMES[ kind ] || '' ) + ( keyId ? ' + key' : '' ) );
 		var pictureId = entry[ 7 ] ? _FauxId( entry[ 7 ] ) : id;
 
-		var card = _Panel( parent, { width: '200px', height: '272px', margin: '0px 10px 10px 0px', flowChildren: 'down',
-			backgroundColor: 'gradient( linear, 0% 0%, 0% 100%, from( #263c55f4 ), to( #131e2bf4 ) )', border: '1px solid #ffffff1a' }, 'Button' );
-		var image = _Panel( card, { width: '100%', height: '172px' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
+		var card = _Panel( parent, { width: featured ? 'fill-parent-flow( 1.0 )' : '16%', height: '226px', margin: '0px 0.5% 8px 0px', flowChildren: 'down',
+			backgroundColor: 'gradient( linear, 0% 0%, 100% 100%, from( #8baaba35 ), to( #091b2b90 ) )', border: '1px solid #ffffff08' }, 'Button' );
+		var image = _Panel( card, { width: '100%', height: '164px' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
 		image.itemid = pictureId;
 		image.hittest = false;
 		_Panel( card, { width: '100%', height: '4px', backgroundColor: accent } ).hittest = false;
-		var band = _Panel( card, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', padding: '8px 12px 0px 12px', backgroundColor: LABEL_BAND } );
+		var band = _Panel( card, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', padding: '5px 10px 3px 10px', backgroundColor: LABEL_BAND } );
 		band.hittest = false;
-		_Label( band, name, { fontSize: '15px', color: LABEL_TEXT, fontWeight: 'bold', height: '40px', width: '100%' } ).hittest = false;
+		_Label( band, name, { fontSize: '16px', color: LABEL_TEXT, height: '22px', width: '100%', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } ).hittest = false;
 		var info = _Panel( band, { width: '100%', flowChildren: 'right' } );
 		info.hittest = false;
-		_Label( info, subtitle, { fontSize: '11px', color: LABEL_SUBTEXT, verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )' } ).hittest = false;
+		_Label( info, subtitle, { fontSize: '11px', color: LABEL_SUBTEXT, verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } ).hittest = false;
 		var priceLabel = _Label( info, price > 0 ? ( price + ' \u2605' ) : 'free', { fontSize: '19px', color: PRICE_COLOR, fontWeight: 'bold', horizontalAlign: 'right' } );
 		priceLabel.hittest = false;
 
@@ -933,8 +933,8 @@ var CsgoGcCaseStore = ( function()
 				_ShowContents( id, keyId, price, name );
 			}
 		} );
-		card.SetPanelEvent( 'onmouseover', function() { card.style.border = '1px solid #ffffffaa'; } );
-		card.SetPanelEvent( 'onmouseout', function() { card.style.border = '1px solid #ffffff1a'; } );
+		card.SetPanelEvent( 'onmouseover', function() { card.style.brightness = '1.18'; } );
+		card.SetPanelEvent( 'onmouseout', function() { card.style.brightness = '1.0'; } );
 
 		m_cards.push( { panel: card, price: priceLabel, cost: price, known: known } );
 		return card;
@@ -1169,7 +1169,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 
 	function _BuildTabs( header )
 	{
-		var row = _Panel( m_overlay, { width: '100%', height: '42px', flowChildren: 'right', padding: '0px 56px 0px 56px', borderBottom: '1px solid #ffffff22', backgroundColor: '#0e162266' } );
+		var row = _Panel( m_overlay, { width: '100%', height: '42px', flowChildren: 'right', padding: '0px 32px', borderBottom: '1px solid #ffffff22', backgroundColor: '#0e162266' } );
 		TABS.forEach( function( tab )
 		{
 			m_tabButtons[ tab[ 0 ] ] = _Button( row, tab[ 1 ], { width: '170px', height: '100%', margin: '0px 2px 0px 0px', backgroundColor: '#00000000', borderBottom: '3px solid #00000000' },
@@ -1235,75 +1235,65 @@ static const char CaseStoreScriptPart2[] = R"js(
 		return list;
 	}
 
-	// one block of Home: a heading with the item count and a VIEW ALL link, then a row of cards
-	function _MakeSection( parent, category, limit, fullWidth )
+	// Compose the section artwork from images the installed game already knows.
+	// The original custom-case textures are only displayed, never replaced or recoloured.
+	function _BandArtwork( band, entries )
 	{
-		var entries = _Entries( category[ 0 ], [] );
-		if ( !entries.length )
+		var art = _Panel( band, { width: '100%', height: '100%', ignoreParentFlow: true,
+			backgroundImage: BACKGROUND, backgroundSize: 'cover', backgroundPosition: 'center',
+			backgroundRepeat: 'no-repeat', opacity: '0.22' } );
+		art.hittest = false;
+		art.hittestchildren = false;
+		// Overlapping native item images give each banner its own collection artwork.
+		entries.slice( 0, 3 ).reverse().forEach( function( index, i )
 		{
-			return 0;
-		}
-
-		var shown = Math.min( entries.length, limit );
-		var block = _Panel( parent, { width: fullWidth ? '100%' : ( shown * 210 ) + 'px', flowChildren: 'down', margin: '0px 30px 16px 0px' } );
-		var head = _Panel( block, { width: '100%', height: '36px', flowChildren: 'right', margin: '0px 0px 8px 0px', borderBottom: '2px solid #6fd3ff55' } );
-		_Label( head, category[ 1 ], { fontSize: '17px', color: '#ffffff', fontWeight: 'bold', letterSpacing: '2px', verticalAlign: 'center' } );
-		_Label( head, entries.length + ( entries.length === 1 ? ' item' : ' items' ), { fontSize: '13px', color: ACCENT, verticalAlign: 'center', margin: '0px 0px 0px 14px', width: 'fill-parent-flow( 1.0 )' } );
-		if ( entries.length > shown || fullWidth )
-		{
-			_Button( head, 'VIEW ALL  \u203a', { height: '28px', padding: '0px 16px', verticalAlign: 'center', horizontalAlign: 'right', backgroundColor: '#ffffff1a', border: '1px solid #ffffff44' },
-				function() { _SelectCategory( category[ 0 ] ); }, { fontSize: '12px', fontWeight: 'bold', letterSpacing: '2px' } );
-		}
-
-		var row = _Panel( block, { flowChildren: 'right' } );
-		entries.slice( 0, shown ).forEach( function( index ) { _MakeCard( row, index ); } );
-		return shown;
+			var entry = m_data[ index ];
+			var picture = _Panel( art, { width: '360px', height: '250px', horizontalAlign: 'right',
+				marginRight: ( i * 210 ) + 'px', opacity: '0.5' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
+			picture.itemid = _FauxId( entry[ 7 ] || entry[ 0 ] );
+			picture.hittest = false;
+		} );
+		var shade = _Panel( band, { width: '100%', height: '100%', ignoreParentFlow: true,
+			backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #102b40d9 ), to( #12354d30 ) )' } );
+		shade.hittest = false;
 	}
 
-	function _CategoryByKey( key )
-	{
-		for ( var i = 0; i < CATEGORIES.length; i++ )
-		{
-			if ( CATEGORIES[ i ][ 0 ] === key )
-			{
-				return CATEGORIES[ i ];
-			}
-		}
-		return null;
-	}
-
-	// Home: the special offers, the random agent and as many custom cases as fit go in one row, then a row for every
-	// other category with its first eight, so the whole width is used
+	// Home: a band for each category, like the operation page's rows: its title on the left, a row of cards
 	function _RenderHome()
 	{
 		var shown = 0;
-		var featured = _Panel( m_content, { width: '100%', flowChildren: 'right' } );
-		var used = 0;
-		[ [ 'offers', 3 ], [ 'agent', 3 ], [ 'custom', 0 ] ].forEach( function( item )
+		var hasOffers = _Entries( 'offers', [] ).length > 0;
+		CATEGORIES.forEach( function( category )
 		{
-			var category = _CategoryByKey( item[ 0 ] );
-			if ( !category )
+			// Combine the small featured categories so they share one full shop row.
+			if ( hasOffers && category[ 0 ] === 'agent' ) { return; }
+			var featured = hasOffers && category[ 0 ] === 'offers';
+			var entries = _Entries( category[ 0 ], [] );
+			if ( featured ) { entries = entries.concat( _Entries( 'agent', [] ) ); }
+			if ( !entries.length )
 			{
 				return;
 			}
 
-			var limit = item[ 1 ];
-			if ( !limit )
+			var band = _Panel( m_content, { width: '100%', height: '258px', margin: '0px 0px 14px 0px', flowChildren: 'right',
+				backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #102a40cc ), to( #365b7170 ) )', borderTop: '1px solid #ffffff18' } );
+			_BandArtwork( band, entries );
+			var left = _Panel( band, { width: '232px', height: '100%', flowChildren: 'down', padding: '18px 18px 0px 22px' } );
+			var logo = _Panel( left, { width: '84px', height: '64px', margin: '0px 0px 10px 0px' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
+			logo.itemid = _FauxId( m_data[ entries[ 0 ] ][ 7 ] || m_data[ entries[ 0 ] ][ 0 ] );
+			logo.hittest = false;
+			_Label( left, featured ? 'FEATURED REWARDS' : category[ 1 ], { fontSize: '18px', color: '#ffffff', fontWeight: 'bold', letterSpacing: '2px' } );
+			_Label( left, featured ? 'Special cases and a random agent. Choose a reward to see more.' : category[ 3 ], { fontSize: '13px', color: '#b7c6d8', margin: '8px 0px 0px 0px', width: '100%' } );
+			_Label( left, entries.length + ( entries.length === 1 ? ' item' : ' items' ), { fontSize: '13px', color: ACCENT, margin: '10px 0px 0px 0px' } );
+			if ( entries.length > HOME_CARDS )
 			{
-				// what is left of a 1920 wide screen
-				limit = Math.max( 2, Math.min( HOME_CARDS, Math.floor( ( 1790 - used ) / 210 ) ) );
+				_Button( left, 'VIEW ALL', { width: '140px', height: '28px', margin: '10px 0px 0px 0px', backgroundColor: '#ffffff10', border: '1px solid #ffffff40' },
+					function() { _SelectCategory( category[ 0 ] ); }, { fontSize: '14px', fontWeight: 'bold', letterSpacing: '2px' } );
 			}
-			var count = _MakeSection( featured, category, limit, false );
-			used += count * 210 + 30;
-			shown += count;
-		} );
 
-		CATEGORIES.forEach( function( category )
-		{
-			if ( category[ 0 ] !== 'offers' && category[ 0 ] !== 'agent' && category[ 0 ] !== 'custom' )
-			{
-				shown += _MakeSection( m_content, category, HOME_CARDS, true );
-			}
+			var row = _Panel( band, { width: 'fill-parent-flow( 1.0 )', height: '100%', flowChildren: 'right', padding: '16px 10px 0px 12px' } );
+			entries.slice( 0, HOME_CARDS ).forEach( function( index ) { _MakeCard( row, index, true ); } );
+			shown += Math.min( entries.length, HOME_CARDS );
 		} );
 
 		m_count.text = m_data.length + ' items';
@@ -1374,11 +1364,9 @@ static const char CaseStoreScriptPart2[] = R"js(
 		for ( var key in m_sideButtons )
 		{
 			var active = key === m_category;
-			var button = m_sideButtons[ key ];
-			button.style.backgroundColor = active ? ACCENT : '#0a1a2eb8';
-			button.style.border = active ? '1px solid ' + ACCENT : '1px solid #ffffff2a';
-			button.GetChild( 0 ).style.color = active ? '#06283d' : '#dbe8f6';
-			button.GetChild( 1 ).style.color = active ? '#0b3a57' : '#8fa6bd';
+			m_sideButtons[ key ].style.backgroundColor = active ? '#ffffff1c' : '#00000000';
+			m_sideButtons[ key ].style.borderBottom = active ? '2px solid ' + ACCENT : '2px solid #00000000';
+			m_sideButtons[ key ].GetChild( 0 ).style.color = active ? '#ffffff' : '#aab6c4';
 		}
 	}
 
@@ -1406,13 +1394,11 @@ static const char CaseStoreScriptPart2[] = R"js(
 		_ShowStars();
 	}
 
-	// a category chip in the row above the cards
-	function _AddSidebarButton( row, key, title )
+	function _AddSidebarButton( side, key, title )
 	{
-		var button = _Panel( row, { height: '34px', flowChildren: 'right', padding: '0px 16px', margin: '0px 8px 0px 0px', backgroundColor: '#0a1a2eb8', border: '1px solid #ffffff2a' }, 'Button' );
-		_Label( button, title, { fontSize: '13px', color: '#dbe8f6', fontWeight: 'bold', letterSpacing: '1px', verticalAlign: 'center' } ).hittest = false;
-		m_sideCounts[ key ] = _Label( button, '', { fontSize: '12px', color: '#8fa6bd', verticalAlign: 'center', margin: '0px 0px 0px 10px' } );
-		m_sideCounts[ key ].hittest = false;
+		var button = _Panel( side, { width: 'fill-parent-flow( 1.0 )', height: '40px', flowChildren: 'right', padding: '0px 10px', backgroundColor: '#00000000', borderBottom: '2px solid #00000000' }, 'Button' );
+		_Label( button, title, { fontSize: '13px', color: '#aab6c4', letterSpacing: '1px', verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )', whiteSpace: 'nowrap', textOverflow: 'ellipsis' } );
+		m_sideCounts[ key ] = _Label( button, '', { fontSize: '13px', color: '#7e8a99', verticalAlign: 'center', horizontalAlign: 'right' } );
 		button.SetPanelEvent( 'onactivate', function() { _SelectCategory( key ); } );
 		m_sideButtons[ key ] = button;
 	}
@@ -1434,9 +1420,12 @@ static const char CaseStoreScriptPart2[] = R"js(
 			m_overlay.SetPanelEvent( 'oncontextmenu', function() {} );
 		}
 		catch ( e ) {}
-		// the operation page's backdrop: a map screenshot, darkened
+		// Tint only the backdrop. washColor on the overlay also tints labels and item images.
 		_Style( m_overlay, { backgroundImage: BACKGROUND, backgroundSize: 'cover', backgroundPosition: 'center',
-			backgroundRepeat: 'no-repeat', washColor: '#12385f48' } );
+			backgroundRepeat: 'no-repeat' } );
+		var backdrop = _Panel( m_overlay, { width: '100%', height: '100%', ignoreParentFlow: true,
+			backgroundColor: 'gradient( linear, 0% 0%, 0% 100%, from( #39718ed9 ), color-stop( 0.45, #173b55df ), to( #091d30f5 ) )' } );
+		backdrop.hittest = false;
 
 		var popups = context.FindChild( 'PopupManager' );
 		if ( popups )
@@ -1445,10 +1434,10 @@ static const char CaseStoreScriptPart2[] = R"js(
 		}
 
 		// title, subtitle and balance
-		var header = _Panel( m_overlay, { width: '100%', height: '66px', flowChildren: 'right', padding: '14px 56px 0px 56px', borderBottom: '1px solid #ffffff30' } );
+		var header = _Panel( m_overlay, { width: '100%', height: '88px', flowChildren: 'right', padding: '20px 32px 10px 32px', borderBottom: '1px solid #ffffff30' } );
 		var titles = _Panel( header, { flowChildren: 'down', width: 'fill-parent-flow( 1.0 )' } );
 		_Label( titles, 'SkinStop', { fontSize: '26px', color: '#ffffff', fontWeight: 'bold', letterSpacing: '1px' } );
-		_Label( titles, 'Use your Stars to get Rewards of your choosing.', { fontSize: '14px', color: '#e2e8f0' } );
+		_Label( titles, 'Use your Stars to get rewards of your choosing.', { fontSize: '14px', color: '#e2e8f0' } );
 
 		m_balanceBox = _Panel( header, { height: '36px', verticalAlign: 'center', flowChildren: 'right' } );
 		m_balanceBox.visible = false;
@@ -1459,29 +1448,29 @@ static const char CaseStoreScriptPart2[] = R"js(
 
 		_BuildTabs( header );
 
-		// the shop: a row of category chips and the search above, the cards below using the whole width
-		var shopPanel = _Panel( m_overlay, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', padding: '12px 56px 0px 56px' } );
+		// Full-width shop rows with a compact category strip above them.
+		var shopPanel = _Panel( m_overlay, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', padding: '0px 32px' } );
 		m_tabPanels.shop = shopPanel;
 
-		var chips = _Panel( shopPanel, { width: '100%', height: '42px', flowChildren: 'right' } );
-		_AddSidebarButton( chips, 'home', 'HOME' );
+		var side = _Panel( shopPanel, { width: '100%', height: '40px', flowChildren: 'right', backgroundColor: '#0e263b70', borderBottom: '1px solid #ffffff18' } );
+		_AddSidebarButton( side, 'home', 'HOME' );
 		CATEGORIES.forEach( function( category )
 		{
 			if ( m_data.some( function( entry ) { return category[ 2 ].indexOf( entry[ 2 ] ) !== -1; } ) )
 			{
-				_AddSidebarButton( chips, category[ 0 ], category[ 1 ] );
+				_AddSidebarButton( side, category[ 0 ], category[ 1 ] );
 			}
 		} );
 
-		var main = shopPanel;
-		var bar = _Panel( main, { width: '100%', height: '40px', flowChildren: 'right', padding: '0px 0px 8px 0px' } );
+		var main = _Panel( shopPanel, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down' } );
+		var bar = _Panel( main, { width: '100%', flowChildren: 'right', padding: '12px 0px 10px 0px' } );
 		m_search = _Panel( bar, {
 			width: '300px', height: '32px', verticalAlign: 'center', fontSize: '15px', color: '#ffffff',
-			backgroundColor: '#ffffff14', border: '1px solid #ffffff30', padding: '5px 10px 0px 10px', marginRight: '18px'
+			backgroundColor: '#071b2d66', border: '1px solid #ffffff20', padding: '5px 10px 0px 10px', marginRight: '18px'
 		}, 'TextEntry', 'CsgoGcCaseStoreSearch', { placeholder: 'Search...' } );
 		m_search.SetPanelEvent( 'ontextentrychange', function() { m_page = 0; _Render(); } );
 		m_count = _Label( bar, '', { fontSize: '14px', color: '#cdd6e0', verticalAlign: 'center', marginRight: '18px' } );
-		m_status = _Label( bar, 'Click a case to see what\'s inside and buy it with its key.', { fontSize: '14px', color: '#e2e8f0', verticalAlign: 'center' } );
+		m_status = _Label( bar, 'Select a reward to view its contents.', { fontSize: '14px', color: '#e2e8f0', verticalAlign: 'center' } );
 
 		m_content = _Panel( main, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', overflow: 'squish scroll' } );
 
@@ -1502,7 +1491,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 
 		// back button along the bottom
 		var footer = _Panel( m_overlay, { width: '100%', height: '44px', borderTop: '1px solid #ffffff30' } );
-		_Button( footer, 'BACK', { horizontalAlign: 'right', verticalAlign: 'center', marginRight: '56px', width: '120px', height: '34px', backgroundColor: PRIMARY, border: '1px solid ' + PRIMARY_EDGE }, _Close, { fontSize: '15px', fontWeight: 'bold', letterSpacing: '2px' } );
+		_Button( footer, 'BACK', { horizontalAlign: 'right', verticalAlign: 'center', marginRight: '32px', width: '100px', height: '34px', backgroundColor: '#ffffff08' }, _Close, { fontSize: '15px', fontWeight: 'bold', letterSpacing: '2px' } );
 
 		_StyleSidebar();
 		_ShowStars();
