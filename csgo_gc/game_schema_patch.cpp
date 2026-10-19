@@ -1172,8 +1172,39 @@ static std::string AbsolutePath(const char *path)
     return error ? std::string{ path } : absolute.string();
 }
 
+size_t GameSchemaPatch::RestoreHowl(std::string &text)
+{
+    static const std::vector<std::vector<std::string>> places = {
+        { "items_game", "client_loot_lists", "crate_community_3_ancient" },
+        { "items_game", "item_sets", "set_community_3", "items" },
+    };
+
+    const char *eol = text.find("\r\n") != std::string::npos ? "\r\n" : "\n";
+    const std::string entry = std::string{ "\t\t\t\"[cu_m4a1_howling]weapon_m4a1\"\t\t\"1\"" } + eol;
+
+    size_t added = 0;
+    for (const std::vector<std::string> &path : places)
+    {
+        BlockRange block;
+        if (!FindBlock(text, path, block))
+        {
+            continue;
+        }
+
+        if (text.substr(block.keyBegin, block.close - block.keyBegin).find("cu_m4a1_howling") != std::string::npos)
+        {
+            continue;
+        }
+
+        text.insert(InsertionPoint(text, block.close), entry);
+        added++;
+    }
+    return added;
+}
+
 bool GameSchemaPatch::Apply(const LootListPreviews &previews, const std::string &recipesText, bool mixQualities,
-    const StarShopPatch *starShop, const std::vector<AddedCasePatch> *addedCases, const PaintKitsPatch *paintKits)
+    const StarShopPatch *starShop, const std::vector<AddedCasePatch> *addedCases, const PaintKitsPatch *paintKits,
+    bool restoreHowl)
 {
     const std::string schemaPath = AbsolutePath(SchemaPath);
     Platform::Print("items_game.txt patch: file %s, backup %s\n", schemaPath.c_str(),
@@ -1217,6 +1248,15 @@ bool GameSchemaPatch::Apply(const LootListPreviews &previews, const std::string 
         if (!relaxed)
         {
             Platform::Print("items_game.txt patch: no normal-quality trade-up recipes found to allow StatTrak mixing\n");
+        }
+    }
+
+    if (restoreHowl)
+    {
+        const size_t places = RestoreHowl(patched);
+        if (places)
+        {
+            Platform::Print("items_game.txt patch: M4A4 | Howl put back in the Huntsman Weapon Case (%zu place(s))\n", places);
         }
     }
 

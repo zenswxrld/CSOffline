@@ -65,6 +65,9 @@ GCConfig::GCConfig()
     m_hideBotTag = config.GetNumber("hide_bot_tag", m_hideBotTag);
     m_matchEndScreens = config.GetNumber("end_of_match_screens", m_matchEndScreens);
     m_botPing = config.GetNumber("bot_ping", m_botPing);
+    m_botClanTags = config.GetNumber("bot_clan_tags", m_botClanTags);
+    m_inventoryRefreshFix = config.GetNumber("inventory_refresh_fix", m_inventoryRefreshFix);
+    m_restoreHowl = config.GetNumber("restore_howl", m_restoreHowl);
     m_matchEndSeconds = std::clamp<int>(config.GetNumber("end_of_match_seconds", m_matchEndSeconds), 0, 300);
     m_botDifficultyByRank = config.GetNumber("bot_difficulty_by_rank", m_botDifficultyByRank);
     m_customCaseCollections = config.GetNumber("custom_case_collections", m_customCaseCollections);
@@ -227,6 +230,13 @@ GCConfig::GCConfig()
     }
 
     m_botChat.enabled = config.GetNumber("bot_chat", m_botChat.enabled);
+
+    if (const KeyValue *rewards = config.GetSubkey("career_rewards"))
+    {
+        m_careerRewards.caseAchievementsPercent = rewards->GetNumber("case_achievements_percent", m_careerRewards.caseAchievementsPercent);
+        m_careerRewards.matchAchievementsPercent = rewards->GetNumber("match_achievements_percent", m_careerRewards.matchAchievementsPercent);
+        m_careerRewards.goalPercent = rewards->GetNumber("collection_goal_percent", m_careerRewards.goalPercent);
+    }
 
     m_vacBanned = config.GetNumber("vac_banned", m_vacBanned);
     m_commendedFriendly = config.GetNumber("cmd_friendly", m_commendedFriendly);

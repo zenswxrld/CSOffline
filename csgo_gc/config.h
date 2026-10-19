@@ -127,6 +127,15 @@ struct BotSkinsConfig
     bool knives{ true }; // also give bots a themed knife (off: weapon skins only)
 };
 
+// how much of the career's star rewards are paid, in percent. opening cases is what most of the achievements and the
+// collection goals are about, and the stars they pay buy more cases, so those pay less
+struct CareerRewardsConfig
+{
+    uint32_t caseAchievementsPercent{ 15 }; // cases, pulls, golds, knives and gloves, collecting, trade-ups
+    uint32_t matchAchievementsPercent{ 100 }; // matches (kills, MVPs, ...) and stars earned
+    uint32_t goalPercent{ 30 }; // a completed collection
+};
+
 struct BotChatConfig
 {
     bool enabled{ false };
@@ -178,7 +187,10 @@ public:
     bool HideBotTag() const { return m_hideBotTag; }
     bool MatchEndScreens() const { return m_matchEndScreens; }
     bool BotPing() const { return m_botPing; }
+    bool BotClanTags() const { return m_botClanTags; }
+    bool InventoryRefreshFix() const { return m_inventoryRefreshFix; }
     int MatchEndSeconds() const { return m_matchEndSeconds; }
+    bool RestoreHowl() const { return m_restoreHowl; }
     bool BotDifficultyByRank() const { return m_botDifficultyByRank; }
     bool CustomCaseCollections() const { return m_customCaseCollections; }
     bool CaseStoreMenu() const { return m_caseStoreMenu; }
@@ -207,6 +219,7 @@ public:
     const RankSystemConfig &RankSystem() const { return m_rankSystem; }
     const BotSkinsConfig &BotSkins() const { return m_botSkins; }
     const BotChatConfig &BotChat() const { return m_botChat; }
+    const CareerRewardsConfig &CareerRewards() const { return m_careerRewards; }
     bool ItemDeleteMenu() const { return m_itemDeleteMenu; }
 
 private:
@@ -243,7 +256,10 @@ private:
     bool m_hideBotTag{ true };
     bool m_matchEndScreens{ true };
     bool m_botPing{ true };
+    bool m_botClanTags{ true };
+    bool m_inventoryRefreshFix{ true };
     int m_matchEndSeconds{ 40 };
+    bool m_restoreHowl{ true };
     bool m_botDifficultyByRank{ true };
     bool m_customCaseCollections{ false };
     bool m_caseStoreMenu{ true };
@@ -284,6 +300,7 @@ private:
     StarShopConfig m_starShop;
     BotSkinsConfig m_botSkins;
     BotChatConfig m_botChat;
+    CareerRewardsConfig m_careerRewards;
 };
 
 const GCConfig &GetConfig();

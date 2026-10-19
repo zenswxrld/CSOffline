@@ -2210,9 +2210,10 @@ void ClientGC::SendRankUpdate()
 
     if (system && GetConfig().BotDifficultyByRank())
     {
-        // Silver 1-4 easy, Gold Nova 5-8 normal, Master Guardian 9-12 hard, Legendary Eagle and up expert
+        // the Play menu's bot difficulties: 0 No Bots, 1 Harmless, 2 Easy, 3 Medium, 4 Hard, 5 Expert.
+        // Silver 1-4 easy, Gold Nova 5-8 medium, Master Guardian 9-12 hard, Legendary Eagle and up expert
         const uint32_t rank = RankFor("points_competitive", 18);
-        PanoramaHook::g_botDifficulty = rank <= 4 ? 0 : rank <= 8 ? 1 : rank <= 12 ? 2 : 3;
+        PanoramaHook::g_botDifficulty = rank <= 4 ? 2 : rank <= 8 ? 3 : rank <= 12 ? 4 : 5;
     }
 
     CMsgGCCStrike15_v2_ClientGCRankUpdate message;

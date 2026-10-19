@@ -263,19 +263,20 @@ int PanoramaHook::PatchBotDifficulty(std::string &source)
     source = std::regex_replace(source, chosen, "$1CsgoGcDifficulty( $2 )", std::regex_constants::format_first_only);
     source += R"js(
 
-var CsgoGcDifficulty = function ( chosen )
+// a function declaration, so it exists while the script's own start-up code (which asks for it) runs
+function CsgoGcDifficulty( chosen )
 {
 	try
 	{
 		var byRank = GameInterfaceAPI.GetSettingString( 'csgo_gc_bot_difficulty' );
-		if ( byRank === '0' || byRank === '1' || byRank === '2' || byRank === '3' )
+		if ( byRank === '1' || byRank === '2' || byRank === '3' || byRank === '4' || byRank === '5' )
 		{
 			return byRank;
 		}
 	}
 	catch ( e ) {}
 	return chosen;
-};
+}
 )js";
     return 1;
 }
@@ -315,6 +316,61 @@ var CsgoGcPingFor = function ( xuid, real )
 		var step = Math.floor( Date.now() / 2500 );
 		var wobble = ( ( ( h + step * 7919 ) % 11 ) - 5 );
 		return Math.max( 5, base + wobble );
+	}
+	catch ( e ) {}
+	return real;
+};
+)js";
+    return 1;
+}
+
+int PanoramaHook::PatchInventoryRefresh(std::string &source)
+{
+    // if( $.GetContextPanel().BHasClass( _m_HiddenContentClassname ) || _m_isCapabliltyPopupOpen )
+    static const std::regex guard{
+        R"re((if\s*\(\s*\$\.GetContextPanel\(\)\.BHasClass\(\s*_m_HiddenContentClassname\s*\))\s*\|\|\s*_m_isCapabliltyPopupOpen(\s*\)))re" };
+    if (!std::regex_search(source, guard))
+    {
+        return 0;
+    }
+
+    source = std::regex_replace(source, guard, "$1$2", std::regex_constants::format_first_only);
+    return 1;
+}
+
+int PanoramaHook::PatchBotClanTags(std::string &source)
+{
+    // GetPlayerClanTag: function _GetPlayerClanTag ( xuid ) {return _APIAccessor( GameStateAPI.GetPlayerClanTag( xuid ), k_GetPlayerClanTag );},
+    static const std::regex tagFn{
+        R"re((GetPlayerClanTag:\s*function\s+_GetPlayerClanTag\s*\(\s*xuid\s*\)\s*\{\s*return\s+)(_APIAccessor\([^;]*\))(\s*;\s*\}))re" };
+    if (!std::regex_search(source, tagFn))
+    {
+        return 0;
+    }
+
+    source = std::regex_replace(source, tagFn, "$1CsgoGcClanFor( xuid, $2 )$3", std::regex_constants::format_first_only);
+    source += R"js(
+
+var CsgoGcClanTags = [ 'FRZ', 'NYX', 'VLT', 'RZR', 'PHX', 'HVC', 'KRY', 'ZEN', 'ORB', 'APX', 'BLZ', 'DRX', 'LNR', 'ECL', 'WRT', 'SPK', 'TDL', 'MVR', 'QNT', 'OBS' ];
+var CsgoGcClanSeed = Math.floor( Math.random() * 100000 );
+var CsgoGcClanFor = function ( xuid, real )
+{
+	try
+	{
+		if ( real || !GameStateAPI.IsFakePlayer( xuid ) )
+		{
+			return real;
+		}
+
+		// the bots of one team share a tag; the other team gets a different one
+		var team = GameStateAPI.GetPlayerTeamNumber( xuid );
+		var count = CsgoGcClanTags.length;
+		var index = ( CsgoGcClanSeed + team * 7 ) % count;
+		if ( team === 3 && index === ( CsgoGcClanSeed + 14 ) % count )
+		{
+			index = ( index + 1 ) % count;
+		}
+		return CsgoGcClanTags[ index ];
 	}
 	catch ( e ) {}
 	return real;
@@ -1762,6 +1818,18 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
         Platform::Print("Panorama: %s didn't match, that end-of-match screen stays blank\n", rank ? "endofmatch-rank.js" : "endofmatch-skillgroup.js");
     }
 
+    if (GetConfig().InventoryRefreshFix() && PathIsFile(path, "mainmenu_inventory.js"))
+    {
+        std::string patched = source;
+        const bool changed = PanoramaHook::PatchInventoryRefresh(patched) != 0;
+        Platform::Print("Panorama: inventory refresh %s\n", changed ? "no longer skipped while a popup is counted as open" : "not changed, mainmenu_inventory.js didn't match");
+        if (changed)
+        {
+            s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
+            return;
+        }
+    }
+
     if (GetConfig().BotDifficultyByRank() && PathIsFile(path, "mainmenu_play.js"))
     {
         std::string patched = source;
@@ -1786,7 +1854,7 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
         }
     }
 
-    if ((GetConfig().RankSystem().scoreboard || matchEndScreens || GetConfig().BotPing()) && PathIsFile(path, "mock_adapter.js"))
+    if ((GetConfig().RankSystem().scoreboard || matchEndScreens || GetConfig().BotPing() || GetConfig().BotClanTags()) && PathIsFile(path, "mock_adapter.js"))
     {
         std::string patched = source;
         int changes = 0;
@@ -1797,6 +1865,12 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
             Platform::Print("Panorama: scoreboard ranks %s (competitive %d, wingman %d, level %d)\n",
                 changes ? "added" : "not added, mock_adapter.js didn't match", PanoramaHook::g_rankCompetitive.load(),
                 PanoramaHook::g_rankWingman.load(), PanoramaHook::g_playerLevel.load());
+        }
+        if (GetConfig().BotClanTags())
+        {
+            const int tags = PanoramaHook::PatchBotClanTags(patched);
+            Platform::Print("Panorama: bot clan tags %s\n", tags ? "added" : "not added, mock_adapter.js didn't match");
+            changes += tags;
         }
         if (GetConfig().BotPing())
         {

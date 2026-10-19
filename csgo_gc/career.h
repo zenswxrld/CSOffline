@@ -63,7 +63,9 @@ public:
         uint32_t stars{};
     };
 
+    // what a completed collection pays before the career_rewards percent, and after it
     static constexpr uint32_t GoalReward = 500;
+    static uint32_t GoalRewardStars();
 
     explicit Career(std::string path);
 

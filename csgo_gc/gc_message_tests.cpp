@@ -4176,7 +4176,8 @@ static bool BotDifficultyFollowsTheRank()
     bool valid = PanoramaHook::PatchBotDifficulty(play) == 1
         && play.find("var botDiff = CsgoGcDifficulty( GameInterfaceAPI.GetSettingString( 'player_botdifflast_s' ) );") != std::string::npos
         && play.find("var botDiff = CsgoGcDifficulty( elDropDownEntry.id );") != std::string::npos
-        && play.find("csgo_gc_bot_difficulty") != std::string::npos;
+        && play.find("csgo_gc_bot_difficulty") != std::string::npos
+        && play.find("function CsgoGcDifficulty( chosen )") != std::string::npos;
 
     std::string other = "var x = 1;";
     valid &= PanoramaHook::PatchBotDifficulty(other) == 0;
@@ -4246,6 +4247,57 @@ static bool BotsChatAboutWhatHappens()
     BotChat::OnEvent(over, start);
     BotChat::Take(start + seconds{ 10 }, lines);
     valid &= lines.empty();
+    return valid;
+}
+
+static bool HowlGoesBackInTheHuntsmanCase()
+{
+    std::string text =
+        "\"items_game\"\n{\n"
+        "\t\"item_sets\"\n\t{\n\t\t\"set_community_3\"\n\t\t{\n\t\t\t\"items\"\n\t\t\t{\n"
+        "\t\t\t\t\"[cu_ak47_rubber]weapon_ak47\"\t\t\"1\"\n\t\t\t}\n\t\t}\n\t}\n"
+        "\t\"client_loot_lists\"\n\t{\n\t\t\"crate_community_3_ancient\"\n\t\t{\n"
+        "\t\t\t\"[cu_ak47_rubber]weapon_ak47\"\t\t\"1\"\n\t\t}\n\t}\n}\n";
+
+    bool valid = GameSchemaPatch::RestoreHowl(text) == 2;
+    const size_t first = text.find("[cu_m4a1_howling]weapon_m4a1");
+    const size_t second = text.find("[cu_m4a1_howling]weapon_m4a1", first + 1);
+    valid &= first != std::string::npos && second != std::string::npos
+        && text.find("[cu_ak47_rubber]weapon_ak47") < first && first < second;
+
+    // already there: nothing more is added
+    valid &= GameSchemaPatch::RestoreHowl(text) == 0;
+
+    std::string other = "\"items_game\"\n{\n}\n";
+    valid &= GameSchemaPatch::RestoreHowl(other) == 0;
+    return valid;
+}
+
+static bool BotsGetClanTagsOnTheScoreboard()
+{
+    std::string adapter =
+        "\t\tGetPlayerClanTag: function _GetPlayerClanTag ( xuid ) {return _APIAccessor( GameStateAPI.GetPlayerClanTag( xuid ), k_GetPlayerClanTag );},\n";
+    bool valid = PanoramaHook::PatchBotClanTags(adapter) == 1
+        && adapter.find("return CsgoGcClanFor( xuid, _APIAccessor( GameStateAPI.GetPlayerClanTag( xuid ), k_GetPlayerClanTag ) );}")
+            != std::string::npos
+        && adapter.find("var CsgoGcClanFor = function") != std::string::npos;
+
+    std::string other = "var x = 1;";
+    valid &= PanoramaHook::PatchBotClanTags(other) == 0;
+    return valid;
+}
+
+static bool InventoryRefreshIgnoresAStuckPopupFlag()
+{
+    std::string page =
+        "\tvar _InventoryUpdated = function()\n\t{\n\t\t_ShowHideXrayBtn();\n\t\t\n"
+        "\t\tif( $.GetContextPanel().BHasClass( _m_HiddenContentClassname ) || _m_isCapabliltyPopupOpen )\n\t\t\treturn;\n";
+    bool valid = PanoramaHook::PatchInventoryRefresh(page) == 1
+        && page.find("if( $.GetContextPanel().BHasClass( _m_HiddenContentClassname ) )") != std::string::npos
+        && page.find("_m_isCapabliltyPopupOpen") == std::string::npos;
+
+    std::string other = "var x = 1;";
+    valid &= PanoramaHook::PatchInventoryRefresh(other) == 0;
     return valid;
 }
 
@@ -4363,7 +4415,7 @@ static bool CareerTracksGoalsAchievementsAndPersists()
 
         // first opening: a skin of the case and the "first case" achievement, no goal yet
         auto first = career.RecordCaseOpened(5001, info, pull(7, 100, ItemSchema::RarityMythical, false, false));
-        valid &= !first.empty() && first[0].stars == 15;
+        valid &= !first.empty() && first[0].stars == 2; // 15 stars at the default 15 percent
 
         // the same skin again finds nothing new
         valid &= career.RecordCaseOpened(5001, info, pull(7, 100, ItemSchema::RarityMythical, false, false)).empty();
@@ -4373,7 +4425,7 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         bool goal = false, covert = false, statTrak = false;
         for (const Career::Unlock &unlock : done)
         {
-            goal |= unlock.stars == Career::GoalReward;
+            goal |= unlock.stars == Career::GoalRewardStars();
             covert |= unlock.title == "Red Alert";
             statTrak |= unlock.title == "Counting Kills";
         }
@@ -4411,7 +4463,8 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         goldOnly.goldItems = 5;
         career.RecordCaseOpened(5002, goldOnly, pull(500, 0, ItemSchema::RarityUnusual, true, false));
         valid &= career.Stat("cases_opened") == 5 && career.Stat("custom_cases_opened") == 5
-            && career.Stat("goals_done") == 1 && career.Stat("other_opened") == 0;
+            && career.Stat("goals_done") == 1 && career.Stat("other_opened") == 0
+            && career.Stat("gold_pulls") == 1 && career.Stat("knives_pulled") == 1; // its gold is not a pull
 
         // a capsule with nothing to collect and no golds is not a case
         Career::CaseInfo capsule;
@@ -4438,9 +4491,9 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         // the SkinStop tabs' data: the case's 2/2 skins and gold, a finished achievement, a stat
         const std::string ui = career.UiData({ { 5001, info } });
         valid &= ui.find("cases: [[5001,'Test Case',2,2,1,1,1,5]]") != std::string::npos
-            && ui.find("['first_case','First Crack','Open your first case.',15,1,1,1,0]") != std::string::npos
+            && ui.find("['first_case','First Crack','Open your first case.',2,1,1,1,0]") != std::string::npos
             && ui.find("['Cases opened','6']") != std::string::npos
-            && ui.find("goalReward: 500") != std::string::npos;
+            && ui.find("goalReward: 150") != std::string::npos;
     }
 
     TestFilesystem::RemoveFile(Path);
@@ -4487,8 +4540,8 @@ static bool WonMatchesCountAndMoveRanks()
         }
         valid &= sawRankUpdate;
 
-        // the bots' difficulty follows the rank (0 to 3)
-        valid &= PanoramaHook::g_botDifficulty >= 0 && PanoramaHook::g_botDifficulty <= 3;
+        // the bots' difficulty follows the rank (Easy to Expert, never No Bots)
+        valid &= PanoramaHook::g_botDifficulty >= 2 && PanoramaHook::g_botDifficulty <= 5;
 
         // the end-of-match skill group screen is handed the rank change
         for (int i = 0; i < 300 && !PanoramaHook::g_matchEndPending; ++i)
@@ -5486,6 +5539,9 @@ int main()
         { "MatchEndScreensPatchTheAdapterAndGates", MatchEndScreensPatchTheAdapterAndGates },
         { "PlayerCardShowsTheSkillGroups", PlayerCardShowsTheSkillGroups },
         { "BotPingReplacesTheBotLabel", BotPingReplacesTheBotLabel },
+        { "InventoryRefreshIgnoresAStuckPopupFlag", InventoryRefreshIgnoresAStuckPopupFlag },
+        { "BotsGetClanTagsOnTheScoreboard", BotsGetClanTagsOnTheScoreboard },
+        { "HowlGoesBackInTheHuntsmanCase", HowlGoesBackInTheHuntsmanCase },
         { "BotsChatAboutWhatHappens", BotsChatAboutWhatHappens },
         { "BotDifficultyFollowsTheRank", BotDifficultyFollowsTheRank },
         { "StoreListsEveryWeaponCaseAndKey", StoreListsEveryWeaponCaseAndKey },

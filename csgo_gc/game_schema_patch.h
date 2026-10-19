@@ -36,6 +36,11 @@ namespace GameSchemaPatch
     // puts the original language file back if it was patched
     bool RestoreLanguage();
 
+    // the M4A4 | Howl was taken out of the Huntsman Weapon Case's contents (it is only in "removed_items" now). this puts
+    // it back in the case's Covert list and its collection. returns the number of places it was added to (0 when it
+    // is there already)
+    size_t RestoreHowl(std::string &schemaText);
+
     // the items_game.txt the GC should parse: the original when a backup exists
     const char *OriginalSchemaPath();
 
@@ -117,7 +122,7 @@ namespace GameSchemaPatch
     // when the game file changed and a restart is needed to see it
     bool Apply(const LootListPreviews &previews, const std::string &recipesText, bool mixQualities = false,
         const StarShopPatch *starShop = nullptr, const std::vector<AddedCasePatch> *addedCases = nullptr,
-        const PaintKitsPatch *paintKits = nullptr);
+        const PaintKitsPatch *paintKits = nullptr, bool restoreHowl = false);
 
     // puts the original file back if it was patched. returns true when restored
     bool Restore();

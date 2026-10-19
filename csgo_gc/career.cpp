@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "career.h"
+#include "config.h"
 #include "item_schema.h"
 #include "item_utils.h"
 #include <fstream>
@@ -20,6 +21,16 @@ struct AchievementDef
     uint32_t stars;
     uint32_t category; // index into AchievementCategories
 };
+
+// the stars an achievement or goal pays after the career_rewards percent (at least 1 star unless it is switched off)
+uint32_t ScaledStars(uint32_t base, uint32_t percent)
+{
+    if (!base || !percent)
+    {
+        return 0;
+    }
+    return std::max<uint32_t>(1, static_cast<uint32_t>((static_cast<uint64_t>(base) * percent + 50) / 100));
+}
 
 // one table: a counter reaching a number. Counters that aren't plain event counts (gold_cases, cases_distinct,
 // skins_found, the knife and glove type counts, the streaks, goals_done) are kept up to date by the career itself
@@ -579,6 +590,18 @@ bool Career::Save() const
     return rename(tempPath.c_str(), m_path.c_str()) == 0;
 }
 
+uint32_t Career::GoalRewardStars()
+{
+    return ScaledStars(GoalReward, GetConfig().CareerRewards().goalPercent);
+}
+
+static uint32_t AchievementStars(const AchievementDef &def)
+{
+    // the Matches and Stars categories are earned by playing; the rest by opening cases
+    const CareerRewardsConfig &rewards = GetConfig().CareerRewards();
+    return ScaledStars(def.stars, def.category >= 6 ? rewards.matchAchievementsPercent : rewards.caseAchievementsPercent);
+}
+
 std::vector<Career::Unlock> Career::CheckAchievements()
 {
     std::vector<Unlock> unlocked;
@@ -590,7 +613,7 @@ std::vector<Career::Unlock> Career::CheckAchievements()
         }
 
         m_achievements[def.id] = static_cast<uint32_t>(time(nullptr));
-        unlocked.push_back({ def.title, std::string{ "Achievement unlocked: " } + def.title, def.stars });
+        unlocked.push_back({ def.title, std::string{ "Achievement unlocked: " } + def.title, AchievementStars(def) });
     }
     return unlocked;
 }
@@ -617,6 +640,22 @@ std::vector<Career::Unlock> Career::RecordCaseOpened(uint32_t crate, const CaseI
 
     CaseProgress &progress = m_cases[crate];
     progress.opened++;
+
+    // a gold-only case (Black Market, Gauntlet) is a case that was opened, but its golds are bought: they don't count as
+    // pulls, golds, knives or gloves for the achievements, or the stars would buy more of them without end
+    if (info.skins.empty())
+    {
+        uint64_t distinctCases = 0;
+        for (const auto &entry : m_cases)
+        {
+            distinctCases += entry.second.opened ? 1 : 0;
+        }
+        m_stats["cases_distinct"] = distinctCases;
+
+        unlocked = CheckAchievements();
+        Save();
+        return unlocked;
+    }
 
     if (pull.gold)
     {
@@ -697,7 +736,7 @@ std::vector<Career::Unlock> Career::RecordCaseOpened(uint32_t crate, const CaseI
             progress.complete = true;
             m_stats["goals_done"]++;
             unlocked.push_back({ info.name, "Collection complete: " + info.name
-                    + " (every skin found)", GoalReward });
+                    + " (every skin found)", GoalRewardStars() });
         }
     }
 
@@ -895,7 +934,7 @@ static std::string JsString(const std::string &text)
 std::string Career::UiData(const std::vector<std::pair<uint32_t, CaseInfo>> &cases) const
 {
     std::ostringstream out;
-    out << "{ goalReward: " << GoalReward << ", stats: [";
+    out << "{ goalReward: " << GoalRewardStars() << ", stats: [";
     const std::pair<const char *, std::string> stats[] = {
         { "Cases opened", std::to_string(Stat("cases_opened")) },
         { "Custom cases opened", std::to_string(Stat("custom_cases_opened")) },
@@ -946,7 +985,7 @@ std::string Career::UiData(const std::vector<std::pair<uint32_t, CaseInfo>> &cas
     for (const AchievementDef &def : Achievements)
     {
         out << (first ? "" : ",") << "[" << JsString(def.id) << "," << JsString(def.title) << "," << JsString(def.desc)
-            << "," << def.stars << "," << def.threshold << "," << std::min(Stat(def.stat), def.threshold) << ","
+            << "," << AchievementStars(def) << "," << def.threshold << "," << std::min(Stat(def.stat), def.threshold) << ","
             << (m_achievements.contains(def.id) ? 1 : 0) << "," << def.category << "]";
         first = false;
     }
@@ -987,7 +1026,7 @@ std::string Career::AchievementsText() const
     for (const AchievementDef &def : Achievements)
     {
         const bool done = m_achievements.contains(def.id);
-        out << (done ? "[x] " : "[ ] ") << def.title << " - " << def.desc << " (+" << def.stars << " stars)";
+        out << (done ? "[x] " : "[ ] ") << def.title << " - " << def.desc << " (+" << AchievementStars(def) << " stars)";
         if (!done)
         {
             out << "  " << std::min(Stat(def.stat), def.threshold) << "/" << def.threshold;
