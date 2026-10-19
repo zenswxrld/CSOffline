@@ -2021,6 +2021,12 @@ void PanoramaHook::Tick()
         return;
     }
 
+    if (const int delay = g_restartDelayRequest.exchange(0))
+    {
+        const std::string script = "try { GameInterfaceAPI.ConsoleCommand( 'mp_match_restart_delay " + std::to_string(delay) + "' ); } catch ( e ) {}";
+        s_originalRunScript(s_uiEngine, nullptr, s_mainMenuPanel, script.c_str(), CaseStoreDataPath, 0, 0, 0, 0);
+    }
+
     const int difficulty = g_botDifficulty.load();
     if (difficulty >= 0 && difficulty != s_botDifficultySent)
     {

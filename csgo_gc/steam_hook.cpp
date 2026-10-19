@@ -303,6 +303,12 @@ public:
             PostBotChatEvent(eventName, event);
         }
 
+        // keep the match end screens up longer
+        if (GetConfig().MatchEndSeconds() > 0 && !strcmp(eventName, "round_start"))
+        {
+            PanoramaHook::g_restartDelayRequest = GetConfig().MatchEndSeconds();
+        }
+
         // who is winning: the local player's team (player_team) against the winners of each round (round_end)
         if (!strcmp(eventName, "begin_new_match") || !strcmp(eventName, "round_announce_match_start"))
         {
