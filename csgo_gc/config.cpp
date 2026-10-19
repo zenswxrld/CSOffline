@@ -229,6 +229,13 @@ GCConfig::GCConfig()
 
     m_botChat.enabled = config.GetNumber("bot_chat", m_botChat.enabled);
 
+    if (const KeyValue *rewards = config.GetSubkey("career_rewards"))
+    {
+        m_careerRewards.caseAchievementsPercent = rewards->GetNumber("case_achievements_percent", m_careerRewards.caseAchievementsPercent);
+        m_careerRewards.matchAchievementsPercent = rewards->GetNumber("match_achievements_percent", m_careerRewards.matchAchievementsPercent);
+        m_careerRewards.goalPercent = rewards->GetNumber("collection_goal_percent", m_careerRewards.goalPercent);
+    }
+
     m_vacBanned = config.GetNumber("vac_banned", m_vacBanned);
     m_commendedFriendly = config.GetNumber("cmd_friendly", m_commendedFriendly);
     m_commendedTeaching = config.GetNumber("cmd_teaching", m_commendedTeaching);

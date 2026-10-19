@@ -101,6 +101,16 @@
 // once after changing it and restart the game twice.
 "gold_tradeup_recipes"	"1"
 
+// how much of the career's star rewards are paid, in percent. most achievements and the collection goals are about
+// opening cases, and the stars they pay buy more cases, so they pay a fraction (the sum of every achievement is about
+// 95,000 stars at 100%). the ones for playing matches pay in full
+"career_rewards"
+{
+	"case_achievements_percent"		"15"	// cases, pulls, golds, knives and gloves, collecting, trade-ups
+	"match_achievements_percent"	"100"	// kills, MVPs, matches, stars earned
+	"collection_goal_percent"		"30"	// finding every skin of a case (500 stars at 100%)
+}
+
 // keeps a career log in csgo_gc/career.txt: cases opened, covert and gold pulls, trade-ups,
 // which skins of each case you have found (finding every one pays a collection reward) and
 // achievements that pay stars. RCON: career, goals [all], achievements. needs the star shop.

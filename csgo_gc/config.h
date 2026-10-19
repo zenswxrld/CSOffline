@@ -127,6 +127,15 @@ struct BotSkinsConfig
     bool knives{ true }; // also give bots a themed knife (off: weapon skins only)
 };
 
+// how much of the career's star rewards are paid, in percent. opening cases is what most of the achievements and the
+// collection goals are about, and the stars they pay buy more cases, so those pay less
+struct CareerRewardsConfig
+{
+    uint32_t caseAchievementsPercent{ 15 }; // cases, pulls, golds, knives and gloves, collecting, trade-ups
+    uint32_t matchAchievementsPercent{ 100 }; // matches (kills, MVPs, ...) and stars earned
+    uint32_t goalPercent{ 30 }; // a completed collection
+};
+
 struct BotChatConfig
 {
     bool enabled{ false };
@@ -208,6 +217,7 @@ public:
     const RankSystemConfig &RankSystem() const { return m_rankSystem; }
     const BotSkinsConfig &BotSkins() const { return m_botSkins; }
     const BotChatConfig &BotChat() const { return m_botChat; }
+    const CareerRewardsConfig &CareerRewards() const { return m_careerRewards; }
     bool ItemDeleteMenu() const { return m_itemDeleteMenu; }
 
 private:
@@ -286,6 +296,7 @@ private:
     StarShopConfig m_starShop;
     BotSkinsConfig m_botSkins;
     BotChatConfig m_botChat;
+    CareerRewardsConfig m_careerRewards;
 };
 
 const GCConfig &GetConfig();

@@ -4386,7 +4386,7 @@ static bool CareerTracksGoalsAchievementsAndPersists()
 
         // first opening: a skin of the case and the "first case" achievement, no goal yet
         auto first = career.RecordCaseOpened(5001, info, pull(7, 100, ItemSchema::RarityMythical, false, false));
-        valid &= !first.empty() && first[0].stars == 15;
+        valid &= !first.empty() && first[0].stars == 2; // 15 stars at the default 15 percent
 
         // the same skin again finds nothing new
         valid &= career.RecordCaseOpened(5001, info, pull(7, 100, ItemSchema::RarityMythical, false, false)).empty();
@@ -4396,7 +4396,7 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         bool goal = false, covert = false, statTrak = false;
         for (const Career::Unlock &unlock : done)
         {
-            goal |= unlock.stars == Career::GoalReward;
+            goal |= unlock.stars == Career::GoalRewardStars();
             covert |= unlock.title == "Red Alert";
             statTrak |= unlock.title == "Counting Kills";
         }
@@ -4434,7 +4434,8 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         goldOnly.goldItems = 5;
         career.RecordCaseOpened(5002, goldOnly, pull(500, 0, ItemSchema::RarityUnusual, true, false));
         valid &= career.Stat("cases_opened") == 5 && career.Stat("custom_cases_opened") == 5
-            && career.Stat("goals_done") == 1 && career.Stat("other_opened") == 0;
+            && career.Stat("goals_done") == 1 && career.Stat("other_opened") == 0
+            && career.Stat("gold_pulls") == 1 && career.Stat("knives_pulled") == 1; // its gold is not a pull
 
         // a capsule with nothing to collect and no golds is not a case
         Career::CaseInfo capsule;
@@ -4461,9 +4462,9 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         // the SkinStop tabs' data: the case's 2/2 skins and gold, a finished achievement, a stat
         const std::string ui = career.UiData({ { 5001, info } });
         valid &= ui.find("cases: [[5001,'Test Case',2,2,1,1,1,5]]") != std::string::npos
-            && ui.find("['first_case','First Crack','Open your first case.',15,1,1,1,0]") != std::string::npos
+            && ui.find("['first_case','First Crack','Open your first case.',2,1,1,1,0]") != std::string::npos
             && ui.find("['Cases opened','6']") != std::string::npos
-            && ui.find("goalReward: 500") != std::string::npos;
+            && ui.find("goalReward: 150") != std::string::npos;
     }
 
     TestFilesystem::RemoveFile(Path);
