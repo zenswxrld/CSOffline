@@ -4272,6 +4272,20 @@ static bool HowlGoesBackInTheHuntsmanCase()
     return valid;
 }
 
+static bool BotsGetClanTagsOnTheScoreboard()
+{
+    std::string adapter =
+        "\t\tGetPlayerClanTag: function _GetPlayerClanTag ( xuid ) {return _APIAccessor( GameStateAPI.GetPlayerClanTag( xuid ), k_GetPlayerClanTag );},\n";
+    bool valid = PanoramaHook::PatchBotClanTags(adapter) == 1
+        && adapter.find("return CsgoGcClanFor( xuid, _APIAccessor( GameStateAPI.GetPlayerClanTag( xuid ), k_GetPlayerClanTag ) );}")
+            != std::string::npos
+        && adapter.find("var CsgoGcClanFor = function") != std::string::npos;
+
+    std::string other = "var x = 1;";
+    valid &= PanoramaHook::PatchBotClanTags(other) == 0;
+    return valid;
+}
+
 static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
 {
     std::string text =
@@ -4511,8 +4525,8 @@ static bool WonMatchesCountAndMoveRanks()
         }
         valid &= sawRankUpdate;
 
-        // the bots' difficulty follows the rank (0 to 3)
-        valid &= PanoramaHook::g_botDifficulty >= 0 && PanoramaHook::g_botDifficulty <= 3;
+        // the bots' difficulty follows the rank (Easy to Expert, never No Bots)
+        valid &= PanoramaHook::g_botDifficulty >= 2 && PanoramaHook::g_botDifficulty <= 5;
 
         // the end-of-match skill group screen is handed the rank change
         for (int i = 0; i < 300 && !PanoramaHook::g_matchEndPending; ++i)
@@ -5510,6 +5524,7 @@ int main()
         { "MatchEndScreensPatchTheAdapterAndGates", MatchEndScreensPatchTheAdapterAndGates },
         { "PlayerCardShowsTheSkillGroups", PlayerCardShowsTheSkillGroups },
         { "BotPingReplacesTheBotLabel", BotPingReplacesTheBotLabel },
+        { "BotsGetClanTagsOnTheScoreboard", BotsGetClanTagsOnTheScoreboard },
         { "HowlGoesBackInTheHuntsmanCase", HowlGoesBackInTheHuntsmanCase },
         { "BotsChatAboutWhatHappens", BotsChatAboutWhatHappens },
         { "BotDifficultyFollowsTheRank", BotDifficultyFollowsTheRank },

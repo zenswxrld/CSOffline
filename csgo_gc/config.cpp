@@ -65,6 +65,7 @@ GCConfig::GCConfig()
     m_hideBotTag = config.GetNumber("hide_bot_tag", m_hideBotTag);
     m_matchEndScreens = config.GetNumber("end_of_match_screens", m_matchEndScreens);
     m_botPing = config.GetNumber("bot_ping", m_botPing);
+    m_botClanTags = config.GetNumber("bot_clan_tags", m_botClanTags);
     m_restoreHowl = config.GetNumber("restore_howl", m_restoreHowl);
     m_matchEndSeconds = std::clamp<int>(config.GetNumber("end_of_match_seconds", m_matchEndSeconds), 0, 300);
     m_botDifficultyByRank = config.GetNumber("bot_difficulty_by_rank", m_botDifficultyByRank);

@@ -127,6 +127,10 @@
 // bots show a made-up ping (12 to 68, wobbling a little) on the scoreboard instead of the "BOT" label
 "bot_ping"	"1"
 
+// bots get a clan tag in front of their name on the scoreboard (FRZ, NYX, ...): the bots of a team share one, and every
+// match has new ones
+"bot_clan_tags"	"1"
+
 // puts the M4A4 | Howl back in the Huntsman Weapon Case (Valve removed it): it drops from the case again, as one of its
 // Covert skins, and shows in the case's contents. this edits items_game.txt: delete csgo/scripts/items/items_game.txt
 // once after changing it and restart the game twice

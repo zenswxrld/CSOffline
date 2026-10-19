@@ -104,7 +104,11 @@ namespace PanoramaHook
     int PatchBotPingAdapter(std::string &source);
     int PatchBotPingLabel(std::string &source);
 
-    // bot difficulty follows your competitive rank (0 easy to 3 expert; -1 leaves the Play menu's choice alone). the
+    // bots get a clan tag on the scoreboard, the same for the bots of a team, new ones every match (the scoreboard
+    // shows GetPlayerClanTag in front of the name). returns 1 when changed
+    int PatchBotClanTags(std::string &source);
+
+    // bot difficulty follows your competitive rank (2 easy to 5 expert, as the Play menu numbers them; 0 is No Bots; -1 leaves the Play menu's choice alone). the
     // GC sets g_botDifficulty, Tick() stores it as a game setting and the Play menu script uses it instead of the
     // difficulty dropdown. PatchBotDifficulty makes that change to mainmenu_play.js and returns 1 when changed
     inline std::atomic<int> g_botDifficulty{ -1 };
