@@ -263,7 +263,8 @@ int PanoramaHook::PatchBotDifficulty(std::string &source)
     source = std::regex_replace(source, chosen, "$1CsgoGcDifficulty( $2 )", std::regex_constants::format_first_only);
     source += R"js(
 
-var CsgoGcDifficulty = function ( chosen )
+// a function declaration, so it exists while the script's own start-up code (which asks for it) runs
+function CsgoGcDifficulty( chosen )
 {
 	try
 	{
@@ -275,7 +276,7 @@ var CsgoGcDifficulty = function ( chosen )
 	}
 	catch ( e ) {}
 	return chosen;
-};
+}
 )js";
     return 1;
 }

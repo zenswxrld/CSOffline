@@ -4176,7 +4176,8 @@ static bool BotDifficultyFollowsTheRank()
     bool valid = PanoramaHook::PatchBotDifficulty(play) == 1
         && play.find("var botDiff = CsgoGcDifficulty( GameInterfaceAPI.GetSettingString( 'player_botdifflast_s' ) );") != std::string::npos
         && play.find("var botDiff = CsgoGcDifficulty( elDropDownEntry.id );") != std::string::npos
-        && play.find("csgo_gc_bot_difficulty") != std::string::npos;
+        && play.find("csgo_gc_bot_difficulty") != std::string::npos
+        && play.find("function CsgoGcDifficulty( chosen )") != std::string::npos;
 
     std::string other = "var x = 1;";
     valid &= PanoramaHook::PatchBotDifficulty(other) == 0;
