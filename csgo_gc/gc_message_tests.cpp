@@ -4146,6 +4146,26 @@ static bool PlayerCardShowsTheSkillGroups()
     return valid;
 }
 
+static bool BotPingReplacesTheBotLabel()
+{
+    std::string adapter =
+        "\t\tGetPlayerPing: function _GetPlayerPing ( xuid ) {return _APIAccessor( GameStateAPI.GetPlayerPing( xuid ), k_GetPlayerPing, xuid );},\n";
+    bool valid = PanoramaHook::PatchBotPingAdapter(adapter) == 1
+        && adapter.find("return CsgoGcPingFor( xuid, _APIAccessor( GameStateAPI.GetPlayerPing( xuid ), k_GetPlayerPing, xuid ) );}") != std::string::npos
+        && adapter.find("var CsgoGcPingFor = function") != std::string::npos;
+
+    std::string scoreboard =
+        "\t\t\tif ( MockAdapter.IsFakePlayer( xuid ) )\n\t\t\t{\n\t\t\t\tszCustomLabel = \"#SFUI_scoreboard_lbl_bot\";\n\t\t\t}\n"
+        "\t\t\telse if ( IsTeamASpecTeam( x ) )\n";
+    valid &= PanoramaHook::PatchBotPingLabel(scoreboard) == 1
+        && scoreboard.find("if ( false )\n\t\t\t{\n\t\t\t\tszCustomLabel = \"#SFUI_scoreboard_lbl_bot\"") != std::string::npos
+        && scoreboard.find("else if ( IsTeamASpecTeam") != std::string::npos;
+
+    std::string other = "var x = 1;";
+    valid &= PanoramaHook::PatchBotPingAdapter(other) == 0 && PanoramaHook::PatchBotPingLabel(other) == 0;
+    return valid;
+}
+
 static bool AddedCasesListTheirSkinsByRarityWithAGoldTile()
 {
     std::string text =
@@ -5379,6 +5399,7 @@ int main()
         { "ScoreboardRanksPatchTheAdapter", ScoreboardRanksPatchTheAdapter },
         { "MatchEndScreensPatchTheAdapterAndGates", MatchEndScreensPatchTheAdapterAndGates },
         { "PlayerCardShowsTheSkillGroups", PlayerCardShowsTheSkillGroups },
+        { "BotPingReplacesTheBotLabel", BotPingReplacesTheBotLabel },
         { "StoreListsEveryWeaponCaseAndKey", StoreListsEveryWeaponCaseAndKey },
         { "CustomCaseReplacesContents", CustomCaseReplacesContents },
         { "CaseStoreListsPricedCustomCasesAsSpecialOffers", CaseStoreListsPricedCustomCasesAsSpecialOffers },

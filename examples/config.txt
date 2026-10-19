@@ -114,6 +114,9 @@
 // shows bots by name only, without the "BOT " in front (edits csgo/resource/csgo_english.txt; restart the game twice)
 "hide_bot_tag"	"1"
 
+// bots show a made-up ping (12 to 68, wobbling a little) on the scoreboard instead of the "BOT" label
+"bot_ping"	"1"
+
 // the screens after a match: the items you got, your XP bar and level up, and your skill group (rank) in competitive and
 // wingman. the game only shows them from server data a local game doesn't have, so csgo_gc feeds them
 "end_of_match_screens"	"1"
