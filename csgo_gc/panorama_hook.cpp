@@ -671,6 +671,13 @@ var CsgoGcCaseStore = ( function()
 	var RARITY_COLORS = { 1: '#b0c3d9', 2: '#5e98d9', 3: '#4b69ff', 4: '#8847ff', 5: '#d32ce6', 6: '#eb4b4b', 7: '#e4ae39' };
 	var BUY_AMOUNTS = [ 1, 5, 10 ];
 	var GOLD = '#f5c542';
+	// the operation page's look: a light label under each picture, the price in the star blue, a cyan accent
+	var PRICE_COLOR = '#2b86c9';
+	var PRICE_SHORT = '#c93a35';
+	var LABEL_BAND = '#c9cfd7e8';
+	var LABEL_TEXT = '#1d2430';
+	var LABEL_SUBTEXT = '#556070';
+	var ACCENT = '#6fd3ff';
 	var PRIMARY = '#2d6fb0';        // the colour of the buttons that do something
 	var PRIMARY_EDGE = '#7db4ea';
 	var HOME_CARDS = 6;   // cards in a band on the Home page
@@ -874,7 +881,7 @@ var CsgoGcCaseStore = ( function()
 
 		m_cards.forEach( function( card )
 		{
-			card.price.style.color = ( m_stars < 0 || card.cost <= m_stars ) ? GOLD : '#ff7b7b';
+			card.price.style.color = ( m_stars < 0 || card.cost <= m_stars ) ? PRICE_COLOR : PRICE_SHORT;
 		} );
 	}
 
@@ -894,17 +901,19 @@ var CsgoGcCaseStore = ( function()
 		var subtitle = entry[ 6 ] || ( ( KIND_NAMES[ kind ] || '' ) + ( keyId ? ' + key' : '' ) );
 		var pictureId = entry[ 7 ] ? _FauxId( entry[ 7 ] ) : id;
 
-		var card = _Panel( parent, { width: '200px', height: '262px', margin: '0px 10px 10px 0px', flowChildren: 'down',
-			backgroundColor: 'gradient( linear, 0% 0%, 0% 100%, from( #2a3a52f4 ), to( #1b2638f4 ) )', border: '1px solid #ffffff1a' }, 'Button' );
-		var image = _Panel( card, { width: '100%', height: '156px' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
+		var card = _Panel( parent, { width: '200px', height: '272px', margin: '0px 10px 10px 0px', flowChildren: 'down',
+			backgroundColor: 'gradient( linear, 0% 0%, 0% 100%, from( #263c55f4 ), to( #131e2bf4 ) )', border: '1px solid #ffffff1a' }, 'Button' );
+		var image = _Panel( card, { width: '100%', height: '172px' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
 		image.itemid = pictureId;
 		image.hittest = false;
 		_Panel( card, { width: '100%', height: '4px', backgroundColor: accent } ).hittest = false;
-		_Label( card, name, { fontSize: '15px', color: '#ffffff', fontWeight: 'bold', margin: '8px 12px 0px 12px', height: '40px' } ).hittest = false;
-		var info = _Panel( card, { width: '100%', flowChildren: 'right', margin: '2px 0px 0px 0px' } );
+		var band = _Panel( card, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', padding: '8px 12px 0px 12px', backgroundColor: LABEL_BAND } );
+		band.hittest = false;
+		_Label( band, name, { fontSize: '15px', color: LABEL_TEXT, fontWeight: 'bold', height: '40px', width: '100%' } ).hittest = false;
+		var info = _Panel( band, { width: '100%', flowChildren: 'right' } );
 		info.hittest = false;
-		_Label( info, subtitle, { fontSize: '12px', color: '#9aa8b8', margin: '0px 0px 0px 12px', verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )' } ).hittest = false;
-		var priceLabel = _Label( info, price > 0 ? ( price + ' \u2605' ) : 'free', { fontSize: '19px', color: GOLD, fontWeight: 'bold', margin: '0px 12px 0px 0px', horizontalAlign: 'right' } );
+		_Label( info, subtitle, { fontSize: '11px', color: LABEL_SUBTEXT, verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )' } ).hittest = false;
+		var priceLabel = _Label( info, price > 0 ? ( price + ' \u2605' ) : 'free', { fontSize: '19px', color: PRICE_COLOR, fontWeight: 'bold', horizontalAlign: 'right' } );
 		priceLabel.hittest = false;
 
 		var known = _Known( id );
@@ -1239,12 +1248,15 @@ static const char CaseStoreScriptPart2[] = R"js(
 			}
 
 			var color = KIND_COLORS[ category[ 2 ][ 0 ] ] || '#ffffff';
-			var band = _Panel( m_content, { width: '100%', height: '296px', margin: '0px 0px 12px 0px', flowChildren: 'right',
-				backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #16202eea ), to( #16202e88 ) )', borderLeft: '4px solid ' + color } );
-			var left = _Panel( band, { width: '250px', height: '100%', flowChildren: 'down', padding: '22px 20px 0px 22px' } );
+			var band = _Panel( m_content, { width: '100%', height: '304px', margin: '0px 0px 14px 0px', flowChildren: 'right',
+				backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #10243bf0 ), to( #1a3a5c88 ) )', borderTop: '1px solid #ffffff22' } );
+			var left = _Panel( band, { width: '250px', height: '100%', flowChildren: 'down', padding: '20px 18px 0px 22px', backgroundColor: '#0a1a2ecc' } );
+			var logo = _Panel( left, { width: '84px', height: '64px', margin: '0px 0px 10px 0px' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
+			logo.itemid = _FauxId( m_data[ entries[ 0 ] ][ 7 ] || m_data[ entries[ 0 ] ][ 0 ] );
+			logo.hittest = false;
 			_Label( left, category[ 1 ], { fontSize: '19px', color: '#ffffff', fontWeight: 'bold', letterSpacing: '2px' } );
-			_Label( left, category[ 3 ], { fontSize: '13px', color: '#aab6c4', margin: '8px 0px 0px 0px', width: '100%' } );
-			_Label( left, entries.length + ( entries.length === 1 ? ' item' : ' items' ), { fontSize: '13px', color: color, margin: '10px 0px 0px 0px' } );
+			_Label( left, category[ 3 ], { fontSize: '13px', color: '#b7c6d8', margin: '8px 0px 0px 0px', width: '100%' } );
+			_Label( left, entries.length + ( entries.length === 1 ? ' item' : ' items' ), { fontSize: '13px', color: ACCENT, margin: '10px 0px 0px 0px' } );
 			if ( entries.length > HOME_CARDS )
 			{
 				_Button( left, 'VIEW ALL', { width: '140px', height: '34px', margin: '16px 0px 0px 0px', backgroundColor: PRIMARY, border: '1px solid ' + PRIMARY_EDGE },
@@ -1343,7 +1355,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 		if ( m_balanceBox )
 		{
 			m_balanceBox.visible = m_stars >= 0;
-			m_balance.text = m_stars >= 0 ? ( 'Your Balance:  ' + m_stars + ' stars' ) : '';
+			m_balance.text = m_stars >= 0 ? ( 'Your Balance:  ' + m_stars + ' \u2605' ) : '';
 		}
 		_ShowAffordability();
 	}
@@ -1382,7 +1394,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 		catch ( e ) {}
 		// the operation page's backdrop: a map screenshot, darkened
 		_Style( m_overlay, { backgroundImage: BACKGROUND, backgroundSize: 'cover', backgroundPosition: 'center',
-			backgroundRepeat: 'no-repeat', washColor: '#0d0a0930' } );
+			backgroundRepeat: 'no-repeat', washColor: '#12385f48' } );
 
 		var popups = context.FindChild( 'PopupManager' );
 		if ( popups )
@@ -1396,9 +1408,12 @@ static const char CaseStoreScriptPart2[] = R"js(
 		_Label( titles, 'SkinStop', { fontSize: '26px', color: '#ffffff', fontWeight: 'bold', letterSpacing: '1px' } );
 		_Label( titles, 'Use your Stars to get Rewards of your choosing.', { fontSize: '14px', color: '#e2e8f0' } );
 
-		m_balanceBox = _Panel( header, { height: '32px', verticalAlign: 'center', padding: '0px 14px', backgroundColor: '#3a2f1ad0', border: '1px solid #6b5a2e' } );
+		m_balanceBox = _Panel( header, { height: '36px', verticalAlign: 'center', flowChildren: 'right' } );
 		m_balanceBox.visible = false;
-		m_balance = _Label( m_balanceBox, '', { fontSize: '16px', color: GOLD, fontWeight: 'bold', verticalAlign: 'center' } );
+		var balanceBack = _Panel( m_balanceBox, { height: '100%', padding: '0px 16px', backgroundColor: '#07141fe6' } );
+		m_balance = _Label( balanceBack, '', { fontSize: '16px', color: '#e6f3ff', verticalAlign: 'center' } );
+		_Button( m_balanceBox, 'GET MORE STARS', { height: '100%', padding: '0px 18px', backgroundColor: ACCENT },
+			function() { _SelectTab( 'achievements' ); }, { fontSize: '14px', fontWeight: 'bold', letterSpacing: '1px', color: '#06283d' } );
 
 		_BuildTabs( header );
 
