@@ -634,15 +634,27 @@ std::string PanoramaHook::BuildCaseStoreData(const ItemSchema &itemSchema)
     }
 
     // every agent in one: buying it gives a random one. [def of the item bought, 0, 4, price, rarity, name, subtitle,
-    // def of the picture]
+    // def of the fallback picture, native agent picture def indexes]
     if (priced)
     {
         if (const uint32_t agentItem = StarShop::RandomAgentItem(itemSchema))
         {
+            const std::vector<uint32_t> agents = itemSchema.GetAgentDefIndexes();
             begin();
             data += std::to_string(agentItem) + ",0,4," + std::to_string(starShop.agentPrice) + ",6,\"Random Agent\",\"One of "
-                + std::to_string(itemSchema.GetAgentDefIndexes().size()) + " agents\","
-                + std::to_string(StarShop::RandomAgentPicture(itemSchema)) + ']';
+                + std::to_string(agents.size()) + " agents\","
+                + std::to_string(StarShop::RandomAgentPicture(itemSchema)) + ",[";
+            const size_t count = std::min<size_t>(5, agents.size());
+            for (size_t i = 0; i < count; i++)
+            {
+                if (i)
+                {
+                    data += ',';
+                }
+                // Spread the lineup across the available agents instead of repeating one model family.
+                data += std::to_string(agents[i * (agents.size() - 1) / (count > 1 ? count - 1 : 1)]);
+            }
+            data += "]]";
         }
     }
 
@@ -673,9 +685,9 @@ var CsgoGcCaseStore = ( function()
 	var GOLD = '#f5c542';
 	// the operation page's look: a light label under each picture, the price in the star blue, a cyan accent
 	var PRICE_COLOR = '#2b86c9';
-	var LABEL_BAND = '#c6d0d8ed';
-	var LABEL_TEXT = '#1d2430';
-	var LABEL_SUBTEXT = '#556070';
+	var LABEL_BAND = '#d5dce3fa';
+	var LABEL_TEXT = '#111b26';
+	var LABEL_SUBTEXT = '#344452';
 	var ACCENT = '#91e8f5';
 	var PRIMARY = '#2d6fb0';        // the colour of the buttons that do something
 	var PRIMARY_EDGE = '#7db4ea';
@@ -729,7 +741,7 @@ var CsgoGcCaseStore = ( function()
 
 	function _Label( parent, text, styles )
 	{
-		var label = _Panel( parent, { fontFamily: 'Stratum2' }, 'Label' );
+		var label = _Panel( parent, { fontFamily: 'Stratum2', fontWeight: 'bold' }, 'Label' );
 		_Style( label, styles || {} );
 		label.text = text;
 		return label;
@@ -886,6 +898,28 @@ var CsgoGcCaseStore = ( function()
 		} );
 	}
 
+	// Native agent item art, layered like the operation shop's character lineups.
+	// This changes only the picture: the tile still buys one random agent.
+	function _AgentLineup( parent, entry )
+	{
+		var ids = entry[ 8 ] || [];
+		if ( !ids.length ) { return false; }
+		var group = _Panel( parent, { width: '100%', height: '164px',
+			backgroundColor: 'gradient( linear, 0% 0%, 100% 0%, from( #183144cc ), to( #466c7a80 ) )' } );
+		group.hittest = false;
+		group.hittestchildren = false;
+		// Draw the rear agents first so the leading agent remains prominent.
+		for ( var i = ids.length - 1; i >= 0; i-- )
+		{
+			var image = _Panel( group, { width: '42%', height: '100%',
+				marginLeft: ( i * 14 ) + '%', opacity: i === 0 ? '1.0' : '0.85' },
+				'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
+			image.itemid = _FauxId( ids[ i ] );
+			image.hittest = false;
+		}
+		return true;
+	}
+
 	// one card, like the operation page's: a big picture, a bar in the item's colour, then name and price.
 	// clicking it shows what's inside and the buy bar
 	function _MakeCard( parent, index, featured )
@@ -904,16 +938,19 @@ var CsgoGcCaseStore = ( function()
 
 		var card = _Panel( parent, { width: featured ? 'fill-parent-flow( 1.0 )' : '16%', height: '226px', margin: '0px 0.5% 8px 0px', flowChildren: 'down',
 			backgroundColor: 'gradient( linear, 0% 0%, 100% 100%, from( #8baaba35 ), to( #091b2b90 ) )', border: '1px solid #ffffff08' }, 'Button' );
-		var image = _Panel( card, { width: '100%', height: '164px' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
-		image.itemid = pictureId;
-		image.hittest = false;
+		if ( !isAgent || !_AgentLineup( card, entry ) )
+		{
+			var image = _Panel( card, { width: '100%', height: '164px' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
+			image.itemid = pictureId;
+			image.hittest = false;
+		}
 		_Panel( card, { width: '100%', height: '4px', backgroundColor: accent } ).hittest = false;
 		var band = _Panel( card, { width: '100%', height: 'fill-parent-flow( 1.0 )', flowChildren: 'down', padding: '5px 10px 3px 10px', backgroundColor: LABEL_BAND } );
 		band.hittest = false;
-		_Label( band, name, { fontSize: '16px', color: LABEL_TEXT, height: '22px', width: '100%', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } ).hittest = false;
+		_Label( band, name, { fontSize: '17px', color: LABEL_TEXT, fontWeight: 'bold', height: '24px', width: '100%', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } ).hittest = false;
 		var info = _Panel( band, { width: '100%', flowChildren: 'right' } );
 		info.hittest = false;
-		_Label( info, subtitle, { fontSize: '11px', color: LABEL_SUBTEXT, verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } ).hittest = false;
+		_Label( info, subtitle, { fontSize: '13px', color: LABEL_SUBTEXT, verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } ).hittest = false;
 		var priceLabel = _Label( info, price > 0 ? ( price + ' \u2605' ) : 'free', { fontSize: '19px', color: PRICE_COLOR, fontWeight: 'bold', horizontalAlign: 'right' } );
 		priceLabel.hittest = false;
 
@@ -1285,7 +1322,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 			logo.itemid = _FauxId( m_data[ entries[ 0 ] ][ 7 ] || m_data[ entries[ 0 ] ][ 0 ] );
 			logo.hittest = false;
 			_Label( left, featured ? 'FEATURED REWARDS' : category[ 1 ], { fontSize: '18px', color: '#ffffff', fontWeight: 'bold', letterSpacing: '2px' } );
-			_Label( left, featured ? 'Special cases and a random agent. Choose a reward to see more.' : category[ 3 ], { fontSize: '13px', color: '#b7c6d8', margin: '8px 0px 0px 0px', width: '100%' } );
+			_Label( left, featured ? 'Special cases and a random agent. Choose a reward to see more.' : category[ 3 ], { fontSize: '15px', color: '#e0ebf4', margin: '8px 0px 0px 0px', width: '100%' } );
 			_Label( left, entries.length + ( entries.length === 1 ? ' item' : ' items' ), { fontSize: '13px', color: ACCENT, margin: '10px 0px 0px 0px' } );
 			if ( entries.length > HOME_CARDS )
 			{
@@ -1368,7 +1405,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 			var active = key === m_category;
 			m_sideButtons[ key ].style.backgroundColor = active ? '#ffffff1c' : '#00000000';
 			m_sideButtons[ key ].style.borderBottom = active ? '2px solid ' + ACCENT : '2px solid #00000000';
-			m_sideButtons[ key ].GetChild( 0 ).style.color = active ? '#ffffff' : '#aab6c4';
+			m_sideButtons[ key ].GetChild( 0 ).style.color = active ? '#ffffff' : '#e0eaf2';
 		}
 	}
 
@@ -1399,8 +1436,8 @@ static const char CaseStoreScriptPart2[] = R"js(
 	function _AddSidebarButton( side, key, title )
 	{
 		var button = _Panel( side, { width: 'fill-parent-flow( 1.0 )', height: '40px', flowChildren: 'right', padding: '0px 10px', backgroundColor: '#00000000', borderBottom: '2px solid #00000000' }, 'Button' );
-		_Label( button, title, { fontSize: '13px', color: '#aab6c4', letterSpacing: '1px', verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )', whiteSpace: 'nowrap', textOverflow: 'ellipsis' } );
-		m_sideCounts[ key ] = _Label( button, '', { fontSize: '13px', color: '#7e8a99', verticalAlign: 'center', horizontalAlign: 'right' } );
+		_Label( button, title, { fontSize: '14px', color: '#e0eaf2', fontWeight: 'bold', letterSpacing: '1px', verticalAlign: 'center', width: 'fill-parent-flow( 1.0 )', whiteSpace: 'nowrap', textOverflow: 'ellipsis' } );
+		m_sideCounts[ key ] = _Label( button, '', { fontSize: '14px', color: '#bbd0df', verticalAlign: 'center', horizontalAlign: 'right' } );
 		button.SetPanelEvent( 'onactivate', function() { _SelectCategory( key ); } );
 		m_sideButtons[ key ] = button;
 	}
