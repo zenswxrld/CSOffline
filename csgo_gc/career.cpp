@@ -801,10 +801,32 @@ void Career::AddRankPoints(const std::string &stat, int64_t delta)
     Save();
 }
 
+void Career::RecordMatchLoss(const std::string &stat)
+{
+    // "wins_competitive" -> "losses_competitive"
+    const std::string mode = stat.rfind("wins_", 0) == 0 ? stat.substr(5) : stat;
+    m_stats["losses_" + mode]++;
+    m_stats["matches_lost"]++;
+    m_stats["win_streak"] = 0;
+    Save();
+}
+
+void Career::RecordDeath()
+{
+    m_stats["deaths"]++;
+    if (++m_unsavedStarEvents >= 50)
+    {
+        m_unsavedStarEvents = 0;
+        Save();
+    }
+}
+
 std::vector<Career::Unlock> Career::RecordMatchWin(const std::string &stat)
 {
     m_stats[stat]++;
     m_stats["matches_won"]++;
+    const uint64_t streak = ++m_stats["win_streak"];
+    m_stats["win_streak_best"] = std::max(m_stats["win_streak_best"], streak);
 
     std::vector<Unlock> unlocked = CheckAchievements();
     Save();
@@ -838,6 +860,33 @@ std::vector<Career::Unlock> Career::RecordStarsEarned(uint32_t amount)
     return unlocked;
 }
 
+// "5-3 (63%)": wins, losses and the share of the matches won
+static std::string RecordText(uint64_t wins, uint64_t losses)
+{
+    std::string text = std::to_string(wins) + "-" + std::to_string(losses);
+    if (wins + losses)
+    {
+        text += " (" + std::to_string((wins * 100 + (wins + losses) / 2) / (wins + losses)) + "%)";
+    }
+    return text;
+}
+
+static std::string RatioText(uint64_t value, uint64_t perValue)
+{
+    if (!perValue)
+    {
+        return value ? "-" : "0.00";
+    }
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%.2f", static_cast<double>(value) / static_cast<double>(perValue));
+    return buffer;
+}
+
+static std::string PercentText(uint64_t part, uint64_t whole)
+{
+    return whole ? std::to_string((part * 100 + whole / 2) / whole) + "%" : std::string{ "0%" };
+}
+
 std::string Career::StatsText() const
 {
     std::ostringstream out;
@@ -856,6 +905,13 @@ std::string Career::StatsText() const
         << Stat("wins_wingman") << ", danger zone " << Stat("wins_dangerzone") << ", casual " << Stat("wins_casual") << ")\n"
         << "Matches: " << Stat("matches") << ", kills " << Stat("kills") << " (" << Stat("headshots")
         << " headshots), MVPs " << Stat("mvps") << ", plants " << Stat("plants") << ", defuses " << Stat("defuses") << '\n'
+        << "Deaths: " << Stat("deaths") << ", K/D " << RatioText(Stat("kills"), Stat("deaths")) << ", headshot rate "
+        << PercentText(Stat("headshots"), Stat("kills")) << '\n'
+        << "Records (won-lost): competitive " << RecordText(Stat("wins_competitive"), Stat("losses_competitive"))
+        << ", wingman " << RecordText(Stat("wins_wingman"), Stat("losses_wingman"))
+        << ", danger zone " << RecordText(Stat("wins_dangerzone"), Stat("losses_dangerzone"))
+        << ", casual " << RecordText(Stat("wins_casual"), Stat("losses_casual"))
+        << "; best win streak " << Stat("win_streak_best") << '\n'
         << "Stars earned in matches: " << Stat("stars_earned") << '\n'
         << "Achievements: " << m_achievements.size() << " of " << std::size(Achievements);
     return out.str();
@@ -963,6 +1019,16 @@ std::string Career::UiData(const std::vector<std::pair<uint32_t, CaseInfo>> &cas
         { "Bombs planted", std::to_string(Stat("plants")) },
         { "Bombs defused", std::to_string(Stat("defuses")) },
         { "Matches finished", std::to_string(Stat("matches")) },
+        { "Matches won - lost", std::to_string(Stat("matches_won")) + " - " + std::to_string(Stat("matches_lost")) },
+        { "Win rate", PercentText(Stat("matches_won"), Stat("matches_won") + Stat("matches_lost")) },
+        { "Competitive record", RecordText(Stat("wins_competitive"), Stat("losses_competitive")) },
+        { "Wingman record", RecordText(Stat("wins_wingman"), Stat("losses_wingman")) },
+        { "Danger Zone record", RecordText(Stat("wins_dangerzone"), Stat("losses_dangerzone")) },
+        { "Casual record", RecordText(Stat("wins_casual"), Stat("losses_casual")) },
+        { "Best win streak", std::to_string(Stat("win_streak_best")) },
+        { "Deaths", std::to_string(Stat("deaths")) },
+        { "K/D ratio", RatioText(Stat("kills"), Stat("deaths")) },
+        { "Headshot rate", PercentText(Stat("headshots"), Stat("kills")) },
         { "Stars earned in matches", std::to_string(Stat("stars_earned")) },
     };
     bool first = true;

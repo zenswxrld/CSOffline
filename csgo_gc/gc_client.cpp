@@ -514,6 +514,10 @@ void ClientGC::HandleEvent(GCEvent type, uint64_t id, const std::vector<uint8_t>
         }
         break;
 
+    case GCEvent::LocalPlayerDeath:
+        m_career.RecordDeath();
+        break;
+
     case GCEvent::SyncLocalPlayerMusicKitState:
         if (buffer.size() == sizeof(uint32_t))
         {
@@ -2600,6 +2604,11 @@ void ClientGC::LocalPlayerMatchEnd(const LocalMatchResult &result)
             PublishCareer();
             text = std::string{ "Match won! " } + stat + ": " + std::to_string(WinsFor(stat));
         }
+        else
+        {
+            m_career.RecordMatchLoss(stat);
+            PublishCareer();
+        }
 
         // competitive, wingman and danger zone matches earn or cost rank points
         const RankSystemConfig &ranks = GetConfig().RankSystem();
@@ -2701,6 +2710,12 @@ void ClientGC::LocalPlayerMatchEnd(const LocalMatchResult &result)
         {
             json += std::string{ json.size() > 1 ? "," : "" } + "\"skill\":{\"num_wins\":" + std::to_string(skillWins)
                 + ",\"old_rank\":" + std::to_string(skillOld) + ",\"new_rank\":" + std::to_string(skillNew) + "}";
+
+            // a banner on the scoreboard when a rank you can see (10 wins or more) changed
+            if (skillOld != skillNew && skillWins >= 10)
+            {
+                json += ",\"rank_change\":{\"old\":" + std::to_string(skillOld) + ",\"new\":" + std::to_string(skillNew) + "}";
+            }
         }
         json += "}";
         PanoramaHook::SetMatchEndScreens(std::move(json));

@@ -81,6 +81,10 @@ public:
     // a won match, counted under a stat such as wins_competitive, wins_wingman, wins_dangerzone or wins_casual
     std::vector<Unlock> RecordMatchWin(const std::string &stat);
 
+    // a lost match (stat is the same "wins_<mode>" name the wins use) and a death of yours, for the stats page
+    void RecordMatchLoss(const std::string &stat);
+    void RecordDeath();
+
     // rank points kept as a stat (points_competitive ...); a loss takes points off, never below 0
     void AddRankPoints(const std::string &stat, int64_t delta);
 

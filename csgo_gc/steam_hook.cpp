@@ -546,6 +546,11 @@ private:
         {
             const int attacker = event->GetInt("attacker");
             const int victim = event->GetInt("userid");
+            if (victim == playerInfo.userId)
+            {
+                s_clientGC->m_gc.PostToGC(GCEvent::LocalPlayerDeath, 0, nullptr, 0);
+            }
+
             if (attacker != playerInfo.userId || victim == playerInfo.userId)
             {
                 return; // not our kill, or a suicide

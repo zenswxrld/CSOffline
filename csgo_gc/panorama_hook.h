@@ -94,6 +94,10 @@ namespace PanoramaHook
     // next Tick() hands it to the end-of-match page. returns the number of changes
     int PatchMatchEndAdapter(std::string &source);
 
+    // runs after the match's data is set: a banner on the end-of-match page when your rank changed ("RANK UP  Silver I
+    // -> Silver II") with a sound. does nothing when there is no rank_change in the data
+    const char *RankBannerScript();
+
     // the final client hides the skill groups on the profile card (_SetAllSkillGroups hides the container and returns
     // before doing anything). this lets it run, so the card shows your competitive, wingman and danger zone ranks.
     // returns 1 when changed

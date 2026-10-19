@@ -4453,6 +4453,19 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         valid &= career.RecordMatchEvent(Career::MatchEvent::MatchComplete).size() >= 1; // Newcomer
         valid &= career.Stat("kills") == 2 && career.Stat("headshots") == 1 && career.Stat("matches") == 1;
 
+        // the stats page: wins and losses per mode, deaths, K/D, the win streak
+        career.RecordMatchWin("wins_competitive");
+        career.RecordMatchWin("wins_competitive");
+        career.RecordMatchLoss("wins_competitive");
+        career.RecordMatchWin("wins_casual");
+        career.RecordDeath();
+        career.RecordDeath();
+        valid &= career.Stat("wins_competitive") == 2 && career.Stat("losses_competitive") == 1
+            && career.Stat("win_streak") == 1 && career.Stat("win_streak_best") == 2 && career.Stat("deaths") == 2;
+        const std::string stats = career.StatsText();
+        valid &= stats.find("competitive 2-1 (67%)") != std::string::npos && stats.find("K/D 1.00") != std::string::npos
+            && stats.find("headshot rate 50%") != std::string::npos && stats.find("best win streak 2") != std::string::npos;
+
         valid &= career.Stat("cases_opened") == 4 && career.Stat("custom_cases_opened") == 4
             && career.Stat("goals_done") == 1 && career.Stat("gold_pulls") == 1 && career.Stat("tradeups") == 2;
 
