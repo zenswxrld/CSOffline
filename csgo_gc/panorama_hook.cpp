@@ -214,19 +214,34 @@ var CsgoGcEomFor = function ( kind, real )
 
 int PanoramaHook::PatchPlayerCardRanks(std::string &source)
 {
-    static const std::regex hidden{ R"re((var\s+_SetAllSkillGroups\s*=\s*function\s*\(\s*\)\s*\{[^]*?)elSkillGroupContainer\.AddClass\(\s*'hidden'\s*\)\s*;\s*return\s*;)re" };
-    static const std::regex header{ R"re(var\s+_SetAllSkillGroups\s*=\s*function\s*\(\s*\))re" };
-    if (!std::regex_search(source, hidden))
+    // each of these functions starts by hiding its panel and returning; the rest of the function is what the game
+    // used to run. the early return goes, and the function runs inside a try so a missing panel can't break the card
+    struct Target
     {
-        return 0;
-    }
+        const char *name;
+        const char *panelVariable;
+    };
+    static const Target targets[] = { { "_SetAllSkillGroups", "elSkillGroupContainer" }, { "_SetRank", "elRank" } };
 
-    // the early return goes; the rest of the function runs inside a try so a missing panel can't break the card
-    source = std::regex_replace(source, hidden, "$1", std::regex_constants::format_first_only);
-    source = std::regex_replace(source, header,
-        "var _SetAllSkillGroups = function() { try { _SetAllSkillGroupsInner(); } catch ( e ) {} };\n\tvar _SetAllSkillGroupsInner = function()",
-        std::regex_constants::format_first_only);
-    return 1;
+    int count = 0;
+    for (const Target &target : targets)
+    {
+        const std::regex hidden{ std::string{ R"re((var\s+)re" } + target.name + R"re(\s*=\s*function\s*\(\s*\)\s*\{[\s\S]*?))re"
+            + target.panelVariable + R"re(\.AddClass\(\s*'hidden'\s*\)\s*;\s*return\s*;)re" };
+        if (!std::regex_search(source, hidden))
+        {
+            continue;
+        }
+
+        const std::string name = target.name;
+        source = std::regex_replace(source, hidden, "$1", std::regex_constants::format_first_only);
+        const std::regex header{ "var\\s+" + name + "\\s*=\\s*function\\s*\\(\\s*\\)" };
+        source = std::regex_replace(source, header,
+            "var " + name + " = function() { try { " + name + "Inner(); } catch ( e ) {} };\n\tvar " + name + "Inner = function()",
+            std::regex_constants::format_first_only);
+        count++;
+    }
+    return count;
 }
 
 int PanoramaHook::PatchMatchEndGate(std::string &source, const char *readyFlag, const char *kind)
