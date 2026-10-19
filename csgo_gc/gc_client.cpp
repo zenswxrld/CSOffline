@@ -2709,10 +2709,11 @@ void ClientGC::LocalPlayerMatchEnd(const LocalMatchResult &result)
         if (showSkill)
         {
             json += std::string{ json.size() > 1 ? "," : "" } + "\"skill\":{\"num_wins\":" + std::to_string(skillWins)
-                + ",\"old_rank\":" + std::to_string(skillOld) + ",\"new_rank\":" + std::to_string(skillNew) + "}";
+                + ",\"old_rank\":" + std::to_string(skillWins - (result.outcome > 0 ? 1 : 0) >= 10 ? skillOld : 0)
+            + ",\"new_rank\":" + std::to_string(skillWins >= 10 ? skillNew : 0) + "}";
 
-            // a banner on the scoreboard when a rank you can see (10 wins or more) changed
-            if (skillOld != skillNew && skillWins >= 10)
+            // a banner on the scoreboard when a rank you could already see (10 wins or more) changed
+            if (skillOld != skillNew && skillWins - (result.outcome > 0 ? 1 : 0) >= 10)
             {
                 json += ",\"rank_change\":{\"old\":" + std::to_string(skillOld) + ",\"new\":" + std::to_string(skillNew) + "}";
             }
