@@ -157,19 +157,18 @@ Inventory::~Inventory()
 
 CSOEconItem Inventory::ClientView(const CSOEconItem &item) const
 {
-    if (item.rarity() != ItemSchema::RarityAncient)
-    {
-        return item;
-    }
+    // the trade-up lists everything of the right rarity, so knives, gloves and agents (of any rarity) are shown as
+    // Contraband, which no recipe takes
+    const ItemInfo *info = m_itemSchema.ItemInfoByDefIndex(item.def_index());
+    const bool agent = info && (info->m_name.find("customplayer") != std::string::npos || info->m_itemType == "customplayer");
 
-    bool hidden = item.quality() == ItemSchema::QualityUnusual;
-    if (!hidden)
+    bool hidden = agent;
+    if (!hidden && item.rarity() == ItemSchema::RarityAncient)
     {
-        const ItemInfo *info = m_itemSchema.ItemInfoByDefIndex(item.def_index());
-        hidden = info && (info->m_name.find("knife") != std::string::npos
-            || info->m_name.find("bayonet") != std::string::npos
-            || info->m_name.find("glove") != std::string::npos
-            || info->m_itemType == "customplayer");
+        hidden = item.quality() == ItemSchema::QualityUnusual
+            || (info && (info->m_name.find("knife") != std::string::npos
+                || info->m_name.find("bayonet") != std::string::npos
+                || info->m_name.find("glove") != std::string::npos));
     }
 
     if (!hidden)

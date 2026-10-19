@@ -178,6 +178,7 @@ public:
     bool HideBotTag() const { return m_hideBotTag; }
     bool MatchEndScreens() const { return m_matchEndScreens; }
     bool BotPing() const { return m_botPing; }
+    int MatchEndSeconds() const { return m_matchEndSeconds; }
     bool BotDifficultyByRank() const { return m_botDifficultyByRank; }
     bool CustomCaseCollections() const { return m_customCaseCollections; }
     bool CaseStoreMenu() const { return m_caseStoreMenu; }
@@ -242,6 +243,7 @@ private:
     bool m_hideBotTag{ true };
     bool m_matchEndScreens{ true };
     bool m_botPing{ true };
+    int m_matchEndSeconds{ 40 };
     bool m_botDifficultyByRank{ true };
     bool m_customCaseCollections{ false };
     bool m_caseStoreMenu{ true };
