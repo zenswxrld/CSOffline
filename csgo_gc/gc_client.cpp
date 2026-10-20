@@ -1137,18 +1137,18 @@ void ClientGC::PublishCareer()
 {
     if (GetConfig().CareerTracking())
     {
-        // a pin, a coin and a trophy to picture next to what the achievements give
-        std::array<uint32_t, 3> icons{};
+        // every pin, coin and trophy, to picture the one each achievement gives
+        std::array<std::vector<uint32_t>, 3> collectibles;
         const ItemSchema &schema = m_inventory.GetItemSchema();
         for (uint32_t def : schema.GetCollectibleDefIndexes())
         {
             const auto slot = static_cast<size_t>(schema.GetCollectibleKind(def)) - 1;
-            if (slot < icons.size() && !icons[slot])
+            if (slot < collectibles.size())
             {
-                icons[slot] = def;
+                collectibles[slot].push_back(def);
             }
         }
-        Career::Publish(m_career.UiData(CareerCases(), icons));
+        Career::Publish(m_career.UiData(CareerCases(), collectibles));
     }
 }
 
@@ -1204,7 +1204,7 @@ void ClientGC::GrantCareerRewards(const std::vector<Career::Unlock> &unlocks)
 
         if (unlock.collectible)
         {
-            const std::string given = GrantCollectible(unlock.collectible);
+            const std::string given = GrantCollectible(unlock.collectible, unlock.id);
             if (!given.empty())
             {
                 text += " and " + given;
@@ -1216,29 +1216,32 @@ void ClientGC::GrantCareerRewards(const std::vector<Career::Unlock> &unlocks)
     }
 }
 
-std::string ClientGC::GrantCollectible(uint32_t tier)
+std::string ClientGC::GrantCollectible(uint32_t tier, const std::string &achievementId)
 {
     const ItemSchema &schema = m_inventory.GetItemSchema();
     using Kind = ItemSchema::CollectibleKind;
     const Kind wanted = tier == 1 ? Kind::Pin : tier == 2 ? Kind::Coin : Kind::Trophy;
 
-    // one the player doesn't have yet, if there is one
-    std::vector<uint32_t> fresh, owned;
+    std::vector<uint32_t> all;
     for (uint32_t def : schema.GetCollectibleDefIndexes())
     {
         if (schema.GetCollectibleKind(def) == wanted)
         {
-            (m_inventory.HasItemDefinition(def) ? owned : fresh).push_back(def);
+            all.push_back(def);
         }
     }
-
-    const std::vector<uint32_t> &pool = fresh.empty() ? owned : fresh;
-    if (pool.empty())
+    if (all.empty())
     {
         return {};
     }
 
-    const uint32_t def = pool[static_cast<size_t>(rand()) % pool.size()];
+    // always the one the achievements page shows for it, and never one the player has already
+    const uint32_t def = Career::CollectibleFor(achievementId, tier, all);
+    if (!def || m_inventory.HasItemDefinition(def))
+    {
+        return {};
+    }
+
     std::vector<CMsgSOSingleObject> update;
     if (!m_inventory.PurchaseItem(def, update))
     {

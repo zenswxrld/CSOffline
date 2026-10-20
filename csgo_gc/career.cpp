@@ -797,7 +797,7 @@ std::vector<Career::Unlock> Career::CheckAchievements()
         }
 
         m_achievements[def.id] = static_cast<uint32_t>(time(nullptr));
-        unlocked.push_back({ def.title, std::string{ "Achievement unlocked: " } + def.title, AchievementStars(def), AchievementCollectible(def) });
+        unlocked.push_back({ def.title, std::string{ "Achievement unlocked: " } + def.title, AchievementStars(def), AchievementCollectible(def), def.id });
     }
     return unlocked;
 }
@@ -1178,12 +1178,49 @@ static std::string JsString(const std::string &text)
 // a JS object for the SkinStop tabs:
 //   stats [label, value], categories [name], achievements [id, title, desc, stars, threshold, progress, done, category],
 //   cases [crate, name, found, total, golds, goldFound, complete, opened]
+std::vector<std::string> Career::CollectibleAchievementIds(uint32_t tier)
+{
+    std::vector<std::string> ids;
+    for (const AchievementDef *def : SortedAchievements())
+    {
+        if (AchievementCollectible(*def) == tier)
+        {
+            ids.push_back(def->id);
+        }
+    }
+    return ids;
+}
+
+uint32_t Career::CollectibleFor(const std::string &achievementId, uint32_t tier, const std::vector<uint32_t> &list)
+{
+    const std::vector<std::string> ids = CollectibleAchievementIds(tier);
+    const auto found = std::find(ids.begin(), ids.end(), achievementId);
+    if (found == ids.end() || list.empty())
+    {
+        return 0;
+    }
+
+    // the same shuffle every time, so an achievement always gives the same item
+    std::vector<uint32_t> shuffled = list;
+    std::sort(shuffled.begin(), shuffled.end());
+    uint32_t state = 2463534242u;
+    for (size_t i = shuffled.size(); i > 1; --i)
+    {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        std::swap(shuffled[i - 1], shuffled[state % i]);
+    }
+
+    const size_t index = static_cast<size_t>(found - ids.begin());
+    return index < shuffled.size() ? shuffled[index] : 0;
+}
+
 std::string Career::UiData(const std::vector<std::pair<uint32_t, CaseInfo>> &cases,
-    const std::array<uint32_t, 3> &collectibleIcons) const
+    const std::array<std::vector<uint32_t>, 3> &collectibles) const
 {
     std::ostringstream out;
-    out << "{ goalReward: " << GoalRewardStars() << ", collectibles: [" << collectibleIcons[0] << "," << collectibleIcons[1]
-        << "," << collectibleIcons[2] << "], stats: [";
+    out << "{ goalReward: " << GoalRewardStars() << ", stats: [";
     const std::pair<const char *, std::string> stats[] = {
         { "Cases opened", std::to_string(Stat("cases_opened")) },
         { "Custom cases opened", std::to_string(Stat("custom_cases_opened")) },
@@ -1245,7 +1282,8 @@ std::string Career::UiData(const std::vector<std::pair<uint32_t, CaseInfo>> &cas
         const AchievementDef &def = *pointer;
         out << (first ? "" : ",") << "[" << JsString(def.id) << "," << JsString(def.title) << "," << JsString(def.desc)
             << "," << AchievementStars(def) << "," << def.threshold << "," << std::min(Stat(def.stat), def.threshold) << ","
-            << (m_achievements.contains(def.id) ? 1 : 0) << "," << def.category << "," << AchievementCollectible(def) << "]";
+            << (m_achievements.contains(def.id) ? 1 : 0) << "," << def.category << "," << AchievementCollectible(def) << ","
+            << (AchievementCollectible(def) ? CollectibleFor(def.id, AchievementCollectible(def), collectibles[AchievementCollectible(def) - 1]) : 0) << "]";
         first = false;
     }
 

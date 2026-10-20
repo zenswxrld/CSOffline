@@ -1432,7 +1432,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 			_ProgressBar( progress, finished ? 1 : a[ 5 ] / a[ 4 ], finished ? GREEN : '#5b9bff', '220px' );
 			var reward = _Panel( row, { flowChildren: 'right', verticalAlign: 'center', horizontalAlign: 'right' } );
 			_Label( reward, '+' + a[ 3 ] + ' \u2605', { fontSize: '17px', color: finished ? '#9aa5b1' : GOLD, fontWeight: 'bold', verticalAlign: 'center' } );
-			var iconDef = a[ 8 ] && m_career.collectibles ? m_career.collectibles[ a[ 8 ] - 1 ] : 0;
+			var iconDef = a[ 9 ] || 0;
 			if ( iconDef )
 			{
 				// the achievement also gives a pin (1), coin (2) or trophy (3)

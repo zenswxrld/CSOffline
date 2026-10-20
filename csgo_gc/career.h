@@ -64,7 +64,16 @@ public:
         uint32_t stars{};
         // a collectible the achievement also gives: 0 none, 1 pin, 2 coin, 3 trophy (the harder, the better)
         uint32_t collectible{};
+        std::string id;
     };
+
+    // the collectible an achievement gives: one from the list (every pin, coin or trophy of its kind) picked by the
+    // achievement's id, so each achievement always gives, and shows, the same one
+    // (never the same one twice: the achievements of a kind take the items in a fixed shuffled order, and when there are
+    // more achievements than items the last ones give nothing, 0)
+    static uint32_t CollectibleFor(const std::string &achievementId, uint32_t tier, const std::vector<uint32_t> &list);
+    // the ids of the achievements that give a collectible of a kind (1 pin, 2 coin, 3 trophy), in the order they get items
+    static std::vector<std::string> CollectibleAchievementIds(uint32_t tier);
 
     // what a completed collection pays before the career_rewards percent, and after it
     static constexpr uint32_t GoalReward = 500;
@@ -106,9 +115,9 @@ public:
     std::string GoalsText(const std::vector<std::pair<uint32_t, CaseInfo>> &cases, bool showAll) const;
     std::string AchievementsText() const;
     // the same data as a JS object, for the SkinStop tabs
-    // collectibleIcons: a pin, a coin and a trophy def index to picture next to the stars an achievement also pays in
+    // collectibles: every pin, every coin and every trophy (def indexes), for the picture next to an achievement's stars
     std::string UiData(const std::vector<std::pair<uint32_t, CaseInfo>> &cases,
-        const std::array<uint32_t, 3> &collectibleIcons = {}) const;
+        const std::array<std::vector<uint32_t>, 3> &collectibles = {}) const;
 
     // the UI data handed from the GC's thread to the main thread that talks to Panorama
     static void Publish(std::string uiData);
