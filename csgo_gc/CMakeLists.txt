@@ -186,6 +186,7 @@ if (BUILD_TESTING)
         graffiti.cpp
         gc_message.cpp
         game_schema_patch.cpp
+        bot_personality.cpp
         gold_patterns.cpp
         inventory.cpp
         music_kit.cpp
@@ -230,6 +231,7 @@ if (BUILD_TESTING)
         gc_message_non_prime_tests.cpp
         gc_message.cpp
         game_schema_patch.cpp
+        bot_personality.cpp
         gold_patterns.cpp
         inventory.cpp
         music_kit.cpp
@@ -270,6 +272,7 @@ if (BUILD_TESTING)
         config.cpp
         item_schema.cpp
         game_schema_patch.cpp
+        bot_personality.cpp
         keyvalue.cpp
         item_utils.cpp
         star_shop.cpp
@@ -291,6 +294,7 @@ if (BUILD_TESTING)
         config.cpp
         item_schema.cpp
         game_schema_patch.cpp
+        bot_personality.cpp
         keyvalue.cpp
         souvenir.cpp
         souvenir_tests.cpp
