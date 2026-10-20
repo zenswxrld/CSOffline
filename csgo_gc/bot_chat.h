@@ -11,6 +11,10 @@
 // UTIL_ClientPrintAll (Windows only, found by its first bytes in server.dll), so they show in the chat like any other
 // message. Only on this computer's game: a bot "says" it by us printing "<name>: <text>" in the chat.
 //
+// Each bot has a personality (see bot_personality.h): chatty ones talk a lot, quiet ones hardly ever, rushers trash talk,
+// campers stay calm, friendly ones compliment. The bot that has killed you most in the match is your nemesis (see
+// nemesis.h) and has lines of its own.
+//
 // Off unless "bot_chat" is on in config.txt.
 namespace BotChat
 {
@@ -23,6 +27,8 @@ namespace BotChat
         BombDefused,
         BombExploded,
         MatchEnd,
+        NemesisNamed, // attacker is the bot that became the local player's nemesis
+        NemesisSlain, // attacker is the nemesis the local player just killed
     };
 
     struct Event

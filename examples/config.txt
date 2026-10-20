@@ -121,11 +121,19 @@
 // are used first.
 "bot_names"	"1"
 
+// bot personalities: a quarter of the names hint at one (RushB_.., AngleHolder, Yapper, Silent.., NiceGuy). Chatty bots
+// talk a lot, quiet ones hardly ever, rushers trash talk, campers stay calm, friendly ones compliment. Where the game's
+// bot profiles have an Aggression value, rushers get a high one and campers a low one. (needs bot_names)
+"bot_personalities"	"1"
+
 // shows bots by name only, without the "BOT " in front (edits csgo/resource/csgo_english.txt; restart the game twice)
 "hide_bot_tag"	"1"
 
 // bots show a made-up ping (12 to 68, wobbling a little) on the scoreboard instead of the "BOT" label
 "bot_ping"	"1"
+
+// gives bots a face on the scoreboard: a picture of an agent on their team (the same bot always gets the same one)
+"bot_avatars"	"1"
 
 // bots get a clan tag in front of their name on the scoreboard (FRZ, NYX, ...): the bots of a team share one, and every
 // match has new ones

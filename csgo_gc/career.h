@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <map>
 #include <set>
+#include <array>
 #include <string>
 #include <utility>
 #include <vector>
@@ -78,6 +79,8 @@ public:
     std::vector<Unlock> RecordCaseOpened(uint32_t crate, const CaseInfo &info, const Pull &pull);
     std::vector<Unlock> RecordTradeUp(bool goldResult);
     std::vector<Unlock> RecordStarsEarned(uint32_t amount);
+    // shop and sale counters ("items_sold", "shop_purchases", "stars_spent")
+    std::vector<Unlock> RecordCounter(const std::string &stat, uint64_t amount);
     std::vector<Unlock> RecordMatchEvent(MatchEvent event);
 
     // a won match, counted under a stat such as wins_competitive, wins_wingman, wins_dangerzone or wins_casual
@@ -103,7 +106,9 @@ public:
     std::string GoalsText(const std::vector<std::pair<uint32_t, CaseInfo>> &cases, bool showAll) const;
     std::string AchievementsText() const;
     // the same data as a JS object, for the SkinStop tabs
-    std::string UiData(const std::vector<std::pair<uint32_t, CaseInfo>> &cases) const;
+    // collectibleIcons: a pin, a coin and a trophy def index to picture next to the stars an achievement also pays in
+    std::string UiData(const std::vector<std::pair<uint32_t, CaseInfo>> &cases,
+        const std::array<uint32_t, 3> &collectibleIcons = {}) const;
 
     // the UI data handed from the GC's thread to the main thread that talks to Panorama
     static void Publish(std::string uiData);

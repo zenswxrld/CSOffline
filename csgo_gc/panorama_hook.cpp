@@ -22,6 +22,211 @@ void PanoramaHook::SetKitTints(std::string tintsJsObject)
     s_kitTints = std::move(tintsJsObject);
 }
 
+static std::string s_botFaces = "{}";
+
+void PanoramaHook::SetBotFaces(std::string facesJsObject)
+{
+    std::lock_guard lock{ s_kitTintsMutex };
+    s_botFaces = std::move(facesJsObject);
+}
+
+std::string PanoramaHook::BuildBotFaces(const ItemSchema &itemSchema)
+{
+    std::string ct, terrorist;
+    for (uint32_t def : itemSchema.GetAgentDefIndexes())
+    {
+        const ItemInfo *info = itemSchema.ItemInfoByDefIndex(def);
+        if (!info)
+        {
+            continue;
+        }
+
+        // official agents are named customplayer_tm_... and customplayer_ctm_...
+        std::string &list = info->m_name.find("_ctm_") != std::string::npos ? ct
+            : info->m_name.find("_tm_") != std::string::npos ? terrorist : ct;
+        const bool both = info->m_name.find("_ctm_") == std::string::npos && info->m_name.find("_tm_") == std::string::npos;
+        const std::string number = std::to_string(def);
+        list += (list.empty() ? "" : ",") + number;
+        if (both)
+        {
+            terrorist += (terrorist.empty() ? "" : ",") + number;
+        }
+    }
+    return "{ ct: [" + ct + "], t: [" + terrorist + "] }";
+}
+
+// shared by the HUD scripts: the picture of an agent for a bot, by team and name, as a file:// path or ""
+static std::string BotFaceHelper()
+{
+    std::string faces;
+    {
+        std::lock_guard lock{ s_kitTintsMutex };
+        faces = s_botFaces;
+    }
+
+    return "\n\nvar CsgoGcAgentFaces = " + faces + R"js(;
+function CsgoGcHudFace( xuid, teamNumber )
+{
+	try
+	{
+		if ( !GameStateAPI.IsFakePlayer( xuid ) )
+		{
+			return '';
+		}
+
+		var list = teamNumber == 3 ? CsgoGcAgentFaces.ct : CsgoGcAgentFaces.t;
+		if ( !list || !list.length )
+		{
+			return '';
+		}
+
+		var seed = String( xuid );
+		try { seed += GameStateAPI.GetPlayerName( xuid ); } catch ( e ) {}
+		var hash = 0;
+		for ( var i = 0; i < seed.length; i++ )
+		{
+			hash = ( hash * 31 + seed.charCodeAt( i ) ) % 1000003;
+		}
+
+		var itemId = InventoryAPI.GetFauxItemIDFromDefAndPaintIndex( list[ hash % list.length ], 0 );
+		var image = itemId ? InventoryAPI.GetItemInventoryImage( itemId ) : '';
+		return image ? 'file://{images_econ}/' + image + '.png' : '';
+	}
+	catch ( e )
+	{
+	}
+	return '';
+}
+function CsgoGcHudFaceBackground( xuid, bCT, fallback )
+{
+	var face = CsgoGcHudFace( xuid, bCT ? 3 : 2 );
+	return face ? 'url("' + face + '")' : fallback;
+}
+)js";
+}
+
+int PanoramaHook::PatchBotFacesWinPanel(std::string &source)
+{
+    // the MVP and the kill icons of the round report use a team coloured background behind the avatar of a bot
+    static const std::regex background{
+        R"re((elAvatarContainer|elAvatarImage)\.style\.backgroundImage\s*=\s*bCT\s*\?\s*('url\("file://\{images\}/hud/teamcounter/teamcounter_alivebgCT\.png"\)')\s*:\s*('url\("file://\{images\}/hud/teamcounter/teamcounter_alivebgT\.png"\)')\s*;)re" };
+    int count = 0;
+    std::string patched;
+    auto begin = source.cbegin();
+    for (std::sregex_iterator it{ source.begin(), source.end(), background }, end; it != end; ++it)
+    {
+        const std::smatch &match = *it;
+        patched.append(begin, match[0].first);
+        patched += match[1].str() + ".style.backgroundImage = CsgoGcHudFaceBackground( xuid, bCT, bCT ? " + match[2].str() + " : "
+            + match[3].str() + " );";
+        begin = match[0].second;
+        count++;
+    }
+    if (!count)
+    {
+        return 0;
+    }
+
+    patched.append(begin, source.cend());
+    source = std::move(patched) + BotFaceHelper();
+    return count;
+}
+
+int PanoramaHook::PatchBotFacesFreezePanel(std::string &source)
+{
+    static const std::regex handler{ R"re((var\s+_OnSetFlairEvent\s*=\s*function\s*\(\s*xuid\s*,\s*skillgroup\s*\)\s*\{))re" };
+    if (!std::regex_search(source, handler))
+    {
+        return 0;
+    }
+
+    source = std::regex_replace(source, handler, "$1\n\t\ttry { CsgoGcFreezeFace( xuid ); } catch ( e ) {}",
+        std::regex_constants::format_first_only);
+    source += BotFaceHelper() + R"js(
+// the freeze panel shows these when a player has no Steam avatar
+function CsgoGcFreezeFace( xuid )
+{
+	var ct = CsgoGcHudFace( xuid, 3 );
+	var t = CsgoGcHudFace( xuid, 2 );
+	if ( !ct && !t )
+	{
+		return;
+	}
+
+	[ [ 'AvatarDefaultCT', ct ], [ 'AvatarDefaultCTSS', ct ], [ 'AvatarDefaultT', t ], [ 'AvatarDefaultTSS', t ] ].forEach( function( entry )
+	{
+		var el = $( '#' + entry[ 0 ] );
+		if ( el && el.IsValid() && entry[ 1 ] )
+		{
+			el.SetImage( entry[ 1 ] );
+		}
+	} );
+}
+)js";
+    return 1;
+}
+
+int PanoramaHook::PatchBotAvatars(std::string &source)
+{
+    // the avatar cell gives a player without a Steam id a default picture by team
+    static const std::regex defaultImage{
+        R"re(elAvatarImage\.SetDefaultImage\(\s*"file://\{images\}/icons/scoreboard/avatar-"\s*\+\s*team\s*\+\s*"\.png"\s*\)\s*;)re" };
+    if (!std::regex_search(source, defaultImage))
+    {
+        return 0;
+    }
+
+    source = std::regex_replace(source, defaultImage,
+        "elAvatarImage.SetDefaultImage( CsgoGcBotFace( oPlayer.m_xuid, team ) );", std::regex_constants::format_first_only);
+
+    std::string faces;
+    {
+        std::lock_guard lock{ s_kitTintsMutex };
+        faces = s_botFaces;
+    }
+
+    source += "\n\nvar CsgoGcAgentFaces = " + faces + R"js(;
+function CsgoGcBotFace( xuid, team )
+{
+	var fallback = "file://{images}/icons/scoreboard/avatar-" + team + ".png";
+	try
+	{
+		if ( !MockAdapter.IsFakePlayer( xuid ) )
+		{
+			return fallback;
+		}
+
+		var list = team === 'CT' ? CsgoGcAgentFaces.ct : ( team === 'TERRORIST' ? CsgoGcAgentFaces.t : [] );
+		if ( !list || !list.length )
+		{
+			return fallback;
+		}
+
+		// the same bot always gets the same face
+		var seed = String( xuid );
+		try { seed += MockAdapter.GetPlayerName( xuid ); } catch ( e ) {}
+		var hash = 0;
+		for ( var i = 0; i < seed.length; i++ )
+		{
+			hash = ( hash * 31 + seed.charCodeAt( i ) ) % 1000003;
+		}
+
+		var itemId = InventoryAPI.GetFauxItemIDFromDefAndPaintIndex( list[ hash % list.length ], 0 );
+		var image = itemId ? InventoryAPI.GetItemInventoryImage( itemId ) : '';
+		if ( image )
+		{
+			return 'file://{images_econ}/' + image + '.png';
+		}
+	}
+	catch ( e )
+	{
+	}
+	return fallback;
+}
+)js";
+    return 1;
+}
+
 std::string PanoramaHook::BuildKitTints(const ItemSchema &itemSchema)
 {
     std::string text = "{";
@@ -1225,7 +1430,17 @@ static const char CaseStoreScriptCareer[] = R"js(
 			var progress = _Panel( row, { flowChildren: 'down', verticalAlign: 'center', width: '240px' } );
 			_Label( progress, finished ? 'Unlocked' : ( a[ 5 ] + ' / ' + a[ 4 ] ), { fontSize: '13px', color: finished ? GREEN : '#e2e8f0' } );
 			_ProgressBar( progress, finished ? 1 : a[ 5 ] / a[ 4 ], finished ? GREEN : '#5b9bff', '220px' );
-			_Label( row, '+' + a[ 3 ] + ' \u2605', { fontSize: '17px', color: finished ? '#9aa5b1' : GOLD, fontWeight: 'bold', verticalAlign: 'center', horizontalAlign: 'right' } );
+			var reward = _Panel( row, { flowChildren: 'right', verticalAlign: 'center', horizontalAlign: 'right' } );
+			_Label( reward, '+' + a[ 3 ] + ' \u2605', { fontSize: '17px', color: finished ? '#9aa5b1' : GOLD, fontWeight: 'bold', verticalAlign: 'center' } );
+			var iconDef = a[ 8 ] && m_career.collectibles ? m_career.collectibles[ a[ 8 ] - 1 ] : 0;
+			if ( iconDef )
+			{
+				// the achievement also gives a pin (1), coin (2) or trophy (3)
+				_Label( reward, '+', { fontSize: '17px', color: finished ? '#9aa5b1' : '#ffffff', fontWeight: 'bold', verticalAlign: 'center', margin: '0px 6px' } );
+				var icon = _Panel( reward, { width: '44px', height: '34px', verticalAlign: 'center', opacity: finished ? '0.55' : '1.0' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
+				icon.itemid = _FauxId( iconDef );
+				icon.hittest = false;
+			}
 		} );
 	}
 
@@ -2083,11 +2298,36 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
         }
     }
 
-    if (GetConfig().BotPing() && PathIsFile(path, "scoreboard.js"))
+    if (GetConfig().BotAvatars() && (PathIsFile(path, "hudwinpanel.js") || PathIsFile(path, "hudfreezepanel.js")))
     {
         std::string patched = source;
-        const bool changed = PanoramaHook::PatchBotPingLabel(patched) != 0;
-        Platform::Print("Panorama: scoreboard bot ping %s\n", changed ? "shown instead of the BOT label" : "not changed, scoreboard.js didn't match");
+        const bool win = PathIsFile(path, "hudwinpanel.js");
+        const bool changed = (win ? PanoramaHook::PatchBotFacesWinPanel(patched) : PanoramaHook::PatchBotFacesFreezePanel(patched)) != 0;
+        Platform::Print("Panorama: bot faces in %s %s\n", win ? "the round report" : "the freeze panel",
+            changed ? "added" : "not added, the script didn't match");
+        if (changed)
+        {
+            s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
+            return;
+        }
+    }
+
+    if ((GetConfig().BotPing() || GetConfig().BotAvatars()) && PathIsFile(path, "scoreboard.js"))
+    {
+        std::string patched = source;
+        bool changed = false;
+        if (GetConfig().BotPing())
+        {
+            const bool ping = PanoramaHook::PatchBotPingLabel(patched) != 0;
+            Platform::Print("Panorama: scoreboard bot ping %s\n", ping ? "shown instead of the BOT label" : "not changed, scoreboard.js didn't match");
+            changed |= ping;
+        }
+        if (GetConfig().BotAvatars())
+        {
+            const bool faces = PanoramaHook::PatchBotAvatars(patched) != 0;
+            Platform::Print("Panorama: scoreboard bot faces %s\n", faces ? "added" : "not added, scoreboard.js didn't match");
+            changed |= faces;
+        }
         if (changed)
         {
             s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);

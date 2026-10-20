@@ -23,6 +23,7 @@
 #include "server_hook.h"
 #include "bot_skins.h"
 #include "bot_chat.h"
+#include "nemesis.h"
 #include "viewmodel_range.h"
 #include "panorama_hook.h"
 #include "star_shop.h"
@@ -298,6 +299,8 @@ public:
 
         const char *eventName = event->GetName();
 
+        PostNemesisEvent(eventName, event);
+
         if (GetConfig().BotChat().enabled)
         {
             PostBotChatEvent(eventName, event);
@@ -432,6 +435,63 @@ public:
     }
 
 private:
+    // the bot that keeps killing you becomes your nemesis; kill it to slay it
+    static void PostNemesisEvent(const char *eventName, IGameEvent *event)
+    {
+        if (!GetConfig().CareerTracking())
+        {
+            return;
+        }
+
+        if (!strcmp(eventName, "round_start"))
+        {
+            if (s_roundsWon + s_roundsLost == 0)
+            {
+                Nemesis::Reset();
+            }
+            return;
+        }
+        if (strcmp(eventName, "player_death"))
+        {
+            return;
+        }
+
+        const int local = s_engineClient->GetLocalPlayer();
+        const auto lookup = [&](int userId, PlayerInfo &info, bool &isLocal)
+        {
+            const int entity = userId > 0 ? s_engineClient->GetPlayerForUserID(userId) : 0;
+            if (entity <= 0 || !s_engineClient->GetPlayerInfo(entity, &info))
+            {
+                return false;
+            }
+            isLocal = entity == local;
+            return true;
+        };
+
+        PlayerInfo victim{}, attacker{};
+        bool victimLocal = false, attackerLocal = false;
+        if (!lookup(event->GetInt("userid"), victim, victimLocal) || !lookup(event->GetInt("attacker"), attacker, attackerLocal))
+        {
+            return;
+        }
+
+        std::string name;
+        const Nemesis::Result result = Nemesis::OnKill(attacker.name, attacker.fakePlayer, victim.name, victim.fakePlayer,
+            victimLocal, attackerLocal, name);
+        if (result == Nemesis::Result::None)
+        {
+            return;
+        }
+
+        const bool slain = result == Nemesis::Result::Slain;
+        s_clientGC->m_gc.PostToGC(slain ? GCEvent::LocalNemesisSlain : GCEvent::LocalNemesisNamed, 0, name.data(), static_cast<uint32_t>(name.size()));
+
+        BotChat::Event chat;
+        chat.type = slain ? BotChat::EventType::NemesisSlain : BotChat::EventType::NemesisNamed;
+        chat.attacker = name;
+        BotChat::OnGameEvent(chat);
+    }
+
     // the bots' chat reacts to what happens
     static void PostBotChatEvent(const char *eventName, IGameEvent *event)
     {
@@ -2093,6 +2153,7 @@ static void Hk_SteamAPI_RunCallbacks()
         PanoramaHook::SetCaseStoreData(PanoramaHook::BuildCaseStoreData(s_clientGC->m_gc.GetItemSchema()));
         PanoramaHook::SetSellData(StarShop::BuildSellTable(s_clientGC->m_gc.GetItemSchema(), GetConfig().StarShop()));
         PanoramaHook::SetKitTints(PanoramaHook::BuildKitTints(s_clientGC->m_gc.GetItemSchema()));
+        PanoramaHook::SetBotFaces(PanoramaHook::BuildBotFaces(s_clientGC->m_gc.GetItemSchema()));
     }
     PanoramaHook::Tick();
     BotChat::Tick();

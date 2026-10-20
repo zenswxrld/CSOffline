@@ -8,6 +8,8 @@
 #include "networking_client.h"
 #include "networking_server.h"
 #include "panorama_hook.h"
+#include "nemesis.h"
+#include "bot_personality.h"
 #include "star_shop.h"
 #include "bot_skins.h"
 #include "bot_chat.h"
@@ -4262,6 +4264,177 @@ static bool BotsChatAboutWhatHappens()
     return valid;
 }
 
+static bool BotPersonalitiesAndNemesisWork()
+{
+    bool valid = true;
+
+    valid &= PersonalityOfBot("RushB_12") == BotPersonality::Rusher
+        && PersonalityOfBot("AngleHolder") == BotPersonality::Camper
+        && PersonalityOfBot("Yapper") == BotPersonality::Chatty
+        && PersonalityOfBot("Silent_9") == BotPersonality::Quiet
+        && PersonalityOfBot("NiceGuy") == BotPersonality::Friendly;
+
+    // every hint name gives back the personality it was made for, and the same name always gives the same one
+    for (int p = 0; p < BotPersonalityCount; ++p)
+    {
+        for (unsigned random = 0; random < 200; ++random)
+        {
+            const std::string name = PersonalityHintName(static_cast<BotPersonality>(p), random);
+            valid &= PersonalityOfBot(name) == static_cast<BotPersonality>(p) && name.size() <= 24;
+        }
+    }
+    valid &= PersonalityOfBot("s1mple") == PersonalityOfBot("s1mple");
+
+    // a chatty bot talks far more than a quiet one
+    const auto start = std::chrono::steady_clock::now();
+    const auto spokenBy = [&](const std::string &bot)
+    {
+        BotChat::Reset(11);
+        BotChat::SetBots({ bot });
+        int spoken = 0;
+        for (int i = 0; i < 300; ++i)
+        {
+            BotChat::Event end;
+            end.type = BotChat::EventType::RoundEnd;
+            const auto now = start + std::chrono::seconds{ i * 30 };
+            BotChat::OnEvent(end, now);
+            std::vector<std::string> lines;
+            BotChat::Take(now + std::chrono::seconds{ 20 }, lines);
+            spoken += static_cast<int>(lines.size());
+        }
+        return spoken;
+    };
+    valid &= spokenBy("Yapper_1") > spokenBy("Silent_1") * 2;
+
+    // the third death by one bot names it the nemesis, killing it slays it, a new match starts clean
+    Nemesis::Reset();
+    std::string name;
+    valid &= Nemesis::OnKill("Rival", true, "me", false, true, false, name) == Nemesis::Result::None;
+    valid &= Nemesis::OnKill("Other", true, "me", false, true, false, name) == Nemesis::Result::None;
+    valid &= Nemesis::OnKill("Rival", true, "me", false, true, false, name) == Nemesis::Result::None;
+    valid &= Nemesis::OnKill("Rival", true, "me", false, true, false, name) == Nemesis::Result::Named && name == "Rival";
+    valid &= Nemesis::Current() == "Rival";
+    // killing another bot or dying to the nemesis again changes nothing
+    valid &= Nemesis::OnKill("me", false, "Other", true, false, true, name) == Nemesis::Result::None;
+    valid &= Nemesis::OnKill("Rival", true, "me", false, true, false, name) == Nemesis::Result::None;
+    valid &= Nemesis::OnKill("me", false, "Rival", true, false, true, name) == Nemesis::Result::Slain && name == "Rival";
+    valid &= Nemesis::Current().empty();
+    Nemesis::OnKill("Rival", true, "me", false, true, false, name);
+    Nemesis::Reset();
+    valid &= Nemesis::Current().empty();
+
+    // the nemesis speaks when named
+    BotChat::Reset(2);
+    BotChat::SetBots({ "Rival" });
+    BotChat::Event named;
+    named.type = BotChat::EventType::NemesisNamed;
+    named.attacker = "Rival";
+    BotChat::OnEvent(named, start);
+    std::vector<std::string> lines;
+    BotChat::Take(start + std::chrono::seconds{ 10 }, lines);
+    valid &= lines.size() == 1 && BotChat::PlainText(lines[0]).rfind("Rival: ", 0) == 0;
+    return valid;
+}
+
+static bool BotProfilesGetAggressionByPersonality()
+{
+    const std::string sample =
+        "Default\r\n\tAggression = 0.5\r\nEnd\r\n\r\n"
+        "// These are the individual bot profiles\r\n\r\nElite Cliffe\r\n\tVoicePitch = 100\r\nEnd\r\n";
+    if (!TestFilesystem::MakeDirectory("csgo"))
+    {
+        return false;
+    }
+    FILE *file = std::fopen(GameSchemaPatch::BotProfilePath, "wb");
+    if (!file)
+    {
+        return false;
+    }
+    std::fwrite(sample.data(), 1, sample.size(), file);
+    std::fclose(file);
+
+    bool ok = GameSchemaPatch::ApplyBotNames({ "RushB_7" });
+    std::string patched;
+    if (FILE *in = std::fopen(GameSchemaPatch::BotProfilePath, "rb"))
+    {
+        char buffer[512];
+        size_t n;
+        while ((n = std::fread(buffer, 1, sizeof(buffer), in)) > 0)
+        {
+            patched.append(buffer, n);
+        }
+        std::fclose(in);
+    }
+    ok &= patched.find("Elite RushB_7\r\n\tAggression = 0.95\r\n\tVoicePitch = 100") != std::string::npos;
+
+    // switched off: the profiles keep only the new name
+    ok &= GameSchemaPatch::ApplyBotNames({ "RushB_7" }, false);
+    if (FILE *in = std::fopen(GameSchemaPatch::BotProfilePath, "rb"))
+    {
+        patched.clear();
+        char buffer[512];
+        size_t n;
+        while ((n = std::fread(buffer, 1, sizeof(buffer), in)) > 0)
+        {
+            patched.append(buffer, n);
+        }
+        std::fclose(in);
+    }
+    ok &= patched.find("Aggression = 0.95") == std::string::npos;
+
+    ok &= GameSchemaPatch::RestoreBotNames();
+    TestFilesystem::RemoveFile(GameSchemaPatch::BotProfilePath);
+    TestFilesystem::RemoveDirectory("csgo");
+    return ok;
+}
+
+static bool BotsGetFacesOnTheScoreboard()
+{
+    std::string script =
+        "var Scoreboard = (function(){\n"
+        "\t\t\t\t\t\t\telAvatarImage.SetDefaultImage( \"file://{images}/icons/scoreboard/avatar-\"+team+\".png\" );\n"
+        "})();\n";
+    bool valid = PanoramaHook::PatchBotAvatars(script) == 1;
+    valid &= script.find("avatar-\"+team") == std::string::npos
+        && script.find("elAvatarImage.SetDefaultImage( CsgoGcBotFace( oPlayer.m_xuid, team ) );") != std::string::npos
+        && script.find("function CsgoGcBotFace") != std::string::npos
+        && script.find("var CsgoGcAgentFaces = ") != std::string::npos;
+
+    // a scoreboard we don't know is left alone
+    std::string other = "var x = 1;\n";
+    valid &= PanoramaHook::PatchBotAvatars(other) == 0 && other == "var x = 1;\n";
+
+    return valid;
+}
+
+static bool BotsGetFacesInTheRoundReportAndFreezePanel()
+{
+    // as in the game's hudwinpanel.js (tabs and line breaks included)
+    std::string win =
+        "\t\t\tvar elAvatarContainer = elMVPPanel.FindChildTraverse( 'AvatarContainer' );\r\n\r\n"
+        "\t\t\telAvatarContainer.style.backgroundImage = bCT ?\r\n"
+        "\t\t\t'url(\"file://{images}/hud/teamcounter/teamcounter_alivebgCT.png\")' :\r\n"
+        "\t\t\t\t'url(\"file://{images}/hud/teamcounter/teamcounter_alivebgT.png\")';\r\n"
+        "\t\t\telAvatarImage.style.backgroundImage = bCT ?\r\n"
+        "\t\t\t\t'url(\"file://{images}/hud/teamcounter/teamcounter_alivebgCT.png\")' :\r\n"
+        "\t\t\t\t'url(\"file://{images}/hud/teamcounter/teamcounter_alivebgT.png\")';\r\n";
+    bool valid = PanoramaHook::PatchBotFacesWinPanel(win) == 2;
+    valid &= win.find("elAvatarContainer.style.backgroundImage = CsgoGcHudFaceBackground( xuid, bCT, bCT ? 'url(\"file://{images}/hud/teamcounter/teamcounter_alivebgCT.png\")' : 'url(") != std::string::npos
+        && win.find("elAvatarImage.style.backgroundImage = CsgoGcHudFaceBackground(") != std::string::npos
+        && win.find("function CsgoGcHudFace(") != std::string::npos;
+
+    std::string freeze =
+        "\tvar _OnSetFlairEvent = function( xuid, skillgroup )\r\n\t{\r\n\t\tvar elAvatarFlair = $( '#AvatarFlair' );\r\n";
+    valid &= PanoramaHook::PatchBotFacesFreezePanel(freeze) == 1
+        && freeze.find("{\n\t\ttry { CsgoGcFreezeFace( xuid ); } catch ( e ) {}") != std::string::npos
+        && freeze.find("function CsgoGcFreezeFace(") != std::string::npos;
+
+    std::string other = "var x = 1;\n";
+    valid &= PanoramaHook::PatchBotFacesWinPanel(other) == 0 && PanoramaHook::PatchBotFacesFreezePanel(other) == 0
+        && other == "var x = 1;\n";
+    return valid;
+}
+
 static bool HowlGoesBackInTheHuntsmanCase()
 {
     std::string text =
@@ -4516,9 +4689,35 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         // the SkinStop tabs' data: the case's 2/2 skins and gold, a finished achievement, a stat
         const std::string ui = career.UiData({ { 5001, info } });
         valid &= ui.find("cases: [[5001,'Test Case',2,2,1,1,1,5]]") != std::string::npos
-            && ui.find("['first_case','First Crack','Open your first case.',3,1,1,1,0]") != std::string::npos
+            && ui.find("['first_case','First Crack','Open your first case.',3,1,1,1,0,0]") != std::string::npos
             && ui.find("['Cases opened','6']") != std::string::npos
             && ui.find("goalReward: 150") != std::string::npos;
+
+        // each category is one block (no repeated section headings) and the harder ones give a collectible
+        {
+            const size_t begin = ui.find("achievements: [");
+            const size_t end = ui.find("], cases:", begin);
+            std::vector<int> categories;
+            bool anyCollectible = false;
+            for (size_t at = ui.find("',", begin); at != std::string::npos && at < end; at = ui.find("['", at + 1))
+            {
+                const size_t rowEnd = ui.find(']', at);
+                int category = 0, collectible = 0;
+                if (rowEnd != std::string::npos && sscanf(ui.substr(ui.rfind(',', ui.rfind(',', rowEnd - 1) - 1) + 1, rowEnd).c_str(), "%d,%d", &category, &collectible) == 2)
+                {
+                    if (categories.empty() || categories.back() != category)
+                    {
+                        categories.push_back(category);
+                    }
+                    anyCollectible |= collectible > 0;
+                }
+            }
+            std::vector<int> sortedCategories = categories;
+            std::sort(sortedCategories.begin(), sortedCategories.end());
+            valid &= categories.size() == 8 && categories == sortedCategories
+                && std::adjacent_find(sortedCategories.begin(), sortedCategories.end()) == sortedCategories.end()
+                && anyCollectible;
+        }
     }
 
     TestFilesystem::RemoveFile(Path);
@@ -5653,6 +5852,10 @@ int main()
         { "CaseStoreListsCustomCasesFirstAndAgents", CaseStoreListsCustomCasesFirstAndAgents },
         { "BotSkinsPickThemedStableSkins", BotSkinsPickThemedStableSkins },
         { "StarShopEarnsStarsAndRedeemsARandomAgent", StarShopEarnsStarsAndRedeemsARandomAgent },
+        { "BotPersonalitiesAndNemesisWork", BotPersonalitiesAndNemesisWork },
+        { "BotsGetFacesOnTheScoreboard", BotsGetFacesOnTheScoreboard },
+        { "BotsGetFacesInTheRoundReportAndFreezePanel", BotsGetFacesInTheRoundReportAndFreezePanel },
+        { "BotProfilesGetAggressionByPersonality", BotProfilesGetAggressionByPersonality },
         { "SchemaFindsPinsTrophiesAndCoinsButNotServiceMedals", SchemaFindsPinsTrophiesAndCoinsButNotServiceMedals },
         { "PityBoostsBetterRaritiesBeforeGold", PityBoostsBetterRaritiesBeforeGold },
         { "StorePurchasesFinalizeTransactionally", StorePurchasesFinalizeTransactionally },

@@ -29,6 +29,8 @@ enum class GCEvent
     LocalPlayerMatchEnd, // sent to client gc when the match the local player is in ends
     LocalPlayerStars, // sent to client gc, buffer contains a StarShop::Reason (uint32_t)
     LocalPlayerDeath, // sent to client gc when the local player dies
+    LocalNemesisNamed, // sent to client gc, buffer contains the bot name (text)
+    LocalNemesisSlain, // sent to client gc, buffer contains the bot name (text)
 };
 
 struct EventData

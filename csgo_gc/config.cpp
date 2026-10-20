@@ -62,9 +62,11 @@ GCConfig::GCConfig()
     m_goldTradeUpRecipes = config.GetNumber("gold_tradeup_recipes", m_goldTradeUpRecipes);
     m_careerTracking = config.GetNumber("career_tracking", m_careerTracking);
     m_botNames = config.GetNumber("bot_names", m_botNames);
+    m_botPersonalities = config.GetNumber("bot_personalities", m_botPersonalities);
     m_hideBotTag = config.GetNumber("hide_bot_tag", m_hideBotTag);
     m_matchEndScreens = config.GetNumber("end_of_match_screens", m_matchEndScreens);
     m_botPing = config.GetNumber("bot_ping", m_botPing);
+    m_botAvatars = config.GetNumber("bot_avatars", m_botAvatars);
     m_botClanTags = config.GetNumber("bot_clan_tags", m_botClanTags);
     m_inventoryRefreshFix = config.GetNumber("inventory_refresh_fix", m_inventoryRefreshFix);
     m_restoreHowl = config.GetNumber("restore_howl", m_restoreHowl);
