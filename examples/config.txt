@@ -224,9 +224,6 @@
 	"souvenir_price"	"25"
 	"custom_case_price"	"100"	// cases from custom_cases.txt, shown first in the shop
 	"agent_price"		"50"	// a random agent, any of them
-	"pin_price"		"15"	// any pin
-	"coin_price"		"40"	// any operation or season coin (never the service medals)
-	"trophy_price"		"30"	// a Major or Pick'Em trophy; x2 for a semifinalist, x3 for a finalist, x5 for a champion
 
 	// how many of each the operation page's shop has room for, newest first (0 = all of them).
 	// SkinStop (the star button) lists every case and package and is not limited by these

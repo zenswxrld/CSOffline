@@ -84,10 +84,6 @@ struct StarShopConfig
     uint32_t souvenirPrice{ 25 };
     uint32_t customCasePrice{ 100 }; // cases from custom_cases.txt
     uint32_t agentPrice{ 50 }; // a random agent
-    // collectibles for the profile: a pin, a coin and a trophy (a Major or Pick'Em trophy costs more the better the placing)
-    uint32_t pinPrice{ 15 };
-    uint32_t coinPrice{ 40 };
-    uint32_t trophyPrice{ 30 };
     // how many of each the star store sells, newest first (0 = all of them).
     // the rest can only be found through match drops
     uint32_t maxCases{ 12 };

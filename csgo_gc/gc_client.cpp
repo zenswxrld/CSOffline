@@ -1167,9 +1167,57 @@ void ClientGC::GrantCareerRewards(const std::vector<Career::Unlock> &unlocks)
             }
         }
 
+        if (unlock.collectible)
+        {
+            const std::string given = GrantCollectible(unlock.collectible);
+            if (!given.empty())
+            {
+                text += " and " + given;
+            }
+        }
+
         Platform::Print("Career: %s\n", text.c_str());
         SendStarsMessage(text);
     }
+}
+
+std::string ClientGC::GrantCollectible(uint32_t tier)
+{
+    const ItemSchema &schema = m_inventory.GetItemSchema();
+    using Kind = ItemSchema::CollectibleKind;
+    const Kind wanted = tier == 1 ? Kind::Pin : tier == 2 ? Kind::Coin : Kind::Trophy;
+
+    // one the player doesn't have yet, if there is one
+    std::vector<uint32_t> fresh, owned;
+    for (uint32_t def : schema.GetCollectibleDefIndexes())
+    {
+        if (schema.GetCollectibleKind(def) == wanted)
+        {
+            (m_inventory.HasItemDefinition(def) ? owned : fresh).push_back(def);
+        }
+    }
+
+    const std::vector<uint32_t> &pool = fresh.empty() ? owned : fresh;
+    if (pool.empty())
+    {
+        return {};
+    }
+
+    const uint32_t def = pool[static_cast<size_t>(rand()) % pool.size()];
+    std::vector<CMsgSOSingleObject> update;
+    if (!m_inventory.PurchaseItem(def, update))
+    {
+        return {};
+    }
+
+    for (CMsgSOSingleObject &newItem : update)
+    {
+        SendMessageToGame(true, k_ESOMsg_Create, newItem);
+    }
+
+    const ItemInfo *info = schema.ItemInfoByDefIndex(def);
+    return std::string{ wanted == Kind::Pin ? "a pin" : wanted == Kind::Coin ? "a coin" : "a trophy" }
+        + (info ? " (" + info->m_name + ")" : std::string{});
 }
 
 std::string ClientGC::RconSellItem(const RconRequest &request)

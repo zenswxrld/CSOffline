@@ -5403,7 +5403,7 @@ static bool RconGiveStarsAddsToTheBalance()
     return valid;
 }
 
-static bool StarShopSellsPinsTrophiesAndCoinsButNotServiceMedals()
+static bool SchemaFindsPinsTrophiesAndCoinsButNotServiceMedals()
 {
     RemoveStarShopFixtures();
     if (!WriteStarShopFixtures())
@@ -5429,11 +5429,11 @@ static bool StarShopSellsPinsTrophiesAndCoinsButNotServiceMedals()
         }
         valid &= std::find(all.begin(), all.end(), 6005u) == all.end();
 
-        valid &= StarShop::Price(schema, config, 6001) == config.pinPrice
-            && StarShop::Price(schema, config, 6004) == config.coinPrice
-            && StarShop::Price(schema, config, 6002) == config.trophyPrice * 5
-            && StarShop::Price(schema, config, 6003) == config.trophyPrice * 3
-            && StarShop::Price(schema, config, 6005) == 0;
+        // they are earned, never for sale
+        for (uint32_t def : { 6001u, 6002u, 6003u, 6004u, 6005u })
+        {
+            valid &= StarShop::Price(schema, config, def) == 0;
+        }
     }
 
     RemoveStarShopFixtures();
@@ -5653,7 +5653,7 @@ int main()
         { "CaseStoreListsCustomCasesFirstAndAgents", CaseStoreListsCustomCasesFirstAndAgents },
         { "BotSkinsPickThemedStableSkins", BotSkinsPickThemedStableSkins },
         { "StarShopEarnsStarsAndRedeemsARandomAgent", StarShopEarnsStarsAndRedeemsARandomAgent },
-        { "StarShopSellsPinsTrophiesAndCoinsButNotServiceMedals", StarShopSellsPinsTrophiesAndCoinsButNotServiceMedals },
+        { "SchemaFindsPinsTrophiesAndCoinsButNotServiceMedals", SchemaFindsPinsTrophiesAndCoinsButNotServiceMedals },
         { "PityBoostsBetterRaritiesBeforeGold", PityBoostsBetterRaritiesBeforeGold },
         { "StorePurchasesFinalizeTransactionally", StorePurchasesFinalizeTransactionally },
         { "LegacyStorePriceSheetMatchesClientSchema",

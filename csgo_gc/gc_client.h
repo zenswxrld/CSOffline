@@ -182,6 +182,8 @@ private:
     mutable bool m_careerCasesBuilt{};
     void RecordMatchEvent(Career::MatchEvent event);
     void PublishCareer();
+    // gives a pin (1), coin (2) or trophy (3) and says what it was, empty if there is none
+    std::string GrantCollectible(uint32_t tier);
     void GrantCareerRewards(const std::vector<Career::Unlock> &unlocks);
     std::atomic<int32_t> m_localUserId{};
     std::atomic<int32_t> m_cachedMusicKitMVPs{ -1 };
