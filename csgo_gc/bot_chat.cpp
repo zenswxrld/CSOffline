@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "bot_chat.h"
+#include "bot_personality.h"
 #include "config.h"
 #include "platform.h"
 
@@ -49,14 +50,225 @@ const char *Pick(const char *const (&lines)[N])
     return lines[Roll(static_cast<int>(N))];
 }
 
+// how much of the normal chance a personality talks, in percent
+int Talkativeness(BotPersonality personality)
+{
+    switch (personality)
+    {
+    case BotPersonality::Chatty: return 190;
+    case BotPersonality::Quiet: return 30;
+    case BotPersonality::Rusher: return 110;
+    case BotPersonality::Camper: return 70;
+    case BotPersonality::Friendly: return 120;
+    }
+    return 100;
+}
+
+// how likely a bot is to be the one that speaks up when it doesn't matter which
+int SpeakerWeight(BotPersonality personality)
+{
+    switch (personality)
+    {
+    case BotPersonality::Chatty: return 8;
+    case BotPersonality::Quiet: return 1;
+    case BotPersonality::Rusher: return 4;
+    case BotPersonality::Camper: return 2;
+    case BotPersonality::Friendly: return 4;
+    }
+    return 3;
+}
+
+bool ChanceFor(const std::string &bot, int percent)
+{
+    return Chance(percent * Talkativeness(PersonalityOfBot(bot)) / 100);
+}
+
 std::string PickBot(const std::string &preferred = {})
 {
     if (!preferred.empty())
     {
         return preferred;
     }
-    return s_bots.empty() ? std::string{} : s_bots[Roll(static_cast<int>(s_bots.size()))];
+    if (s_bots.empty())
+    {
+        return {};
+    }
+
+    int total = 0;
+    for (const std::string &bot : s_bots)
+    {
+        total += SpeakerWeight(PersonalityOfBot(bot));
+    }
+    int roll = Roll(total);
+    for (const std::string &bot : s_bots)
+    {
+        roll -= SpeakerWeight(PersonalityOfBot(bot));
+        if (roll < 0)
+        {
+            return bot;
+        }
+    }
+    return s_bots.back();
 }
+
+// what a bot says in a kind of moment: its personality's own lines most of the time, the common ones otherwise
+enum class Moment
+{
+    Beaten, // killed by the local player
+    BeatenHeadshot,
+    Taunt, // killed the local player
+    Hype, // a round starts
+    Won, // the bots' side won a round
+    Lost, // the bots' side lost a round
+    Greeting,
+    MatchOver,
+};
+
+const char *PersonalLine(BotPersonality personality, Moment moment)
+{
+    static const char *const RusherBeaten[] = { "lucky", "cheater", "whatever", "ill be back", "rematch rn", "pfft" };
+    static const char *const RusherTaunt[] = { "ez", "sit down", "get rekt", "too slow", "owned", "clapped", "bye" };
+    static const char *const RusherHype[] = { "rush b", "full send", "go go go", "no stopping", "everyone rush", "yolo" };
+    static const char *const RusherWon[] = { "ez", "told you", "rekt", "rush works" };
+    static const char *const RusherLost[] = { "rush again", "one more", "should have rushed", "pfft" };
+    static const char *const RusherGreeting[] = { "lets rush", "ready to frag", "who first" };
+    static const char *const RusherOver[] = { "ez", "gg ez", "rematch", "again" };
+
+    static const char *const CamperBeaten[] = { "i was holding that", "you found me", "hm", "nice peek", "didnt hear you", "ok" };
+    static const char *const CamperTaunt[] = { "i see you", "right where i thought", "patience", "stay back", "thanks for walking in" };
+    static const char *const CamperHype[] = { "hold the angles", "stay put", "dont peek", "wait for them", "patience", "eco?" };
+    static const char *const CamperWon[] = { "told you hold", "patience wins", "nice hold", "solid" };
+    static const char *const CamperLost[] = { "should have waited", "dont peek", "too fast", "hm ok" };
+    static const char *const CamperGreeting[] = { "hold angles", "gl", "patience" };
+    static const char *const CamperOver[] = { "gg", "good hold", "wp" };
+
+    static const char *const ChattyBeaten[] = { "wait what how did you even see me there", "ok that was actually a good shot", "i literally had that lol", "bruh i was just about to go", "lol i cant believe that" };
+    static const char *const ChattyTaunt[] = { "haha called it", "that was so easy lol", "i knew you would be there", "lol did you see that", "ok that was fun" };
+    static const char *const ChattyHype[] = { "ok this round we have to focus", "anyone want to eco", "i have a good feeling about this one", "ok ok ok lets go lets go", "wonder what they will do" };
+    static const char *const ChattyWon[] = { "gg that round was so good", "haha did you see that", "we are doing great lets keep going" };
+    static const char *const ChattyLost[] = { "ugh ok that was bad but we can get the next one", "wait what happened there", "i dont even know what went wrong" };
+    static const char *const ChattyGreeting[] = { "hello everyone how are we all doing", "hey hey gl hf all", "hi hi lets have a good one" };
+    static const char *const ChattyOver[] = { "gg that was a really fun game", "gg wp everyone that was great", "nice game all want to go again" };
+
+    static const char *const QuietBeaten[] = { "." , "hm", "ok" };
+    static const char *const QuietTaunt[] = { ".", "gg" };
+    static const char *const QuietHype[] = { "ok", "hm" };
+    static const char *const QuietWon[] = { "gg" };
+    static const char *const QuietLost[] = { "ok", "hm" };
+    static const char *const QuietGreeting[] = { "hi", "gl" };
+    static const char *const QuietOver[] = { "gg" };
+
+    static const char *const FriendlyBeaten[] = { "nice shot!", "wow good one", "well played", "great aim!", "gj" };
+    static const char *const FriendlyTaunt[] = { "sorry!", "gg", "good try", "nice try", "close one" };
+    static const char *const FriendlyHype[] = { "good luck everyone", "have fun", "lets do this together", "you got this" };
+    static const char *const FriendlyWon[] = { "good round", "well played everyone", "nice one team", "gg wp" };
+    static const char *const FriendlyLost[] = { "wp them", "good round", "no worries", "we will get the next one" };
+    static const char *const FriendlyGreeting[] = { "hi friends!", "good luck have fun", "gl hf everyone", "hello hello" };
+    static const char *const FriendlyOver[] = { "gg wp everyone", "that was fun", "thanks for the game", "good game friends" };
+
+    const auto pick = [](auto &lines) { return Pick(lines); };
+    switch (personality)
+    {
+    case BotPersonality::Rusher:
+        switch (moment)
+        {
+        case Moment::Beaten:
+        case Moment::BeatenHeadshot: return pick(RusherBeaten);
+        case Moment::Taunt: return pick(RusherTaunt);
+        case Moment::Hype: return pick(RusherHype);
+        case Moment::Won: return pick(RusherWon);
+        case Moment::Lost: return pick(RusherLost);
+        case Moment::Greeting: return pick(RusherGreeting);
+        case Moment::MatchOver: return pick(RusherOver);
+        }
+        break;
+    case BotPersonality::Camper:
+        switch (moment)
+        {
+        case Moment::Beaten:
+        case Moment::BeatenHeadshot: return pick(CamperBeaten);
+        case Moment::Taunt: return pick(CamperTaunt);
+        case Moment::Hype: return pick(CamperHype);
+        case Moment::Won: return pick(CamperWon);
+        case Moment::Lost: return pick(CamperLost);
+        case Moment::Greeting: return pick(CamperGreeting);
+        case Moment::MatchOver: return pick(CamperOver);
+        }
+        break;
+    case BotPersonality::Chatty:
+        switch (moment)
+        {
+        case Moment::Beaten:
+        case Moment::BeatenHeadshot: return pick(ChattyBeaten);
+        case Moment::Taunt: return pick(ChattyTaunt);
+        case Moment::Hype: return pick(ChattyHype);
+        case Moment::Won: return pick(ChattyWon);
+        case Moment::Lost: return pick(ChattyLost);
+        case Moment::Greeting: return pick(ChattyGreeting);
+        case Moment::MatchOver: return pick(ChattyOver);
+        }
+        break;
+    case BotPersonality::Quiet:
+        switch (moment)
+        {
+        case Moment::Beaten:
+        case Moment::BeatenHeadshot: return pick(QuietBeaten);
+        case Moment::Taunt: return pick(QuietTaunt);
+        case Moment::Hype: return pick(QuietHype);
+        case Moment::Won: return pick(QuietWon);
+        case Moment::Lost: return pick(QuietLost);
+        case Moment::Greeting: return pick(QuietGreeting);
+        case Moment::MatchOver: return pick(QuietOver);
+        }
+        break;
+    case BotPersonality::Friendly:
+        switch (moment)
+        {
+        case Moment::Beaten:
+        case Moment::BeatenHeadshot: return pick(FriendlyBeaten);
+        case Moment::Taunt: return pick(FriendlyTaunt);
+        case Moment::Hype: return pick(FriendlyHype);
+        case Moment::Won: return pick(FriendlyWon);
+        case Moment::Lost: return pick(FriendlyLost);
+        case Moment::Greeting: return pick(FriendlyGreeting);
+        case Moment::MatchOver: return pick(FriendlyOver);
+        }
+        break;
+    }
+    return "gg";
+}
+
+const char *CommonLine(Moment moment)
+{
+    static const char *const Beaten[] = { "wtf", "nice shot", "how", "lol ok", "damn", "ouch", "nt", "bruh", "ez for you" };
+    static const char *const Headshot[] = { "nice aim", "headshot lol", "hacks?", "wow ok", "crazy aim" };
+    static const char *const Taunts[] = { "ez", "sit", "lol", "too easy", "nt", "gg", "rip", "haha", "ez clap" };
+    static const char *const Hype[] = { "lets go", "this round", "focus", "ok ok", "we got this", "eco?" };
+    static const char *const Lost[] = { "gg", "wp", "ugh", "ok ok", "nice round", "next one", "damn" };
+    static const char *const Won[] = { "ez", "gg", "nice", "lets go", "too easy", "gg ez" };
+    static const char *const Greetings[] = { "gl hf", "glhf", "hi all", "hey gl", "lets go", "gl" };
+    static const char *const Over[] = { "gg", "gg wp", "wp", "gg all", "nice game", "gg well played" };
+    switch (moment)
+    {
+    case Moment::Beaten: return Pick(Beaten);
+    case Moment::BeatenHeadshot: return Pick(Headshot);
+    case Moment::Taunt: return Pick(Taunts);
+    case Moment::Hype: return Pick(Hype);
+    case Moment::Won: return Pick(Won);
+    case Moment::Lost: return Pick(Lost);
+    case Moment::Greeting: return Pick(Greetings);
+    case Moment::MatchOver: return Pick(Over);
+    }
+    return "gg";
+}
+
+// its own personality's line about two times in three
+std::string LineFor(const std::string &bot, Moment moment)
+{
+    return Chance(65) ? PersonalLine(PersonalityOfBot(bot), moment) : CommonLine(moment);
+}
+
+std::string s_nemesis;
 
 std::string Format(const std::string &bot, const std::string &text)
 {
@@ -106,6 +318,7 @@ void BotChat::Reset(unsigned seed)
     s_random.seed(seed ? seed : std::random_device{}());
     s_queue.clear();
     s_bots.clear();
+    s_nemesis.clear();
     s_spokeBefore = false;
 }
 
@@ -122,92 +335,108 @@ void BotChat::OnEvent(const Event &event, std::chrono::steady_clock::time_point 
         if (event.victimBot && event.attackerLocal)
         {
             // you killed a bot
-            static const char *const Beaten[] = { "wtf", "nice shot", "how", "lol ok", "damn", "ouch", "nt", "bruh", "ez for you" };
-            static const char *const Headshot[] = { "nice aim", "headshot lol", "hacks?", "wow ok", "crazy aim" };
-            if (Chance(event.headshot ? 45 : 22))
+            if (!s_nemesis.empty() && event.victim == s_nemesis)
             {
-                Say(event.victim, event.headshot ? Pick(Headshot) : Pick(Beaten), now);
+                break; // the nemesis has its own line
+            }
+            if (ChanceFor(event.victim, event.headshot ? 45 : 22))
+            {
+                Say(event.victim, LineFor(event.victim, event.headshot ? Moment::BeatenHeadshot : Moment::Beaten), now);
             }
         }
         else if (event.attackerBot && event.victimLocal)
         {
-            // a bot killed you
-            static const char *const Taunts[] = { "ez", "sit", "lol", "too easy", "nt", "gg", "rip", "haha", "ez clap" };
-            if (Chance(30))
+            // a bot killed you; the nemesis gloats far more often
+            static const char *const NemesisTaunts[] = { "again lol", "you again", "my favourite target", "back for more?",
+                "i own you", "predictable", "thanks for the frag" };
+            if (!s_nemesis.empty() && event.attacker == s_nemesis && Chance(70))
             {
-                Say(event.attacker, Pick(Taunts), now);
+                Say(event.attacker, Pick(NemesisTaunts), now, 900, 2200, true);
+            }
+            else if (ChanceFor(event.attacker, 30))
+            {
+                Say(event.attacker, LineFor(event.attacker, Moment::Taunt), now);
             }
         }
         else if (event.attackerBot && event.victimBot)
         {
             static const char *const Between[] = { "rip", "nice", "gj", "lol", "oof", "my bad" };
-            if (Chance(8))
+            const std::string &speaker = Chance(50) ? event.victim : event.attacker;
+            if (ChanceFor(speaker, 8))
             {
-                Say(Chance(50) ? event.victim : event.attacker, Pick(Between), now);
+                Say(speaker, Pick(Between), now);
             }
         }
         break;
 
     case EventType::RoundStart:
+    {
         if (event.roundsPlayed == 0)
         {
-            static const char *const Greetings[] = { "gl hf", "glhf", "hi all", "hey gl", "lets go", "gl" };
-            Say(PickBot(), Pick(Greetings), now, 600, 2200);
+            const std::string bot = PickBot();
+            Say(bot, LineFor(bot, Moment::Greeting), now, 600, 2200);
         }
-        else if (Chance(6))
+        else
         {
-            static const char *const Hype[] = { "lets go", "this round", "focus", "ok ok", "we got this", "eco?" };
-            Say(PickBot(), Pick(Hype), now);
-        }
-        break;
-
-    case EventType::RoundEnd:
-        if (event.localWon)
-        {
-            static const char *const Lost[] = { "gg", "wp", "ugh", "ok ok", "nice round", "next one", "damn" };
-            if (Chance(22))
+            const std::string bot = PickBot();
+            if (ChanceFor(bot, 6))
             {
-                Say(PickBot(), Pick(Lost), now);
+                Say(bot, LineFor(bot, Moment::Hype), now);
             }
         }
-        else if (Chance(22))
+        break;
+    }
+
+    case EventType::RoundEnd:
+    {
+        const std::string bot = PickBot();
+        if (ChanceFor(bot, 22))
         {
-            static const char *const Won[] = { "ez", "gg", "nice", "lets go", "too easy", "gg ez" };
-            Say(PickBot(), Pick(Won), now);
+            Say(bot, LineFor(bot, event.localWon ? Moment::Lost : Moment::Won), now);
         }
         break;
+    }
 
     case EventType::BombPlanted:
-        if (Chance(30))
+    {
+        static const char *const Planted[] = { "bomb down", "bomb planted", "its down", "plant!", "rotate" };
+        const std::string bot = PickBot();
+        if (ChanceFor(bot, 30))
         {
-            static const char *const Planted[] = { "bomb down", "bomb planted", "its down", "plant!", "rotate" };
-            Say(PickBot(), Pick(Planted), now);
+            Say(bot, Pick(Planted), now);
         }
         break;
+    }
 
     case EventType::BombDefused:
-        if (Chance(35))
+    {
+        static const char *const Defused[] = { "wp", "close one", "nice defuse", "ugh", "damn", "gg" };
+        const std::string bot = PickBot();
+        if (ChanceFor(bot, 35))
         {
-            static const char *const Defused[] = { "wp", "close one", "nice defuse", "ugh", "damn", "gg" };
-            Say(PickBot(), Pick(Defused), now);
+            Say(bot, Pick(Defused), now);
         }
         break;
+    }
 
     case EventType::BombExploded:
-        if (Chance(25))
+    {
+        static const char *const Boom[] = { "gg", "boom", "nice", "wp" };
+        const std::string bot = PickBot();
+        if (ChanceFor(bot, 25))
         {
-            static const char *const Boom[] = { "gg", "boom", "nice", "wp" };
-            Say(PickBot(), Pick(Boom), now);
+            Say(bot, Pick(Boom), now);
         }
         break;
+    }
 
     case EventType::MatchEnd:
     {
-        static const char *const Over[] = { "gg", "gg wp", "wp", "gg all", "nice game", "gg well played" };
         static const char *const Again[] = { "rematch?", "again?", "one more", "gg ez" };
         s_queue.clear(); // the end of the match always gets a word
+        s_nemesis.clear();
         const std::string first = PickBot();
-        Say(first, Pick(Over), now, 800, 2500, true);
+        Say(first, LineFor(first, Moment::MatchOver), now, 800, 2500, true);
         if (s_bots.size() > 1 && Chance(55))
         {
             std::string other = PickBot();
@@ -217,9 +446,27 @@ void BotChat::OnEvent(const Event &event, std::chrono::steady_clock::time_point 
             }
             if (other != first)
             {
-                Say(other, Chance(60) ? Pick(Over) : Pick(Again), now, 2600, 4500, true);
+                Say(other, Chance(60) ? LineFor(other, Moment::MatchOver) : std::string{ Pick(Again) }, now, 2600, 4500, true);
             }
         }
+        break;
+    }
+
+    case EventType::NemesisNamed:
+    {
+        static const char *const Named[] = { "i think i found my nemesis", "you keep walking into me", "i got your number now",
+            "this is becoming a habit", "ill keep an eye on you", "we meet again" };
+        s_nemesis = event.attacker;
+        Say(event.attacker, Pick(Named), now, 1200, 2600, true);
+        break;
+    }
+
+    case EventType::NemesisSlain:
+    {
+        static const char *const Slain[] = { "ok that one was on me", "fine, you got me", "revenge...", "i will be back",
+            "well played", "dont get cocky", "ill remember this" };
+        s_nemesis.clear();
+        Say(event.attacker, Pick(Slain), now, 900, 2200, true);
         break;
     }
     }

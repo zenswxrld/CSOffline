@@ -383,7 +383,7 @@ ItemSchema::ItemSchema(bool loadFiles)
             }
             fclose(file);
         }
-        GameSchemaPatch::ApplyBotNames(customNames);
+        GameSchemaPatch::ApplyBotNames(customNames, GetConfig().BotPersonalities());
     }
     else
     {

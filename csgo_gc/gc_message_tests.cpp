@@ -8,6 +8,8 @@
 #include "networking_client.h"
 #include "networking_server.h"
 #include "panorama_hook.h"
+#include "nemesis.h"
+#include "bot_personality.h"
 #include "star_shop.h"
 #include "bot_skins.h"
 #include "bot_chat.h"
@@ -4262,6 +4264,130 @@ static bool BotsChatAboutWhatHappens()
     return valid;
 }
 
+static bool BotPersonalitiesAndNemesisWork()
+{
+    bool valid = true;
+
+    valid &= PersonalityOfBot("RushB_12") == BotPersonality::Rusher
+        && PersonalityOfBot("AngleHolder") == BotPersonality::Camper
+        && PersonalityOfBot("Yapper") == BotPersonality::Chatty
+        && PersonalityOfBot("Silent_9") == BotPersonality::Quiet
+        && PersonalityOfBot("NiceGuy") == BotPersonality::Friendly;
+
+    // every hint name gives back the personality it was made for, and the same name always gives the same one
+    for (int p = 0; p < BotPersonalityCount; ++p)
+    {
+        for (unsigned random = 0; random < 200; ++random)
+        {
+            const std::string name = PersonalityHintName(static_cast<BotPersonality>(p), random);
+            valid &= PersonalityOfBot(name) == static_cast<BotPersonality>(p) && name.size() <= 24;
+        }
+    }
+    valid &= PersonalityOfBot("s1mple") == PersonalityOfBot("s1mple");
+
+    // a chatty bot talks far more than a quiet one
+    const auto start = std::chrono::steady_clock::now();
+    const auto spokenBy = [&](const std::string &bot)
+    {
+        BotChat::Reset(11);
+        BotChat::SetBots({ bot });
+        int spoken = 0;
+        for (int i = 0; i < 300; ++i)
+        {
+            BotChat::Event end;
+            end.type = BotChat::EventType::RoundEnd;
+            const auto now = start + std::chrono::seconds{ i * 30 };
+            BotChat::OnEvent(end, now);
+            std::vector<std::string> lines;
+            BotChat::Take(now + std::chrono::seconds{ 20 }, lines);
+            spoken += static_cast<int>(lines.size());
+        }
+        return spoken;
+    };
+    valid &= spokenBy("Yapper_1") > spokenBy("Silent_1") * 2;
+
+    // the third death by one bot names it the nemesis, killing it slays it, a new match starts clean
+    Nemesis::Reset();
+    std::string name;
+    valid &= Nemesis::OnKill("Rival", true, "me", false, true, false, name) == Nemesis::Result::None;
+    valid &= Nemesis::OnKill("Other", true, "me", false, true, false, name) == Nemesis::Result::None;
+    valid &= Nemesis::OnKill("Rival", true, "me", false, true, false, name) == Nemesis::Result::None;
+    valid &= Nemesis::OnKill("Rival", true, "me", false, true, false, name) == Nemesis::Result::Named && name == "Rival";
+    valid &= Nemesis::Current() == "Rival";
+    // killing another bot or dying to the nemesis again changes nothing
+    valid &= Nemesis::OnKill("me", false, "Other", true, false, true, name) == Nemesis::Result::None;
+    valid &= Nemesis::OnKill("Rival", true, "me", false, true, false, name) == Nemesis::Result::None;
+    valid &= Nemesis::OnKill("me", false, "Rival", true, false, true, name) == Nemesis::Result::Slain && name == "Rival";
+    valid &= Nemesis::Current().empty();
+    Nemesis::OnKill("Rival", true, "me", false, true, false, name);
+    Nemesis::Reset();
+    valid &= Nemesis::Current().empty();
+
+    // the nemesis speaks when named
+    BotChat::Reset(2);
+    BotChat::SetBots({ "Rival" });
+    BotChat::Event named;
+    named.type = BotChat::EventType::NemesisNamed;
+    named.attacker = "Rival";
+    BotChat::OnEvent(named, start);
+    std::vector<std::string> lines;
+    BotChat::Take(start + std::chrono::seconds{ 10 }, lines);
+    valid &= lines.size() == 1 && BotChat::PlainText(lines[0]).rfind("Rival: ", 0) == 0;
+    return valid;
+}
+
+static bool BotProfilesGetAggressionByPersonality()
+{
+    const std::string sample =
+        "Default\r\n\tAggression = 0.5\r\nEnd\r\n\r\n"
+        "// These are the individual bot profiles\r\n\r\nElite Cliffe\r\n\tVoicePitch = 100\r\nEnd\r\n";
+    if (!TestFilesystem::MakeDirectory("csgo"))
+    {
+        return false;
+    }
+    FILE *file = std::fopen(GameSchemaPatch::BotProfilePath, "wb");
+    if (!file)
+    {
+        return false;
+    }
+    std::fwrite(sample.data(), 1, sample.size(), file);
+    std::fclose(file);
+
+    bool ok = GameSchemaPatch::ApplyBotNames({ "RushB_7" });
+    std::string patched;
+    if (FILE *in = std::fopen(GameSchemaPatch::BotProfilePath, "rb"))
+    {
+        char buffer[512];
+        size_t n;
+        while ((n = std::fread(buffer, 1, sizeof(buffer), in)) > 0)
+        {
+            patched.append(buffer, n);
+        }
+        std::fclose(in);
+    }
+    ok &= patched.find("Elite RushB_7\r\n\tAggression = 0.95\r\n\tVoicePitch = 100") != std::string::npos;
+
+    // switched off: the profiles keep only the new name
+    ok &= GameSchemaPatch::ApplyBotNames({ "RushB_7" }, false);
+    if (FILE *in = std::fopen(GameSchemaPatch::BotProfilePath, "rb"))
+    {
+        patched.clear();
+        char buffer[512];
+        size_t n;
+        while ((n = std::fread(buffer, 1, sizeof(buffer), in)) > 0)
+        {
+            patched.append(buffer, n);
+        }
+        std::fclose(in);
+    }
+    ok &= patched.find("Aggression = 0.95") == std::string::npos;
+
+    ok &= GameSchemaPatch::RestoreBotNames();
+    TestFilesystem::RemoveFile(GameSchemaPatch::BotProfilePath);
+    TestFilesystem::RemoveDirectory("csgo");
+    return ok;
+}
+
 static bool HowlGoesBackInTheHuntsmanCase()
 {
     std::string text =
@@ -5679,6 +5805,8 @@ int main()
         { "CaseStoreListsCustomCasesFirstAndAgents", CaseStoreListsCustomCasesFirstAndAgents },
         { "BotSkinsPickThemedStableSkins", BotSkinsPickThemedStableSkins },
         { "StarShopEarnsStarsAndRedeemsARandomAgent", StarShopEarnsStarsAndRedeemsARandomAgent },
+        { "BotPersonalitiesAndNemesisWork", BotPersonalitiesAndNemesisWork },
+        { "BotProfilesGetAggressionByPersonality", BotProfilesGetAggressionByPersonality },
         { "SchemaFindsPinsTrophiesAndCoinsButNotServiceMedals", SchemaFindsPinsTrophiesAndCoinsButNotServiceMedals },
         { "PityBoostsBetterRaritiesBeforeGold", PityBoostsBetterRaritiesBeforeGold },
         { "StorePurchasesFinalizeTransactionally", StorePurchasesFinalizeTransactionally },

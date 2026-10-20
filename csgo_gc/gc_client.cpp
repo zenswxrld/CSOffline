@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "gc_client.h"
+#include "nemesis.h"
 #include "appid.h"
 #include "game_types.h"
 #include "panorama_hook.h"
@@ -516,6 +517,11 @@ void ClientGC::HandleEvent(GCEvent type, uint64_t id, const std::vector<uint8_t>
 
     case GCEvent::LocalPlayerDeath:
         m_career.RecordDeath();
+        break;
+
+    case GCEvent::LocalNemesisNamed:
+    case GCEvent::LocalNemesisSlain:
+        LocalNemesis(type == GCEvent::LocalNemesisSlain, std::string{ buffer.begin(), buffer.end() });
         break;
 
     case GCEvent::SyncLocalPlayerMusicKitState:
@@ -1107,6 +1113,24 @@ void ClientGC::RecordMatchEvent(Career::MatchEvent event)
     {
         PublishCareer();
     }
+}
+
+void ClientGC::LocalNemesis(bool slain, const std::string &bot)
+{
+    if (!GetConfig().CareerTracking() || bot.empty())
+    {
+        return;
+    }
+
+    // the stars are paid like any achievement; the career counts how often it happens
+    const std::string message = slain ? "Nemesis slain: " + bot + " won't be bothering you again"
+                                      : bot + " has killed you " + std::to_string(Nemesis::DeathsToBeNamed)
+            + " times and is now your nemesis. Take them out!";
+    Platform::Print("Career: %s\n", message.c_str());
+    SendStarsMessage(message);
+
+    GrantCareerRewards(m_career.RecordCounter(slain ? "nemesis_slain" : "nemesis_named", 1));
+    PublishCareer();
 }
 
 void ClientGC::PublishCareer()

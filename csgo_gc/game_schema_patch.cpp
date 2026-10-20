@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include <unordered_set>
 #include "game_schema_patch.h"
+#include "bot_personality.h"
 
 #include <cerrno>
 #include <filesystem>
@@ -1362,7 +1363,7 @@ bool GameSchemaPatch::Restore()
 
 // ---- bot names -----------------------------------------------------------------------------------------------------
 
-static std::vector<std::string> GenerateGamerNames(std::mt19937 &random, size_t count)
+static std::vector<std::string> GenerateGamerNames(std::mt19937 &random, size_t count, bool personalities = false)
 {
     static const char *const Words[] = { "frost", "ghost", "viper", "raven", "storm", "blaze", "shadow", "cobra", "falcon",
         "nova", "lunar", "pixel", "turbo", "rogue", "ember", "drift", "static", "hex", "onyx", "apex", "bolt", "echo",
@@ -1404,7 +1405,11 @@ static std::vector<std::string> GenerateGamerNames(std::mt19937 &random, size_t 
     for (size_t attempts = 0; names.size() < count && attempts < count * 50; attempts++)
     {
         std::string name;
-        switch (random() % 10)
+        if (personalities && random() % 4 == 0)
+        {
+            name = PersonalityHintName(static_cast<BotPersonality>(random() % BotPersonalityCount), static_cast<unsigned>(random()));
+        }
+        else switch (random() % 10)
         {
         case 8:
         case 9: name = pick(Handles); break;
@@ -1426,7 +1431,7 @@ static std::vector<std::string> GenerateGamerNames(std::mt19937 &random, size_t 
     return names;
 }
 
-bool GameSchemaPatch::ApplyBotNames(const std::vector<std::string> &customNames)
+bool GameSchemaPatch::ApplyBotNames(const std::vector<std::string> &customNames, bool personalities)
 {
     std::string original;
     if (!ReadWholeFile(FileExists(BotProfileBackupPath) ? BotProfileBackupPath : BotProfilePath, original))
@@ -1484,7 +1489,7 @@ bool GameSchemaPatch::ApplyBotNames(const std::vector<std::string> &customNames)
         names.push_back(name);
     }
     std::shuffle(names.begin(), names.end(), random);
-    for (std::string &name : GenerateGamerNames(random, bots.size() + 8))
+    for (std::string &name : GenerateGamerNames(random, bots.size() + 8, personalities))
     {
         names.push_back(std::move(name));
     }
@@ -1503,6 +1508,52 @@ bool GameSchemaPatch::ApplyBotNames(const std::vector<std::string> &customNames)
         if (std::regex_match(plain, match, header) && next < names.size())
         {
             lines[index] = match[1].str() + names[next++] + match[3].str() + (hasCr ? "\r" : "");
+        }
+    }
+
+    // where the profiles carry an Aggression value, rushers get a high one and campers a low one. Only when the file
+    // already has the attribute, so nothing here depends on a name the game might not know
+    if (personalities)
+    {
+        static const std::regex aggression{ R"re(^[ \t]*Aggression[ \t]*=[ \t]*([0-9.]+))re" };
+        double highest = -1.0;
+        for (const std::string &line : lines)
+        {
+            std::smatch match;
+            if (std::regex_search(line, match, aggression))
+            {
+                highest = std::max(highest, atof(match[1].str().c_str()));
+            }
+        }
+
+        if (highest >= 0.0)
+        {
+            const double scale = highest <= 1.0 ? 1.0 : 100.0;
+            // from the back, so the indexes stay right
+            for (size_t i = bots.size(); i-- > 0;)
+            {
+                std::smatch match;
+                std::string plain = lines[bots[i]];
+                if (!plain.empty() && plain.back() == '\r')
+                {
+                    plain.pop_back();
+                }
+                if (!std::regex_match(plain, match, header))
+                {
+                    continue;
+                }
+
+                const BotPersonality personality = PersonalityOfBot(match[2].str());
+                if (personality != BotPersonality::Rusher && personality != BotPersonality::Camper)
+                {
+                    continue;
+                }
+
+                char value[32];
+                snprintf(value, sizeof(value), "%g", (personality == BotPersonality::Rusher ? 0.95 : 0.05) * scale);
+                lines.insert(lines.begin() + static_cast<std::ptrdiff_t>(bots[i]) + 1,
+                    std::string{ "\tAggression = " } + value + (crlf ? "\r" : ""));
+            }
         }
     }
 

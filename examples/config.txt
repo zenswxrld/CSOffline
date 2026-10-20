@@ -121,6 +121,11 @@
 // are used first.
 "bot_names"	"1"
 
+// bot personalities: a quarter of the names hint at one (RushB_.., AngleHolder, Yapper, Silent.., NiceGuy). Chatty bots
+// talk a lot, quiet ones hardly ever, rushers trash talk, campers stay calm, friendly ones compliment. Where the game's
+// bot profiles have an Aggression value, rushers get a high one and campers a low one. (needs bot_names)
+"bot_personalities"	"1"
+
 // shows bots by name only, without the "BOT " in front (edits csgo/resource/csgo_english.txt; restart the game twice)
 "hide_bot_tag"	"1"
 

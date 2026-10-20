@@ -132,7 +132,9 @@ namespace GameSchemaPatch
     // (csgo_gc/bot_names.txt, one per line) are used before the built-in ones
     constexpr const char *BotProfilePath = "csgo/botprofile.db";
     constexpr const char *BotProfileBackupPath = "csgo/botprofile.db.csgo_gc_backup";
-    bool ApplyBotNames(const std::vector<std::string> &customNames);
+    // personalities: some names hint at a personality (see bot_personality.h), and where the bot profiles have an
+    // Aggression value the rushers get a high one and the campers a low one
+    bool ApplyBotNames(const std::vector<std::string> &customNames, bool personalities = true);
 
     // puts the original botprofile.db back (when bot names are turned off)
     bool RestoreBotNames();

@@ -420,6 +420,19 @@ constexpr AchievementDef Achievements[] = {
     { "stars_spent_25000_n", "Whale", "Spend 25,000 stars in the shop.", "stars_spent", 25000, 20, 7 },
     { "stars_spent_50000_n", "Tycoon of Stars", "Spend 50,000 stars in the shop.", "stars_spent", 50000, 20, 7 },
     { "stars_spent_100000_n", "Star Baron", "Spend 100,000 stars in the shop.", "stars_spent", 100000, 20, 7 },
+    { "nemesis_slain_1_n", "Revenge Served Cold", "Slay 1 nemeses (a bot that has killed you 3 times).", "nemesis_slain", 1, 20, 6 },
+    { "nemesis_slain_3_n", "Grudge Match", "Slay 3 nemeses (a bot that has killed you 3 times).", "nemesis_slain", 3, 20, 6 },
+    { "nemesis_slain_5_n", "Settling Scores", "Slay 5 nemeses (a bot that has killed you 3 times).", "nemesis_slain", 5, 20, 6 },
+    { "nemesis_slain_10_n", "Nemesis Nemesis", "Slay 10 nemeses (a bot that has killed you 3 times).", "nemesis_slain", 10, 20, 6 },
+    { "nemesis_slain_25_n", "Rivalry Ender", "Slay 25 nemeses (a bot that has killed you 3 times).", "nemesis_slain", 25, 20, 6 },
+    { "nemesis_slain_50_n", "Bounty Hunter", "Slay 50 nemeses (a bot that has killed you 3 times).", "nemesis_slain", 50, 20, 6 },
+    { "nemesis_slain_100_n", "Nobody Beats Me Twice", "Slay 100 nemeses (a bot that has killed you 3 times).", "nemesis_slain", 100, 20, 6 },
+    { "nemesis_slain_250_n", "Vendetta", "Slay 250 nemeses (a bot that has killed you 3 times).", "nemesis_slain", 250, 20, 6 },
+    { "nemesis_named_1_n", "Marked", "Be named a nemesis target 1 times.", "nemesis_named", 1, 20, 6 },
+    { "nemesis_named_5_n", "Public Enemy", "Be named a nemesis target 5 times.", "nemesis_named", 5, 20, 6 },
+    { "nemesis_named_10_n", "Walking Target", "Be named a nemesis target 10 times.", "nemesis_named", 10, 20, 6 },
+    { "nemesis_named_25_n", "Magnet for Trouble", "Be named a nemesis target 25 times.", "nemesis_named", 25, 20, 6 },
+    { "nemesis_named_50_n", "Frequent Flyer", "Be named a nemesis target 50 times.", "nemesis_named", 50, 20, 6 },
 };
 
 std::string FormatCaseName(const ItemSchema &schema, uint32_t crate)
@@ -683,7 +696,7 @@ constexpr FamilyReward FamilyRewards[] = {
     { "matches", 15, 650 }, { "stars_earned", 10, 700 },
     { "matches_won", 15, 700 }, { "matches_lost", 10, 300 }, { "win_streak_best", 20, 800 }, { "wins_competitive", 30, 700 },
     { "wins_wingman", 30, 600 }, { "wins_casual", 15, 400 }, { "deaths", 5, 300 },
-    { "items_sold", 10, 500 }, { "shop_purchases", 10, 500 }, { "stars_spent", 15, 700 },
+    { "nemesis_slain", 40, 900 }, { "nemesis_named", 15, 400 }, { "items_sold", 10, 500 }, { "shop_purchases", 10, 500 }, { "stars_spent", 15, 700 },
 };
 
 const std::unordered_map<std::string, uint32_t> &RebalancedStars()

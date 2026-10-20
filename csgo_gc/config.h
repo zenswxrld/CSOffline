@@ -184,6 +184,7 @@ public:
     bool GoldTradeUpRecipes() const { return m_goldTradeUpRecipes; }
     bool CareerTracking() const { return m_careerTracking; }
     bool BotNames() const { return m_botNames; }
+    bool BotPersonalities() const { return m_botPersonalities; }
     bool HideBotTag() const { return m_hideBotTag; }
     bool MatchEndScreens() const { return m_matchEndScreens; }
     bool BotPing() const { return m_botPing; }
@@ -253,6 +254,7 @@ private:
     bool m_goldTradeUpRecipes{ true };
     bool m_careerTracking{ true };
     bool m_botNames{ true };
+    bool m_botPersonalities{ true };
     bool m_hideBotTag{ true };
     bool m_matchEndScreens{ true };
     bool m_botPing{ true };

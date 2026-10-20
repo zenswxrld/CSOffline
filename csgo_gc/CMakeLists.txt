@@ -51,6 +51,8 @@ add_library(csgo_gc SHARED
     viewmodel_range.cpp
     bot_skins.cpp
     bot_chat.cpp
+    bot_personality.cpp
+    nemesis.cpp
     panorama_hook.cpp)
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
@@ -151,6 +153,8 @@ if (BUILD_TESTING)
         panorama_hook.cpp
         bot_skins.cpp
         bot_chat.cpp
+        bot_personality.cpp
+        nemesis.cpp
         viewmodel_range.cpp
         souvenir.cpp
         star_shop.cpp

@@ -181,6 +181,7 @@ private:
     mutable std::vector<std::pair<uint32_t, Career::CaseInfo>> m_careerCases; // built once, from the schema
     mutable bool m_careerCasesBuilt{};
     void RecordMatchEvent(Career::MatchEvent event);
+    void LocalNemesis(bool slain, const std::string &bot);
     void PublishCareer();
     // gives a pin (1), coin (2) or trophy (3) and says what it was, empty if there is none
     std::string GrantCollectible(uint32_t tier);
