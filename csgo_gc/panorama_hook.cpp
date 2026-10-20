@@ -55,6 +55,117 @@ std::string PanoramaHook::BuildBotFaces(const ItemSchema &itemSchema)
     return "{ ct: [" + ct + "], t: [" + terrorist + "] }";
 }
 
+// shared by the HUD scripts: the picture of an agent for a bot, by team and name, as a file:// path or ""
+static std::string BotFaceHelper()
+{
+    std::string faces;
+    {
+        std::lock_guard lock{ s_kitTintsMutex };
+        faces = s_botFaces;
+    }
+
+    return "\n\nvar CsgoGcAgentFaces = " + faces + R"js(;
+function CsgoGcHudFace( xuid, teamNumber )
+{
+	try
+	{
+		if ( !GameStateAPI.IsFakePlayer( xuid ) )
+		{
+			return '';
+		}
+
+		var list = teamNumber == 3 ? CsgoGcAgentFaces.ct : CsgoGcAgentFaces.t;
+		if ( !list || !list.length )
+		{
+			return '';
+		}
+
+		var seed = String( xuid );
+		try { seed += GameStateAPI.GetPlayerName( xuid ); } catch ( e ) {}
+		var hash = 0;
+		for ( var i = 0; i < seed.length; i++ )
+		{
+			hash = ( hash * 31 + seed.charCodeAt( i ) ) % 1000003;
+		}
+
+		var itemId = InventoryAPI.GetFauxItemIDFromDefAndPaintIndex( list[ hash % list.length ], 0 );
+		var image = itemId ? InventoryAPI.GetItemInventoryImage( itemId ) : '';
+		return image ? 'file://{images_econ}/' + image + '.png' : '';
+	}
+	catch ( e )
+	{
+	}
+	return '';
+}
+function CsgoGcHudFaceBackground( xuid, bCT, fallback )
+{
+	var face = CsgoGcHudFace( xuid, bCT ? 3 : 2 );
+	return face ? 'url("' + face + '")' : fallback;
+}
+)js";
+}
+
+int PanoramaHook::PatchBotFacesWinPanel(std::string &source)
+{
+    // the MVP and the kill icons of the round report use a team coloured background behind the avatar of a bot
+    static const std::regex background{
+        R"re((elAvatarContainer|elAvatarImage)\.style\.backgroundImage\s*=\s*bCT\s*\?\s*('url\("file://\{images\}/hud/teamcounter/teamcounter_alivebgCT\.png"\)')\s*:\s*('url\("file://\{images\}/hud/teamcounter/teamcounter_alivebgT\.png"\)')\s*;)re" };
+    int count = 0;
+    std::string patched;
+    auto begin = source.cbegin();
+    for (std::sregex_iterator it{ source.begin(), source.end(), background }, end; it != end; ++it)
+    {
+        const std::smatch &match = *it;
+        patched.append(begin, match[0].first);
+        patched += match[1].str() + ".style.backgroundImage = CsgoGcHudFaceBackground( xuid, bCT, bCT ? " + match[2].str() + " : "
+            + match[3].str() + " );";
+        begin = match[0].second;
+        count++;
+    }
+    if (!count)
+    {
+        return 0;
+    }
+
+    patched.append(begin, source.cend());
+    source = std::move(patched) + BotFaceHelper();
+    return count;
+}
+
+int PanoramaHook::PatchBotFacesFreezePanel(std::string &source)
+{
+    static const std::regex handler{ R"re((var\s+_OnSetFlairEvent\s*=\s*function\s*\(\s*xuid\s*,\s*skillgroup\s*\)\s*\{))re" };
+    if (!std::regex_search(source, handler))
+    {
+        return 0;
+    }
+
+    source = std::regex_replace(source, handler, "$1\n\t\ttry { CsgoGcFreezeFace( xuid ); } catch ( e ) {}",
+        std::regex_constants::format_first_only);
+    source += BotFaceHelper() + R"js(
+// the freeze panel shows these when a player has no Steam avatar
+function CsgoGcFreezeFace( xuid )
+{
+	var ct = CsgoGcHudFace( xuid, 3 );
+	var t = CsgoGcHudFace( xuid, 2 );
+	if ( !ct && !t )
+	{
+		return;
+	}
+
+	[ [ 'AvatarDefaultCT', ct ], [ 'AvatarDefaultCTSS', ct ], [ 'AvatarDefaultT', t ], [ 'AvatarDefaultTSS', t ] ].forEach( function( entry )
+	{
+		var el = $( '#' + entry[ 0 ] );
+		if ( el && el.IsValid() && entry[ 1 ] )
+		{
+			el.SetImage( entry[ 1 ] );
+		}
+	} );
+}
+)js";
+    return 1;
+}
+
 int PanoramaHook::PatchBotAvatars(std::string &source)
 {
     // the avatar cell gives a player without a Steam id a default picture by team
@@ -2148,6 +2259,20 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
         std::string patched = source;
         const bool changed = PanoramaHook::PatchBotDifficulty(patched) != 0;
         Platform::Print("Panorama: bot difficulty by rank %s\n", changed ? "added to the Play menu" : "not added, mainmenu_play.js didn't match");
+        if (changed)
+        {
+            s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);
+            return;
+        }
+    }
+
+    if (GetConfig().BotAvatars() && (PathIsFile(path, "hudwinpanel.js") || PathIsFile(path, "hudfreezepanel.js")))
+    {
+        std::string patched = source;
+        const bool win = PathIsFile(path, "hudwinpanel.js");
+        const bool changed = (win ? PanoramaHook::PatchBotFacesWinPanel(patched) : PanoramaHook::PatchBotFacesFreezePanel(patched)) != 0;
+        Platform::Print("Panorama: bot faces in %s %s\n", win ? "the round report" : "the freeze panel",
+            changed ? "added" : "not added, the script didn't match");
         if (changed)
         {
             s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);

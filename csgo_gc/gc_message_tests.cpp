@@ -4407,6 +4407,34 @@ static bool BotsGetFacesOnTheScoreboard()
     return valid;
 }
 
+static bool BotsGetFacesInTheRoundReportAndFreezePanel()
+{
+    // as in the game's hudwinpanel.js (tabs and line breaks included)
+    std::string win =
+        "\t\t\tvar elAvatarContainer = elMVPPanel.FindChildTraverse( 'AvatarContainer' );\r\n\r\n"
+        "\t\t\telAvatarContainer.style.backgroundImage = bCT ?\r\n"
+        "\t\t\t'url(\"file://{images}/hud/teamcounter/teamcounter_alivebgCT.png\")' :\r\n"
+        "\t\t\t\t'url(\"file://{images}/hud/teamcounter/teamcounter_alivebgT.png\")';\r\n"
+        "\t\t\telAvatarImage.style.backgroundImage = bCT ?\r\n"
+        "\t\t\t\t'url(\"file://{images}/hud/teamcounter/teamcounter_alivebgCT.png\")' :\r\n"
+        "\t\t\t\t'url(\"file://{images}/hud/teamcounter/teamcounter_alivebgT.png\")';\r\n";
+    bool valid = PanoramaHook::PatchBotFacesWinPanel(win) == 2;
+    valid &= win.find("elAvatarContainer.style.backgroundImage = CsgoGcHudFaceBackground( xuid, bCT, bCT ? 'url(\"file://{images}/hud/teamcounter/teamcounter_alivebgCT.png\")' : 'url(") != std::string::npos
+        && win.find("elAvatarImage.style.backgroundImage = CsgoGcHudFaceBackground(") != std::string::npos
+        && win.find("function CsgoGcHudFace(") != std::string::npos;
+
+    std::string freeze =
+        "\tvar _OnSetFlairEvent = function( xuid, skillgroup )\r\n\t{\r\n\t\tvar elAvatarFlair = $( '#AvatarFlair' );\r\n";
+    valid &= PanoramaHook::PatchBotFacesFreezePanel(freeze) == 1
+        && freeze.find("{\n\t\ttry { CsgoGcFreezeFace( xuid ); } catch ( e ) {}") != std::string::npos
+        && freeze.find("function CsgoGcFreezeFace(") != std::string::npos;
+
+    std::string other = "var x = 1;\n";
+    valid &= PanoramaHook::PatchBotFacesWinPanel(other) == 0 && PanoramaHook::PatchBotFacesFreezePanel(other) == 0
+        && other == "var x = 1;\n";
+    return valid;
+}
+
 static bool HowlGoesBackInTheHuntsmanCase()
 {
     std::string text =
@@ -5826,6 +5854,7 @@ int main()
         { "StarShopEarnsStarsAndRedeemsARandomAgent", StarShopEarnsStarsAndRedeemsARandomAgent },
         { "BotPersonalitiesAndNemesisWork", BotPersonalitiesAndNemesisWork },
         { "BotsGetFacesOnTheScoreboard", BotsGetFacesOnTheScoreboard },
+        { "BotsGetFacesInTheRoundReportAndFreezePanel", BotsGetFacesInTheRoundReportAndFreezePanel },
         { "BotProfilesGetAggressionByPersonality", BotProfilesGetAggressionByPersonality },
         { "SchemaFindsPinsTrophiesAndCoinsButNotServiceMedals", SchemaFindsPinsTrophiesAndCoinsButNotServiceMedals },
         { "PityBoostsBetterRaritiesBeforeGold", PityBoostsBetterRaritiesBeforeGold },

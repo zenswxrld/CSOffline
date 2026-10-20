@@ -115,6 +115,9 @@ namespace PanoramaHook
 
     // bots get a face on the scoreboard: an agent's picture of their team, picked by name (needs scoreboard.js)
     int PatchBotAvatars(std::string &source);
+    // the same faces in the round report's MVP and kill icons (hudwinpanel.js) and the freeze panel (hudfreezepanel.js)
+    int PatchBotFacesWinPanel(std::string &source);
+    int PatchBotFacesFreezePanel(std::string &source);
     // the agents by team as a JS object {ct:[def,..],t:[def,..]}
     std::string BuildBotFaces(const ItemSchema &itemSchema);
     void SetBotFaces(std::string facesJsObject);
