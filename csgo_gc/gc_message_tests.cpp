@@ -4323,6 +4323,44 @@ static bool BotPersonalitiesAndNemesisWork()
     Nemesis::Reset();
     valid &= Nemesis::Current().empty();
 
+    // every achievement gets its own collectible, always the same one, never a repeat; with too few items the last
+    // achievements give nothing
+    for (uint32_t tier = 1; tier <= 3; ++tier)
+    {
+        const std::vector<std::string> ids = Career::CollectibleAchievementIds(tier);
+        valid &= !ids.empty();
+        std::vector<uint32_t> items;
+        for (uint32_t i = 0; i < ids.size() + 20; ++i)
+        {
+            items.push_back(9000 + i);
+        }
+        std::set<uint32_t> given;
+        for (const std::string &id : ids)
+        {
+            const uint32_t def = Career::CollectibleFor(id, tier, items);
+            valid &= def != 0 && given.insert(def).second && def == Career::CollectibleFor(id, tier, items);
+        }
+
+        // fewer items than achievements: no repeats, the rest get 0
+        const std::vector<uint32_t> few(items.begin(), items.begin() + 5);
+        std::set<uint32_t> fewGiven;
+        size_t nothing = 0;
+        for (const std::string &id : ids)
+        {
+            const uint32_t def = Career::CollectibleFor(id, tier, few);
+            if (!def)
+            {
+                nothing++;
+            }
+            else
+            {
+                valid &= fewGiven.insert(def).second;
+            }
+        }
+        valid &= fewGiven.size() == 5 && nothing == ids.size() - 5;
+    }
+    valid &= Career::CollectibleFor("not_an_achievement", 1, { 1, 2, 3 }) == 0;
+
     // the nemesis speaks when named
     BotChat::Reset(2);
     BotChat::SetBots({ "Rival" });
@@ -4808,7 +4846,7 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         // the SkinStop tabs' data: the case's 2/2 skins and gold, a finished achievement, a stat
         const std::string ui = career.UiData({ { 5001, info } });
         valid &= ui.find("cases: [[5001,'Test Case',2,2,1,1,1,5]]") != std::string::npos
-            && ui.find("['first_case','First Crack','Open your first case.',3,1,1,1,0,0]") != std::string::npos
+            && ui.find("['first_case','First Crack','Open your first case.',3,1,1,1,0,0,0]") != std::string::npos
             && ui.find("['Cases opened','6']") != std::string::npos
             && ui.find("goalReward: 150") != std::string::npos;
 
@@ -4822,7 +4860,14 @@ static bool CareerTracksGoalsAchievementsAndPersists()
             {
                 const size_t rowEnd = ui.find(']', at);
                 int category = 0, collectible = 0;
-                if (rowEnd != std::string::npos && sscanf(ui.substr(ui.rfind(',', ui.rfind(',', rowEnd - 1) - 1) + 1, rowEnd).c_str(), "%d,%d", &category, &collectible) == 2)
+                size_t fieldStart = rowEnd;
+                for (int commas = 0; commas < 3 && fieldStart != std::string::npos; ++commas)
+                {
+                    fieldStart = ui.rfind(',', fieldStart - 1);
+                }
+                int def = 0;
+                if (rowEnd != std::string::npos && fieldStart != std::string::npos
+                    && sscanf(ui.substr(fieldStart + 1, rowEnd - fieldStart - 1).c_str(), "%d,%d,%d", &category, &collectible, &def) == 3)
                 {
                     if (categories.empty() || categories.back() != category)
                     {
