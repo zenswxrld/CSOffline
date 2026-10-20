@@ -1187,7 +1187,17 @@ static const char CaseStoreScriptCareer[] = R"js(
 			var progress = _Panel( row, { flowChildren: 'down', verticalAlign: 'center', width: '240px' } );
 			_Label( progress, finished ? 'Unlocked' : ( a[ 5 ] + ' / ' + a[ 4 ] ), { fontSize: '13px', color: finished ? GREEN : '#e2e8f0' } );
 			_ProgressBar( progress, finished ? 1 : a[ 5 ] / a[ 4 ], finished ? GREEN : '#5b9bff', '220px' );
-			_Label( row, '+' + a[ 3 ] + ' \u2605', { fontSize: '17px', color: finished ? '#9aa5b1' : GOLD, fontWeight: 'bold', verticalAlign: 'center', horizontalAlign: 'right' } );
+			var reward = _Panel( row, { flowChildren: 'right', verticalAlign: 'center', horizontalAlign: 'right' } );
+			_Label( reward, '+' + a[ 3 ] + ' \u2605', { fontSize: '17px', color: finished ? '#9aa5b1' : GOLD, fontWeight: 'bold', verticalAlign: 'center' } );
+			var iconDef = a[ 8 ] && m_career.collectibles ? m_career.collectibles[ a[ 8 ] - 1 ] : 0;
+			if ( iconDef )
+			{
+				// the achievement also gives a pin (1), coin (2) or trophy (3)
+				_Label( reward, '+', { fontSize: '17px', color: finished ? '#9aa5b1' : '#ffffff', fontWeight: 'bold', verticalAlign: 'center', margin: '0px 6px' } );
+				var icon = _Panel( reward, { width: '44px', height: '34px', verticalAlign: 'center', opacity: finished ? '0.55' : '1.0' }, 'ItemImage', '', { scaling: 'stretch-to-fit-preserve-aspect' } );
+				icon.itemid = _FauxId( iconDef );
+				icon.hittest = false;
+			}
 		} );
 	}
 

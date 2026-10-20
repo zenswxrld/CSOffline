@@ -4516,9 +4516,35 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         // the SkinStop tabs' data: the case's 2/2 skins and gold, a finished achievement, a stat
         const std::string ui = career.UiData({ { 5001, info } });
         valid &= ui.find("cases: [[5001,'Test Case',2,2,1,1,1,5]]") != std::string::npos
-            && ui.find("['first_case','First Crack','Open your first case.',3,1,1,1,0]") != std::string::npos
+            && ui.find("['first_case','First Crack','Open your first case.',3,1,1,1,0,0]") != std::string::npos
             && ui.find("['Cases opened','6']") != std::string::npos
             && ui.find("goalReward: 150") != std::string::npos;
+
+        // each category is one block (no repeated section headings) and the harder ones give a collectible
+        {
+            const size_t begin = ui.find("achievements: [");
+            const size_t end = ui.find("], cases:", begin);
+            std::vector<int> categories;
+            bool anyCollectible = false;
+            for (size_t at = ui.find("',", begin); at != std::string::npos && at < end; at = ui.find("['", at + 1))
+            {
+                const size_t rowEnd = ui.find(']', at);
+                int category = 0, collectible = 0;
+                if (rowEnd != std::string::npos && sscanf(ui.substr(ui.rfind(',', ui.rfind(',', rowEnd - 1) - 1) + 1, rowEnd).c_str(), "%d,%d", &category, &collectible) == 2)
+                {
+                    if (categories.empty() || categories.back() != category)
+                    {
+                        categories.push_back(category);
+                    }
+                    anyCollectible |= collectible > 0;
+                }
+            }
+            std::vector<int> sortedCategories = categories;
+            std::sort(sortedCategories.begin(), sortedCategories.end());
+            valid &= categories.size() == 8 && categories == sortedCategories
+                && std::adjacent_find(sortedCategories.begin(), sortedCategories.end()) == sortedCategories.end()
+                && anyCollectible;
+        }
     }
 
     TestFilesystem::RemoveFile(Path);

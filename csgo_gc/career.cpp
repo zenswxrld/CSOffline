@@ -359,6 +359,72 @@ constexpr AchievementDef Achievements[] = {
     { "matches_won_10", "Ten Wins", "Win 10 matches in any mode.", "matches_won", 10, 60, 6 },
     { "matches_won_100", "A Hundred Wins", "Win 100 matches in any mode.", "matches_won", 100, 300, 6 },
     { "matches_won_500", "Winning Habit", "Win 500 matches in any mode.", "matches_won", 500, 750, 6 },
+    { "matches_won_1_n", "Winner Winner", "Win 1 matches.", "matches_won", 1, 20, 6 },
+    { "matches_won_5_n", "On a Roll", "Win 5 matches.", "matches_won", 5, 20, 6 },
+    { "matches_won_25_n", "Quarter Century", "Win 25 matches.", "matches_won", 25, 20, 6 },
+    { "matches_won_50_n", "Fifty Victories", "Win 50 matches.", "matches_won", 50, 20, 6 },
+    { "matches_won_250_n", "Champion Material", "Win 250 matches.", "matches_won", 250, 20, 6 },
+    { "matches_won_1000_n", "Unbeatable", "Win 1,000 matches.", "matches_won", 1000, 20, 6 },
+    { "matches_lost_1_n", "Lesson Learned", "Lose 1 matches.", "matches_lost", 1, 20, 6 },
+    { "matches_lost_10_n", "Character Building", "Lose 10 matches.", "matches_lost", 10, 20, 6 },
+    { "matches_lost_25_n", "Tough Love", "Lose 25 matches.", "matches_lost", 25, 20, 6 },
+    { "matches_lost_50_n", "Never Give Up", "Lose 50 matches.", "matches_lost", 50, 20, 6 },
+    { "matches_lost_100_n", "Glutton for Punishment", "Lose 100 matches.", "matches_lost", 100, 20, 6 },
+    { "matches_lost_250_n", "Built Different", "Lose 250 matches.", "matches_lost", 250, 20, 6 },
+    { "win_streak_best_2_n", "Double Up", "Win 2 matches in a row.", "win_streak_best", 2, 20, 6 },
+    { "win_streak_best_3_n", "Three-Peat", "Win 3 matches in a row.", "win_streak_best", 3, 20, 6 },
+    { "win_streak_best_5_n", "Hot Streak", "Win 5 matches in a row.", "win_streak_best", 5, 20, 6 },
+    { "win_streak_best_7_n", "Lucky Seven Wins", "Win 7 matches in a row.", "win_streak_best", 7, 20, 6 },
+    { "win_streak_best_10_n", "Perfect Ten", "Win 10 matches in a row.", "win_streak_best", 10, 20, 6 },
+    { "win_streak_best_15_n", "Unstoppable Force", "Win 15 matches in a row.", "win_streak_best", 15, 20, 6 },
+    { "win_streak_best_20_n", "Flawless Run", "Win 20 matches in a row.", "win_streak_best", 20, 20, 6 },
+    { "wins_competitive_50_n", "Gold Standard", "Win 50 Competitive matches.", "wins_competitive", 50, 20, 6 },
+    { "wins_competitive_250_n", "Competitive Legend", "Win 250 Competitive matches.", "wins_competitive", 250, 20, 6 },
+    { "wins_wingman_10_n", "Dynamic Duo", "Win 10 Wingman matches.", "wins_wingman", 10, 20, 6 },
+    { "wins_wingman_50_n", "Wingman Ace", "Win 50 Wingman matches.", "wins_wingman", 50, 20, 6 },
+    { "wins_dangerzone_5_n", "Survivalist", "Win 5 Danger Zone matches.", "wins_dangerzone", 5, 20, 6 },
+    { "wins_dangerzone_10_n", "Zone Runner", "Win 10 Danger Zone matches.", "wins_dangerzone", 10, 20, 6 },
+    { "wins_dangerzone_50_n", "Danger Zone King", "Win 50 Danger Zone matches.", "wins_dangerzone", 50, 20, 6 },
+    { "wins_casual_10_n", "Casual Friday", "Win 10 Casual matches.", "wins_casual", 10, 20, 6 },
+    { "wins_casual_50_n", "Weekend Warrior", "Win 50 Casual matches.", "wins_casual", 50, 20, 6 },
+    { "deaths_10_n", "Ouch", "Die 10 times.", "deaths", 10, 20, 6 },
+    { "deaths_50_n", "Respawn Regular", "Die 50 times.", "deaths", 50, 20, 6 },
+    { "deaths_100_n", "Practice Makes Perfect", "Die 100 times.", "deaths", 100, 20, 6 },
+    { "deaths_250_n", "Fell Over Again", "Die 250 times.", "deaths", 250, 20, 6 },
+    { "deaths_500_n", "Tombstone Collector", "Die 500 times.", "deaths", 500, 20, 6 },
+    { "deaths_1000_n", "Cat With Nine Lives", "Die 1,000 times.", "deaths", 1000, 20, 6 },
+    { "deaths_2500_n", "Professional Target", "Die 2,500 times.", "deaths", 2500, 20, 6 },
+    { "deaths_5000_n", "Eternal Respawn", "Die 5,000 times.", "deaths", 5000, 20, 6 },
+    { "kills_75_n", "Three Quarters Dead", "Get 75 kills.", "kills", 75, 20, 6 },
+    { "kills_3500_n", "Slaughterhouse", "Get 3,500 kills.", "kills", 3500, 20, 6 },
+    { "mvps_35_n", "Clutch Gene", "Be the MVP of 35 rounds.", "mvps", 35, 20, 6 },
+    { "matches_350_n", "Dedicated", "Finish 350 matches.", "matches", 350, 20, 6 },
+    { "matches_750_n", "Never Sleeps", "Finish 750 matches.", "matches", 750, 20, 6 },
+    { "stars_earned_350000_n", "Galaxy Brain", "Earn 350,000 stars in matches.", "stars_earned", 350000, 20, 7 },
+    { "stars_earned_750000_n", "Star Emperor", "Earn 750,000 stars in matches.", "stars_earned", 750000, 20, 7 },
+    { "items_sold_1_n", "Pawn Shop", "Sell 1 items for stars.", "items_sold", 1, 20, 4 },
+    { "items_sold_10_n", "Yard Sale", "Sell 10 items for stars.", "items_sold", 10, 20, 4 },
+    { "items_sold_25_n", "Flea Market", "Sell 25 items for stars.", "items_sold", 25, 20, 4 },
+    { "items_sold_50_n", "Liquidator", "Sell 50 items for stars.", "items_sold", 50, 20, 4 },
+    { "items_sold_100_n", "Merchant", "Sell 100 items for stars.", "items_sold", 100, 20, 4 },
+    { "items_sold_250_n", "Auction House", "Sell 250 items for stars.", "items_sold", 250, 20, 4 },
+    { "items_sold_500_n", "Market Mogul", "Sell 500 items for stars.", "items_sold", 500, 20, 4 },
+    { "shop_purchases_1_n", "First Purchase", "Buy 1 items from the star shop.", "shop_purchases", 1, 20, 7 },
+    { "shop_purchases_5_n", "Window Shopper", "Buy 5 items from the star shop.", "shop_purchases", 5, 20, 7 },
+    { "shop_purchases_10_n", "Regular Customer", "Buy 10 items from the star shop.", "shop_purchases", 10, 20, 7 },
+    { "shop_purchases_25_n", "Big Spender", "Buy 25 items from the star shop.", "shop_purchases", 25, 20, 7 },
+    { "shop_purchases_50_n", "Shopaholic", "Buy 50 items from the star shop.", "shop_purchases", 50, 20, 7 },
+    { "shop_purchases_100_n", "Bulk Buyer", "Buy 100 items from the star shop.", "shop_purchases", 100, 20, 7 },
+    { "shop_purchases_250_n", "Retail Therapy", "Buy 250 items from the star shop.", "shop_purchases", 250, 20, 7 },
+    { "stars_spent_100_n", "Pocket Money", "Spend 100 stars in the shop.", "stars_spent", 100, 20, 7 },
+    { "stars_spent_500_n", "Treat Yourself", "Spend 500 stars in the shop.", "stars_spent", 500, 20, 7 },
+    { "stars_spent_1000_n", "Splurge", "Spend 1,000 stars in the shop.", "stars_spent", 1000, 20, 7 },
+    { "stars_spent_2500_n", "Spending Spree", "Spend 2,500 stars in the shop.", "stars_spent", 2500, 20, 7 },
+    { "stars_spent_5000_n", "Deep Pockets", "Spend 5,000 stars in the shop.", "stars_spent", 5000, 20, 7 },
+    { "stars_spent_10000_n", "High Roller", "Spend 10,000 stars in the shop.", "stars_spent", 10000, 20, 7 },
+    { "stars_spent_25000_n", "Whale", "Spend 25,000 stars in the shop.", "stars_spent", 25000, 20, 7 },
+    { "stars_spent_50000_n", "Tycoon of Stars", "Spend 50,000 stars in the shop.", "stars_spent", 50000, 20, 7 },
+    { "stars_spent_100000_n", "Star Baron", "Spend 100,000 stars in the shop.", "stars_spent", 100000, 20, 7 },
 };
 
 std::string FormatCaseName(const ItemSchema &schema, uint32_t crate)
@@ -620,6 +686,9 @@ constexpr FamilyReward FamilyRewards[] = {
     { "skins_found", 10, 700 }, { "goals_done", 150, 1000 }, { "tradeups", 20, 700 }, { "tradeup_golds", 150, 1000 },
     { "kills", 5, 500 }, { "headshots", 10, 600 }, { "mvps", 15, 650 }, { "plants", 10, 600 }, { "defuses", 15, 650 },
     { "matches", 15, 650 }, { "stars_earned", 10, 700 },
+    { "matches_won", 15, 700 }, { "matches_lost", 10, 300 }, { "win_streak_best", 20, 800 }, { "wins_competitive", 30, 700 },
+    { "wins_wingman", 30, 600 }, { "wins_dangerzone", 40, 600 }, { "wins_casual", 15, 400 }, { "deaths", 5, 300 },
+    { "items_sold", 10, 500 }, { "shop_purchases", 10, 500 }, { "stars_spent", 15, 700 },
 };
 
 const std::unordered_map<std::string, uint32_t> &RebalancedStars()
@@ -680,6 +749,33 @@ static uint32_t AchievementCollectible(const AchievementDef &def)
     const auto found = RebalancedStars().find(def.id);
     const uint32_t base = found != RebalancedStars().end() ? found->second : def.stars;
     return base >= 700 ? 3 : base >= 400 ? 2 : base >= 200 ? 1 : 0;
+}
+
+// The table in category order, then by counter (in the order the counters first appear), then by what is needed, so
+// each category is one block however the table grew
+static std::vector<const AchievementDef *> SortedAchievements()
+{
+    std::vector<const AchievementDef *> sorted;
+    std::unordered_map<std::string, size_t> families;
+    for (const AchievementDef &def : Achievements)
+    {
+        sorted.push_back(&def);
+        families.emplace(def.stat, families.size());
+    }
+
+    std::stable_sort(sorted.begin(), sorted.end(), [&](const AchievementDef *a, const AchievementDef *b)
+    {
+        if (a->category != b->category)
+        {
+            return a->category < b->category;
+        }
+        if (a->stat != b->stat && strcmp(a->stat, b->stat))
+        {
+            return families[a->stat] < families[b->stat];
+        }
+        return a->threshold < b->threshold;
+    });
+    return sorted;
 }
 
 std::vector<Career::Unlock> Career::CheckAchievements()
@@ -940,6 +1036,14 @@ std::vector<Career::Unlock> Career::RecordStarsEarned(uint32_t amount)
     return unlocked;
 }
 
+std::vector<Career::Unlock> Career::RecordCounter(const std::string &stat, uint64_t amount)
+{
+    m_stats[stat] += amount;
+    std::vector<Unlock> unlocked = CheckAchievements();
+    Save();
+    return unlocked;
+}
+
 // "5-3 (63%)": wins, losses and the share of the matches won
 static std::string RecordText(uint64_t wins, uint64_t losses)
 {
@@ -1067,10 +1171,12 @@ static std::string JsString(const std::string &text)
 // a JS object for the SkinStop tabs:
 //   stats [label, value], categories [name], achievements [id, title, desc, stars, threshold, progress, done, category],
 //   cases [crate, name, found, total, golds, goldFound, complete, opened]
-std::string Career::UiData(const std::vector<std::pair<uint32_t, CaseInfo>> &cases) const
+std::string Career::UiData(const std::vector<std::pair<uint32_t, CaseInfo>> &cases,
+    const std::array<uint32_t, 3> &collectibleIcons) const
 {
     std::ostringstream out;
-    out << "{ goalReward: " << GoalRewardStars() << ", stats: [";
+    out << "{ goalReward: " << GoalRewardStars() << ", collectibles: [" << collectibleIcons[0] << "," << collectibleIcons[1]
+        << "," << collectibleIcons[2] << "], stats: [";
     const std::pair<const char *, std::string> stats[] = {
         { "Cases opened", std::to_string(Stat("cases_opened")) },
         { "Custom cases opened", std::to_string(Stat("custom_cases_opened")) },
@@ -1128,11 +1234,12 @@ std::string Career::UiData(const std::vector<std::pair<uint32_t, CaseInfo>> &cas
 
     out << "], achievements: [";
     first = true;
-    for (const AchievementDef &def : Achievements)
+    for (const AchievementDef *pointer : SortedAchievements())
     {
+        const AchievementDef &def = *pointer;
         out << (first ? "" : ",") << "[" << JsString(def.id) << "," << JsString(def.title) << "," << JsString(def.desc)
             << "," << AchievementStars(def) << "," << def.threshold << "," << std::min(Stat(def.stat), def.threshold) << ","
-            << (m_achievements.contains(def.id) ? 1 : 0) << "," << def.category << "]";
+            << (m_achievements.contains(def.id) ? 1 : 0) << "," << def.category << "," << AchievementCollectible(def) << "]";
         first = false;
     }
 
@@ -1169,8 +1276,9 @@ std::string Career::UiData(const std::vector<std::pair<uint32_t, CaseInfo>> &cas
 std::string Career::AchievementsText() const
 {
     std::ostringstream out;
-    for (const AchievementDef &def : Achievements)
+    for (const AchievementDef *pointer : SortedAchievements())
     {
+        const AchievementDef &def = *pointer;
         const bool done = m_achievements.contains(def.id);
         out << (done ? "[x] " : "[ ] ") << def.title << " - " << def.desc << " (+" << AchievementStars(def) << " stars)";
         if (!done)

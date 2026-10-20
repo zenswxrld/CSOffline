@@ -1113,7 +1113,18 @@ void ClientGC::PublishCareer()
 {
     if (GetConfig().CareerTracking())
     {
-        Career::Publish(m_career.UiData(CareerCases()));
+        // a pin, a coin and a trophy to picture next to what the achievements give
+        std::array<uint32_t, 3> icons{};
+        const ItemSchema &schema = m_inventory.GetItemSchema();
+        for (uint32_t def : schema.GetCollectibleDefIndexes())
+        {
+            const auto slot = static_cast<size_t>(schema.GetCollectibleKind(def)) - 1;
+            if (slot < icons.size() && !icons[slot])
+            {
+                icons[slot] = def;
+            }
+        }
+        Career::Publish(m_career.UiData(CareerCases(), icons));
     }
 }
 
@@ -1272,6 +1283,11 @@ void ClientGC::PaySale(uint32_t stars, uint64_t itemId)
     }
 
     PublishStarChange(change);
+    if (GetConfig().CareerTracking())
+    {
+        GrantCareerRewards(m_career.RecordCounter("items_sold", 1));
+        PublishCareer();
+    }
     Platform::Print("Stars: +%u for selling item %llu, balance %u\n", stars, itemId, m_inventory.Stars(*season));
     SendStarsMessage("Sold for " + std::to_string(stars) + " stars (" + std::to_string(m_inventory.Stars(*season))
         + " total)");
@@ -3504,6 +3520,13 @@ void ClientGC::StorePurchaseFinalize(GCMessageRead &messageRead)
             Platform::Print("Stars: -%llu, balance %u\n", starCost, StarBalance());
             PublishStarBalance();
         }
+    }
+
+    if (starCost && GetConfig().CareerTracking())
+    {
+        m_career.RecordCounter("shop_purchases", itemIds.size());
+        GrantCareerRewards(m_career.RecordCounter("stars_spent", starCost));
+        PublishCareer();
     }
 
     response.set_result(StoreResultOK);
