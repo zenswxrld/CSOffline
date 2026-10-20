@@ -59,6 +59,11 @@ namespace PanoramaHook
     // ready-made picture of (every one in a custom case) stays a blank tile. returns the number of changes
     int PatchCasePopup(std::string &source);
 
+    // finish title -> "#rrggbb", as a JS object. the case popup and the case roll draw a tinted plain weapon for a
+    // custom finish's tile (the game has no picture of those). set once from the schema
+    void SetKitTints(std::string tintsJsObject);
+    std::string BuildKitTints(const ItemSchema &itemSchema);
+
     // your ranks and level, for the scoreboard (Tab). the scoreboard reads each player's rank from the game server,
     // which has nothing for a listen server, so mock_adapter.js is patched to answer for you and for the bots. bots
     // get a rank and level near yours. only in competitive and wingman matches. returns the number of changes

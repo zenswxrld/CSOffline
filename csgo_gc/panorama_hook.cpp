@@ -13,6 +13,40 @@
 // text processing (all platforms)
 // ============================================================================
 
+static std::string s_kitTints = "{}";
+static std::mutex s_kitTintsMutex;
+
+void PanoramaHook::SetKitTints(std::string tintsJsObject)
+{
+    std::lock_guard lock{ s_kitTintsMutex };
+    s_kitTints = std::move(tintsJsObject);
+}
+
+std::string PanoramaHook::BuildKitTints(const ItemSchema &itemSchema)
+{
+    std::string text = "{";
+    std::unordered_set<std::string> seen;
+    for (const ItemSchema::CustomPaintKit &kit : itemSchema.CustomPaintKits())
+    {
+        if (kit.tint.empty() || kit.title.empty() || !seen.insert(kit.title).second)
+        {
+            continue;
+        }
+
+        std::string key;
+        for (char c : kit.title)
+        {
+            if (c == '"' || c == '\\')
+            {
+                key += '\\';
+            }
+            key += c;
+        }
+        text += std::string{ text.size() > 1 ? "," : "" } + "\"" + key + "\":\"" + kit.tint + "\"";
+    }
+    return text + "}";
+}
+
 int PanoramaHook::PatchCasePopup(std::string &source)
 {
     // var itemid = ItemInfo.GetLootListItemByIndex( caseId, i );
@@ -37,8 +71,7 @@ int PanoramaHook::PatchCasePopup(std::string &source)
         // logs what the game says about it, in case a picture stays blank
         source = std::regex_replace(source, update,
             "$&\n\t\t\t\tif ( itemid !== '0' ) { ( function( image, id, first, custom ) {"
-            " var plain = function() { try { var weapon = InventoryAPI.GetItemDefinitionName( id );"
-            " if ( weapon ) { image.SetImage( 'file://{images_econ}/weapons/base_weapons/' + weapon + '.png' ); } } catch ( e ) {} };"
+            " var plain = function() { CsgoGcFallbackIcon( image, id ); };"
             " if ( custom ) { plain(); [ 0.3, 1.0 ].forEach( function( delay ) { $.Schedule( delay, plain ); } ); }"
             " else { [ 0.7, 1.5, 3.0, 6.0 ].forEach( function( delay ) { $.Schedule( delay, function()"
             " { try { image.itemid = ''; image.itemid = id; } catch ( e ) {} } ); } ); }"
@@ -48,6 +81,55 @@ int PanoramaHook::PatchCasePopup(std::string &source)
             " ( function() { try { return String( InventoryAPI.GetItemDefinitionName( caseId ) ).indexOf( 'crate_csgogc_' ) === 0; }"
             " catch ( e ) { return false; } } )() ); }");
         count++;
+    }
+
+    if (count)
+    {
+        // the case opening's roll tiles: the same plain weapon for a custom case's skins (not the tile that lands, which is
+        // the real item)
+        static const std::regex rollTile{ R"re(elTile\.FindChildInLayoutFile\(\s*'ItemImage'\s*\)\.itemid\s*=\s*itemId\s*;)re" };
+        if (std::regex_search(source, rollTile))
+        {
+            source = std::regex_replace(source, rollTile,
+                "$&\n\t\t\tif ( elTile.id !== 'ItemFromContainer' && CsgoGcIsCustomCase( m_caseId ) )"
+                " { CsgoGcFallbackIcon( elTile.FindChildInLayoutFile( 'ItemImage' ), itemId ); }");
+        }
+
+        std::string tints;
+        {
+            std::lock_guard lock{ s_kitTintsMutex };
+            tints = s_kitTints;
+        }
+        source += "\n\nvar CsgoGcKitTints = " + tints + R"js(;
+function CsgoGcIsCustomCase( caseId )
+{
+	try
+	{
+		return String( InventoryAPI.GetItemDefinitionName( caseId ) ).indexOf( 'crate_csgogc_' ) === 0;
+	}
+	catch ( e ) {}
+	return false;
+}
+// a custom finish has no picture of its own: the plain weapon, tinted in the finish's main colour
+function CsgoGcFallbackIcon( image, id )
+{
+	try
+	{
+		var weapon = InventoryAPI.GetItemDefinitionName( id );
+		if ( !weapon )
+		{
+			return;
+		}
+
+		image.SetImage( 'file://{images_econ}/weapons/base_weapons/' + weapon + '.png' );
+		var name = String( ItemInfo.GetName( id ) );
+		var bar = name.indexOf( '| ' );
+		var tint = CsgoGcKitTints[ bar >= 0 ? name.substring( bar + 2 ) : name ];
+		image.style.washColor = tint ? tint : '#ffffff';
+	}
+	catch ( e ) {}
+}
+)js";
     }
     return count;
 }
@@ -1015,6 +1097,21 @@ static const char CaseStoreScriptCareer[] = R"js(
 		_Label( parent, text, { fontSize: '16px', color: '#e2e8f0', margin: '24px 4px' } );
 	}
 
+	// the case's name as the game shows it ("Phantom Blade Case"), not the internal one ("community 27")
+	function _CaseName( c )
+	{
+		try
+		{
+			var name = InventoryAPI.GetItemName( _FauxId( c[ 0 ] ) );
+			if ( name )
+			{
+				return name;
+			}
+		}
+		catch ( e ) {}
+		return c[ 1 ];
+	}
+
 	function _RenderCollections()
 	{
 		var panel = m_tabPanels.collections;
@@ -1058,7 +1155,7 @@ static const char CaseStoreScriptCareer[] = R"js(
 			image.itemid = _FauxId( c[ 0 ] );
 			image.hittest = false;
 			_Panel( tile, { width: '100%', height: '3px', backgroundColor: complete ? GREEN : ( c[ 7 ] > 0 ? '#5b9bff' : '#ffffff30' ) } );
-			_Label( tile, c[ 1 ], { fontSize: '13px', color: '#ffffff', fontWeight: 'bold', margin: '6px 8px 0px 8px', height: '34px' } );
+			_Label( tile, _CaseName( c ), { fontSize: '13px', color: '#ffffff', fontWeight: 'bold', margin: '6px 8px 0px 8px', height: '34px' } );
 			_Label( tile, c[ 2 ] + ' / ' + c[ 3 ] + ' skins', { fontSize: '13px', color: complete ? GREEN : '#e2e8f0', margin: '0px 8px 3px 8px' } );
 			var bar = _Panel( tile, { margin: '0px 8px 4px 8px' } );
 			_ProgressBar( bar, c[ 2 ] / c[ 3 ], complete ? GREEN : '#5b9bff', '100%' );
