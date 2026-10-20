@@ -4435,6 +4435,125 @@ static bool BotsGetFacesInTheRoundReportAndFreezePanel()
     return valid;
 }
 
+static bool BotsRememberKillsAndTalkToEachOther()
+{
+    using namespace std::chrono;
+    const auto start = steady_clock::now();
+    bool valid = true;
+
+    const auto kill = [](const std::string &attacker, bool attackerBot, const std::string &victim, bool victimBot, bool headshot)
+    {
+        BotChat::Event event;
+        event.type = BotChat::EventType::Kill;
+        event.attacker = attacker;
+        event.attackerBot = attackerBot;
+        event.attackerLocal = !attackerBot;
+        event.victim = victim;
+        event.victimBot = victimBot;
+        event.victimLocal = !victimBot;
+        event.headshot = headshot;
+        return event;
+    };
+    const auto lines = [&](time_point<steady_clock> at)
+    {
+        std::vector<std::string> taken;
+        BotChat::Take(at, taken);
+        std::vector<std::string> plain;
+        for (const std::string &line : taken)
+        {
+            plain.push_back(BotChat::PlainText(line));
+        }
+        return plain;
+    };
+
+    // a bot you killed last round says it is back for it when it kills you; one that was not killed does not
+    int revenge = 0, noRevenge = 0;
+    const std::vector<std::string> revengeLines = { "back for revenge", "remember me?", "payback time", "told you ill be back",
+        "that was for last round", "got you this time" };
+    for (unsigned seed = 1; seed <= 60; ++seed)
+    {
+        BotChat::Reset(seed);
+        BotChat::SetBots({ "Avenger", "Bystander" });
+        BotChat::OnEvent(kill("me", false, "Avenger", true, false), start);
+        BotChat::Event next;
+        next.type = BotChat::EventType::RoundStart;
+        next.roundsPlayed = 1;
+        BotChat::OnEvent(next, start + seconds{ 30 });
+        lines(start + seconds{ 60 }); // the round's own chatter
+
+        BotChat::OnEvent(kill("Avenger", true, "me", false, false), start + seconds{ 100 });
+        for (const std::string &line : lines(start + seconds{ 110 }))
+        {
+            for (const std::string &expected : revengeLines)
+            {
+                revenge += line == "Avenger: " + expected;
+            }
+        }
+
+        BotChat::OnEvent(kill("Bystander", true, "me", false, false), start + seconds{ 200 });
+        for (const std::string &line : lines(start + seconds{ 210 }))
+        {
+            for (const std::string &expected : revengeLines)
+            {
+                noRevenge += line == "Bystander: " + expected;
+            }
+        }
+    }
+    valid &= revenge > 30 && noRevenge == 0;
+
+    // a headshot on you gets a remark now and then
+    int remarks = 0;
+    const std::vector<std::string> headshotLines = { "headshot", "dome", "one tap", "right between the eyes", "nice try", "tapped",
+        "boom headshot" };
+    for (unsigned seed = 1; seed <= 80; ++seed)
+    {
+        BotChat::Reset(seed);
+        BotChat::SetBots({ "Sniper" });
+        BotChat::OnEvent(kill("Sniper", true, "me", false, true), start);
+        for (const std::string &line : lines(start + seconds{ 10 }))
+        {
+            for (const std::string &expected : headshotLines)
+            {
+                remarks += line == "Sniper: " + expected;
+            }
+        }
+    }
+    valid &= remarks > 5;
+
+    // after a round two bots talk: the first names the other, the other answers
+    int exchanges = 0;
+    for (unsigned seed = 1; seed <= 200; ++seed)
+    {
+        BotChat::Reset(seed);
+        BotChat::SetBots({ "Alpha", "Bravo" });
+        BotChat::Event end;
+        end.type = BotChat::EventType::RoundEnd;
+        end.localWon = seed % 2 == 0;
+        BotChat::OnEvent(end, start);
+        const std::vector<std::string> said = lines(start + seconds{ 30 });
+        if (said.size() == 2)
+        {
+            const bool alphaFirst = said[0].rfind("Alpha: ", 0) == 0;
+            const std::string other = alphaFirst ? "Bravo" : "Alpha";
+            valid &= said[0].find(other) != std::string::npos && said[1].rfind(other + ": ", 0) == 0;
+            exchanges++;
+        }
+    }
+    valid &= exchanges > 10;
+
+    // a lone bot has nobody to talk to
+    BotChat::Reset(4);
+    BotChat::SetBots({ "Alone" });
+    for (int i = 0; i < 50; ++i)
+    {
+        BotChat::Event end;
+        end.type = BotChat::EventType::RoundEnd;
+        BotChat::OnEvent(end, start + seconds{ i * 60 });
+        valid &= lines(start + seconds{ i * 60 + 30 }).size() <= 1;
+    }
+    return valid;
+}
+
 static bool HowlGoesBackInTheHuntsmanCase()
 {
     std::string text =
@@ -5854,6 +5973,7 @@ int main()
         { "StarShopEarnsStarsAndRedeemsARandomAgent", StarShopEarnsStarsAndRedeemsARandomAgent },
         { "BotPersonalitiesAndNemesisWork", BotPersonalitiesAndNemesisWork },
         { "BotsGetFacesOnTheScoreboard", BotsGetFacesOnTheScoreboard },
+        { "BotsRememberKillsAndTalkToEachOther", BotsRememberKillsAndTalkToEachOther },
         { "BotsGetFacesInTheRoundReportAndFreezePanel", BotsGetFacesInTheRoundReportAndFreezePanel },
         { "BotProfilesGetAggressionByPersonality", BotProfilesGetAggressionByPersonality },
         { "SchemaFindsPinsTrophiesAndCoinsButNotServiceMedals", SchemaFindsPinsTrophiesAndCoinsButNotServiceMedals },
