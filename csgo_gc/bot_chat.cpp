@@ -269,6 +269,26 @@ std::string LineFor(const std::string &bot, Moment moment)
 }
 
 std::string s_nemesis;
+// bots the local player killed this round, and the ones killed in the round before (they want revenge)
+std::vector<std::string> s_killedThisRound;
+std::vector<std::string> s_wantRevenge;
+
+bool Contains(const std::vector<std::string> &list, const std::string &name)
+{
+    return std::find(list.begin(), list.end(), name) != list.end();
+}
+
+std::string WithName(const char *pattern, const std::string &name)
+{
+    std::string line = pattern;
+    const size_t at = line.find("{n}");
+    if (at != std::string::npos)
+    {
+        line.replace(at, 3, name);
+    }
+    return line;
+}
+
 
 std::string Format(const std::string &bot, const std::string &text)
 {
@@ -306,6 +326,31 @@ void Say(const std::string &bot, const std::string &text, std::chrono::steady_cl
     s_queue.push_back({ now + std::chrono::milliseconds{ delay }, Format(bot, text) });
 }
 
+// two bots talk to each other: one speaks, the other answers a little later. false if there aren't two bots
+bool Banter(const char *const *openers, size_t openerCount, const char *const *answers, size_t answerCount,
+    std::chrono::steady_clock::time_point now)
+{
+    if (s_bots.size() < 2)
+    {
+        return false;
+    }
+
+    const std::string first = PickBot();
+    std::string second = PickBot();
+    for (int tries = 0; tries < 8 && second == first; ++tries)
+    {
+        second = PickBot();
+    }
+    if (second == first || !s_queue.empty())
+    {
+        return false;
+    }
+
+    Say(first, WithName(openers[Roll(static_cast<int>(openerCount))], second), now, 900, 2400, true);
+    Say(second, answers[Roll(static_cast<int>(answerCount))], now, 3000, 5000, true);
+    return true;
+}
+
 } // namespace
 
 void BotChat::SetBots(std::vector<std::string> names)
@@ -319,6 +364,8 @@ void BotChat::Reset(unsigned seed)
     s_queue.clear();
     s_bots.clear();
     s_nemesis.clear();
+    s_killedThisRound.clear();
+    s_wantRevenge.clear();
     s_spokeBefore = false;
 }
 
@@ -339,9 +386,27 @@ void BotChat::OnEvent(const Event &event, std::chrono::steady_clock::time_point 
             {
                 break; // the nemesis has its own line
             }
+            if (!Contains(s_killedThisRound, event.victim))
+            {
+                s_killedThisRound.push_back(event.victim);
+            }
             if (ChanceFor(event.victim, event.headshot ? 45 : 22))
             {
                 Say(event.victim, LineFor(event.victim, event.headshot ? Moment::BeatenHeadshot : Moment::Beaten), now);
+            }
+            else if (s_bots.size() > 1 && Chance(10))
+            {
+                // another bot has something to say about it
+                static const char *const Teasing[] = { "{n} that was bad", "lol {n}", "{n} you good?", "{n} how", "rip {n}" };
+                std::string teaser = PickBot();
+                for (int tries = 0; tries < 8 && teaser == event.victim; ++tries)
+                {
+                    teaser = PickBot();
+                }
+                if (teaser != event.victim)
+                {
+                    Say(teaser, WithName(Pick(Teasing), event.victim), now);
+                }
             }
         }
         else if (event.attackerBot && event.victimLocal)
@@ -352,6 +417,20 @@ void BotChat::OnEvent(const Event &event, std::chrono::steady_clock::time_point 
             if (!s_nemesis.empty() && event.attacker == s_nemesis && Chance(70))
             {
                 Say(event.attacker, Pick(NemesisTaunts), now, 900, 2200, true);
+            }
+            else if (Contains(s_wantRevenge, event.attacker) && Chance(75))
+            {
+                // killed by the local player last round, and back for it
+                static const char *const Revenge[] = { "back for revenge", "remember me?", "payback time", "told you ill be back",
+                    "that was for last round", "got you this time" };
+                s_wantRevenge.erase(std::remove(s_wantRevenge.begin(), s_wantRevenge.end(), event.attacker), s_wantRevenge.end());
+                Say(event.attacker, Pick(Revenge), now, 900, 2400, true);
+            }
+            else if (event.headshot && ChanceFor(event.attacker, 55))
+            {
+                static const char *const Headshots[] = { "headshot", "dome", "one tap", "right between the eyes", "nice try",
+                    "tapped", "boom headshot" };
+                Say(event.attacker, Pick(Headshots), now, 900, 2400);
             }
             else if (ChanceFor(event.attacker, 30))
             {
@@ -371,6 +450,9 @@ void BotChat::OnEvent(const Event &event, std::chrono::steady_clock::time_point 
 
     case EventType::RoundStart:
     {
+        // the bots you killed last round remember it; a new match starts clean
+        s_wantRevenge = event.roundsPlayed == 0 ? std::vector<std::string>{} : s_killedThisRound;
+        s_killedThisRound.clear();
         if (event.roundsPlayed == 0)
         {
             const std::string bot = PickBot();
@@ -389,6 +471,20 @@ void BotChat::OnEvent(const Event &event, std::chrono::steady_clock::time_point 
 
     case EventType::RoundEnd:
     {
+        // bots talk to each other: blame after a lost round, praise after a won one
+        static const char *const Blame[] = { "{n} what was that", "{n} you were supposed to hold", "{n} wake up", "ugh {n}",
+            "{n} seriously?", "thanks {n}", "{n} where were you" };
+        static const char *const BlameAnswers[] = { "me?? you were the one who left", "lol shut up", "my bad", "sure blame me",
+            "wasnt me", "i was watching the other site", "chill" };
+        static const char *const Praise[] = { "nice one {n}", "{n} carried", "gj {n}", "{n} what a round", "wp {n}" };
+        static const char *const PraiseAnswers[] = { "ty", "np", "ez", "we did it", "thanks!", "all of us" };
+        if (Chance(event.localWon ? 18 : 14) && Banter(event.localWon ? Blame : Praise,
+                event.localWon ? std::size(Blame) : std::size(Praise), event.localWon ? BlameAnswers : PraiseAnswers,
+                event.localWon ? std::size(BlameAnswers) : std::size(PraiseAnswers), now))
+        {
+            break;
+        }
+
         const std::string bot = PickBot();
         if (ChanceFor(bot, 22))
         {
