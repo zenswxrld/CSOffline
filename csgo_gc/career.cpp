@@ -354,8 +354,6 @@ constexpr AchievementDef Achievements[] = {
     { "casual_win_1", "First Casual Win", "Win a casual match.", "wins_casual", 1, 20, 6 },
     { "casual_win_25", "Casual Regular", "Win 25 casual matches.", "wins_casual", 25, 100, 6 },
     { "casual_win_100", "Casual Veteran", "Win 100 casual matches.", "wins_casual", 100, 300, 6 },
-    { "dangerzone_win_1", "First Danger Win", "Win a Danger Zone match.", "wins_dangerzone", 1, 30, 6 },
-    { "dangerzone_win_25", "Danger Zone Regular", "Win 25 Danger Zone matches.", "wins_dangerzone", 25, 150, 6 },
     { "matches_won_10", "Ten Wins", "Win 10 matches in any mode.", "matches_won", 10, 60, 6 },
     { "matches_won_100", "A Hundred Wins", "Win 100 matches in any mode.", "matches_won", 100, 300, 6 },
     { "matches_won_500", "Winning Habit", "Win 500 matches in any mode.", "matches_won", 500, 750, 6 },
@@ -382,9 +380,6 @@ constexpr AchievementDef Achievements[] = {
     { "wins_competitive_250_n", "Competitive Legend", "Win 250 Competitive matches.", "wins_competitive", 250, 20, 6 },
     { "wins_wingman_10_n", "Dynamic Duo", "Win 10 Wingman matches.", "wins_wingman", 10, 20, 6 },
     { "wins_wingman_50_n", "Wingman Ace", "Win 50 Wingman matches.", "wins_wingman", 50, 20, 6 },
-    { "wins_dangerzone_5_n", "Survivalist", "Win 5 Danger Zone matches.", "wins_dangerzone", 5, 20, 6 },
-    { "wins_dangerzone_10_n", "Zone Runner", "Win 10 Danger Zone matches.", "wins_dangerzone", 10, 20, 6 },
-    { "wins_dangerzone_50_n", "Danger Zone King", "Win 50 Danger Zone matches.", "wins_dangerzone", 50, 20, 6 },
     { "wins_casual_10_n", "Casual Friday", "Win 10 Casual matches.", "wins_casual", 10, 20, 6 },
     { "wins_casual_50_n", "Weekend Warrior", "Win 50 Casual matches.", "wins_casual", 50, 20, 6 },
     { "deaths_10_n", "Ouch", "Die 10 times.", "deaths", 10, 20, 6 },
@@ -687,7 +682,7 @@ constexpr FamilyReward FamilyRewards[] = {
     { "kills", 5, 500 }, { "headshots", 10, 600 }, { "mvps", 15, 650 }, { "plants", 10, 600 }, { "defuses", 15, 650 },
     { "matches", 15, 650 }, { "stars_earned", 10, 700 },
     { "matches_won", 15, 700 }, { "matches_lost", 10, 300 }, { "win_streak_best", 20, 800 }, { "wins_competitive", 30, 700 },
-    { "wins_wingman", 30, 600 }, { "wins_dangerzone", 40, 600 }, { "wins_casual", 15, 400 }, { "deaths", 5, 300 },
+    { "wins_wingman", 30, 600 }, { "wins_casual", 15, 400 }, { "deaths", 5, 300 },
     { "items_sold", 10, 500 }, { "shop_purchases", 10, 500 }, { "stars_spent", 15, 700 },
 };
 
@@ -1086,14 +1081,13 @@ std::string Career::StatsText() const
         << "Skins found: " << Stat("skins_found") << ", collections complete: " << Stat("goals_done") << '\n'
         << "Trade-ups: " << Stat("tradeups") << " (" << Stat("tradeup_golds") << " gold)\n"
         << "Matches won: " << Stat("matches_won") << " (competitive " << Stat("wins_competitive") << ", wingman "
-        << Stat("wins_wingman") << ", danger zone " << Stat("wins_dangerzone") << ", casual " << Stat("wins_casual") << ")\n"
+        << Stat("wins_wingman") << ", casual " << Stat("wins_casual") << ")\n"
         << "Matches: " << Stat("matches") << ", kills " << Stat("kills") << " (" << Stat("headshots")
         << " headshots), MVPs " << Stat("mvps") << ", plants " << Stat("plants") << ", defuses " << Stat("defuses") << '\n'
         << "Deaths: " << Stat("deaths") << ", K/D " << RatioText(Stat("kills"), Stat("deaths")) << ", headshot rate "
         << PercentText(Stat("headshots"), Stat("kills")) << '\n'
         << "Records (won-lost): competitive " << RecordText(Stat("wins_competitive"), Stat("losses_competitive"))
         << ", wingman " << RecordText(Stat("wins_wingman"), Stat("losses_wingman"))
-        << ", danger zone " << RecordText(Stat("wins_dangerzone"), Stat("losses_dangerzone"))
         << ", casual " << RecordText(Stat("wins_casual"), Stat("losses_casual"))
         << "; best win streak " << Stat("win_streak_best") << '\n'
         << "Stars earned in matches: " << Stat("stars_earned") << '\n'
@@ -1209,7 +1203,6 @@ std::string Career::UiData(const std::vector<std::pair<uint32_t, CaseInfo>> &cas
         { "Win rate", PercentText(Stat("matches_won"), Stat("matches_won") + Stat("matches_lost")) },
         { "Competitive record", RecordText(Stat("wins_competitive"), Stat("losses_competitive")) },
         { "Wingman record", RecordText(Stat("wins_wingman"), Stat("losses_wingman")) },
-        { "Danger Zone record", RecordText(Stat("wins_dangerzone"), Stat("losses_dangerzone")) },
         { "Casual record", RecordText(Stat("wins_casual"), Stat("losses_casual")) },
         { "Best win streak", std::to_string(Stat("win_streak_best")) },
         { "Deaths", std::to_string(Stat("deaths")) },
