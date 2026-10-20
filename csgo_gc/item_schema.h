@@ -246,6 +246,19 @@ public:
     // player agents (item_type "customplayer"), sorted by def index
     std::vector<uint32_t> GetAgentDefIndexes() const;
 
+    // things for the profile: pins, trophies (Major and Pick'Em) and coins (operation and community season coins and
+    // the like). never the service medals (prestige coins), which come from levelling up
+    enum class CollectibleKind
+    {
+        None,
+        Pin,
+        Trophy,
+        Coin,
+    };
+    CollectibleKind GetCollectibleKind(uint32_t defIndex) const;
+    // every collectible the schema has, pins first, then trophies, then coins, each by def index
+    std::vector<uint32_t> GetCollectibleDefIndexes() const;
+
     enum class ContainerKind
     {
         WeaponCase,

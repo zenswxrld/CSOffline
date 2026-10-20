@@ -49,6 +49,13 @@ bool StarShop::IsContainer(const ItemSchema &itemSchema, uint32_t defIndex)
         && (info->m_supplyCrateSeries || !info->m_lootListName.empty());
 }
 
+static bool ContainsInsensitive(std::string_view text, std::string_view needle)
+{
+    const auto it = std::search(text.begin(), text.end(), needle.begin(), needle.end(),
+        [](char a, char b) { return std::tolower((unsigned char)a) == std::tolower((unsigned char)b); });
+    return it != text.end();
+}
+
 uint32_t StarShop::Price(const ItemSchema &itemSchema, const StarShopConfig &config, uint32_t defIndex)
 {
     if (!config.enabled)
@@ -65,6 +72,26 @@ uint32_t StarShop::Price(const ItemSchema &itemSchema, const StarShopConfig &con
     if (IsAgent(itemSchema, defIndex) || defIndex == RandomAgentItem(itemSchema))
     {
         return config.agentPrice;
+    }
+
+    switch (itemSchema.GetCollectibleKind(defIndex))
+    {
+    case ItemSchema::CollectibleKind::Pin: return config.pinPrice;
+    case ItemSchema::CollectibleKind::Coin: return config.coinPrice;
+    case ItemSchema::CollectibleKind::Trophy:
+    {
+        // the better the placing, the more it costs: Quarterfinalist and Bronze x1, Semifinalist and Silver x2,
+        // Finalist and Gold x3, Champion x5 (names are like "DreamHack SteelSeries 2013 CS:GO Finalist")
+        const std::string &name = info->m_name;
+        const uint32_t multiplier = ContainsInsensitive(name, "champion") ? 5
+            : ContainsInsensitive(name, "semifinalist") ? 2
+            : ContainsInsensitive(name, "quarterfinalist") ? 1
+            : ContainsInsensitive(name, "finalist") ? 3
+            : ContainsInsensitive(name, "gold") ? 3
+            : ContainsInsensitive(name, "silver") ? 2 : 1;
+        return config.trophyPrice * multiplier;
+    }
+    default: break;
     }
 
     if (!IsContainer(itemSchema, defIndex))

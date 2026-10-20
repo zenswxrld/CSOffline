@@ -5047,6 +5047,25 @@ static bool WriteStarShopFixtures()
     agent.AddString("item_type", "customplayer");
     agent.AddString("prefab", "customplayertradable");
 
+    KeyValue &prefabs = *itemsGame.GetSubkey("prefabs");
+    for (const char *prefab : { "attendance_pin", "majors_trophy", "season2_coin", "prestige_coin" })
+    {
+        prefabs.AddSubkey(prefab);
+    }
+    const std::pair<const char *, std::pair<const char *, const char *>> collectibles[] = {
+        { "6001", { "attendance_pin", "pin_test" } },
+        { "6002", { "majors_trophy", "test_major_champion_trophy" } },
+        { "6003", { "majors_trophy", "test_major_finalist_trophy" } },
+        { "6004", { "season2_coin", "test_season_coin" } },
+        { "6005", { "prestige_coin", "test_service_medal" } },
+    };
+    for (const auto &entry : collectibles)
+    {
+        KeyValue &item = itemsGame.GetSubkey("items")->AddSubkey(entry.first);
+        item.AddString("name", entry.second.second);
+        item.AddString("prefab", entry.second.first);
+    }
+
     // the player owns nothing, the operation appears with the first stars
     KeyValue inventory{ "inventory" };
     inventory.AddNumber("format_version", 1);
@@ -5384,6 +5403,43 @@ static bool RconGiveStarsAddsToTheBalance()
     return valid;
 }
 
+static bool StarShopSellsPinsTrophiesAndCoinsButNotServiceMedals()
+{
+    RemoveStarShopFixtures();
+    if (!WriteStarShopFixtures())
+    {
+        RemoveStarShopFixtures();
+        return false;
+    }
+
+    bool valid = true;
+    {
+        ClientGC gc{ 76561197960265729ull };
+        const ItemSchema &schema = gc.GetItemSchema();
+        StarShopConfig config;
+        using Kind = ItemSchema::CollectibleKind;
+        valid &= schema.GetCollectibleKind(6001) == Kind::Pin
+            && schema.GetCollectibleKind(6002) == Kind::Trophy
+            && schema.GetCollectibleKind(6004) == Kind::Coin
+            && schema.GetCollectibleKind(6005) == Kind::None;
+        const std::vector<uint32_t> all = schema.GetCollectibleDefIndexes();
+        for (uint32_t def : { 6001u, 6002u, 6003u, 6004u })
+        {
+            valid &= std::find(all.begin(), all.end(), def) != all.end();
+        }
+        valid &= std::find(all.begin(), all.end(), 6005u) == all.end();
+
+        valid &= StarShop::Price(schema, config, 6001) == config.pinPrice
+            && StarShop::Price(schema, config, 6004) == config.coinPrice
+            && StarShop::Price(schema, config, 6002) == config.trophyPrice * 5
+            && StarShop::Price(schema, config, 6003) == config.trophyPrice * 3
+            && StarShop::Price(schema, config, 6005) == 0;
+    }
+
+    RemoveStarShopFixtures();
+    return valid;
+}
+
 static bool StarShopEarnsStarsAndRedeemsARandomAgent()
 {
     constexpr uint64_t SteamId = 76561197960265729ull;
@@ -5597,6 +5653,7 @@ int main()
         { "CaseStoreListsCustomCasesFirstAndAgents", CaseStoreListsCustomCasesFirstAndAgents },
         { "BotSkinsPickThemedStableSkins", BotSkinsPickThemedStableSkins },
         { "StarShopEarnsStarsAndRedeemsARandomAgent", StarShopEarnsStarsAndRedeemsARandomAgent },
+        { "StarShopSellsPinsTrophiesAndCoinsButNotServiceMedals", StarShopSellsPinsTrophiesAndCoinsButNotServiceMedals },
         { "PityBoostsBetterRaritiesBeforeGold", PityBoostsBetterRaritiesBeforeGold },
         { "StorePurchasesFinalizeTransactionally", StorePurchasesFinalizeTransactionally },
         { "LegacyStorePriceSheetMatchesClientSchema",

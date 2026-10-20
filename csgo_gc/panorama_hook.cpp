@@ -728,6 +728,27 @@ std::string PanoramaHook::BuildCaseStoreData(const ItemSchema &itemSchema)
         }
     }
 
+    // pins, trophies and coins for the profile, bought straight away like an agent. kind 7, the subtitle says which
+    if (priced)
+    {
+        for (uint32_t def : itemSchema.GetCollectibleDefIndexes())
+        {
+            const uint32_t price = StarShop::Price(itemSchema, starShop, def);
+            if (!price)
+            {
+                continue;
+            }
+
+            using CollectibleKind = ItemSchema::CollectibleKind;
+            const CollectibleKind collectible = itemSchema.GetCollectibleKind(def);
+            const ItemInfo *info = itemSchema.ItemInfoByDefIndex(def);
+            begin();
+            data += std::to_string(def) + ",0,7," + std::to_string(price) + ',' + std::to_string(info ? info->m_rarity : 0)
+                + ",\"\",\"" + (collectible == CollectibleKind::Pin ? "Pin" : collectible == CollectibleKind::Trophy ? "Trophy" : "Coin")
+                + "\"]";
+        }
+    }
+
     data += ']';
     return data;
 }
@@ -745,10 +766,11 @@ var CsgoGcCaseStore = ( function()
 		[ 'cases', 'WEAPON CASES', [ 0 ], 'The weapon cases, each with its key.' ],
 		[ 'souvenir', 'SOUVENIR PACKAGES', [ 1 ], 'Tournament packages with souvenir skins.' ],
 		[ 'capsules', 'STICKER CAPSULES', [ 2 ], 'Sticker, patch and graffiti capsules.' ],
-		[ 'other', 'OTHER', [ 3 ], 'Everything else that can be opened.' ]
+		[ 'other', 'OTHER', [ 3 ], 'Everything else that can be opened.' ],
+		[ 'collectibles', 'PINS, TROPHIES & COINS', [ 7 ], 'Collectibles for your profile.' ]
 	];
-	var KIND_NAMES = [ 'Weapon Case', 'Souvenir Package', 'Capsule', 'Other', 'Agent', 'Custom Case', 'Special Offer' ];
-	var KIND_COLORS = { 6: '#f5c542', 5: '#5b9bff', 4: '#a070ff', 0: '#8d99a8', 1: '#e0a040', 2: '#40b8d0', 3: '#8d99a8' };
+	var KIND_NAMES = [ 'Weapon Case', 'Souvenir Package', 'Capsule', 'Other', 'Agent', 'Custom Case', 'Special Offer', 'Collectible' ];
+	var KIND_COLORS = { 7: '#e07ab0', 6: '#f5c542', 5: '#5b9bff', 4: '#a070ff', 0: '#8d99a8', 1: '#e0a040', 2: '#40b8d0', 3: '#8d99a8' };
 	var BACKGROUND = 'url("file://{images}/map_icons/screenshots/1080p/de_nuke.png")';
 	var RARITY_COLORS = { 1: '#b0c3d9', 2: '#5e98d9', 3: '#4b69ff', 4: '#8847ff', 5: '#d32ce6', 6: '#eb4b4b', 7: '#e4ae39' };
 	var BUY_AMOUNTS = [ 1, 5, 10 ];
@@ -978,8 +1000,8 @@ var CsgoGcCaseStore = ( function()
 		var id = _FauxId( entry[ 0 ] );
 		var keyId = entry[ 1 ] ? _FauxId( entry[ 1 ] ) : '';
 		var name = m_names[ index ];
-		var isAgent = kind === 4;
-		var accent = isAgent ? ( RARITY_COLORS[ rarity ] || KIND_COLORS[ 4 ] ) : ( KIND_COLORS[ kind ] || '#ffffff30' );
+		var isAgent = kind === 4 || kind === 7;
+		var accent = isAgent ? ( RARITY_COLORS[ rarity ] || KIND_COLORS[ kind ] ) : ( KIND_COLORS[ kind ] || '#ffffff30' );
 		var subtitle = entry[ 6 ] || ( ( KIND_NAMES[ kind ] || '' ) + ( keyId ? ' + key' : '' ) );
 		var pictureId = entry[ 7 ] ? _FauxId( entry[ 7 ] ) : id;
 
@@ -1307,7 +1329,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 				return CATEGORIES[ i ][ 2 ];
 			}
 		}
-		return [ 6, 4, 5, 0, 1, 2, 3 ];
+		return [ 6, 4, 5, 0, 1, 2, 3, 7 ];
 	}
 
 	// the entries (indexes into m_data) of a category that match the search words, in shop order
@@ -1323,7 +1345,7 @@ static const char CaseStoreScriptPart2[] = R"js(
 			}
 		} );
 
-		var order = [ 6, 4, 5, 0, 1, 2, 3 ];
+		var order = [ 6, 4, 5, 0, 1, 2, 3, 7 ];
 		list.sort( function( a, b )
 		{
 			var d = order.indexOf( m_data[ a ][ 2 ] ) - order.indexOf( m_data[ b ][ 2 ] );

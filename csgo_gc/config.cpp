@@ -194,6 +194,9 @@ GCConfig::GCConfig()
         m_starShop.souvenirPrice = starShop->GetNumber("souvenir_price", m_starShop.souvenirPrice);
         m_starShop.customCasePrice = starShop->GetNumber("custom_case_price", m_starShop.customCasePrice);
         m_starShop.agentPrice = starShop->GetNumber("agent_price", m_starShop.agentPrice);
+        m_starShop.pinPrice = starShop->GetNumber("pin_price", m_starShop.pinPrice);
+        m_starShop.coinPrice = starShop->GetNumber("coin_price", m_starShop.coinPrice);
+        m_starShop.trophyPrice = starShop->GetNumber("trophy_price", m_starShop.trophyPrice);
         m_starShop.operationActive = starShop->GetNumber("operation_active", m_starShop.operationActive);
         if (const KeyValue *sell = starShop->GetSubkey("sell"))
         {
