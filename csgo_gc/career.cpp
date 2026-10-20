@@ -3,9 +3,13 @@
 #include "config.h"
 #include "item_schema.h"
 #include "item_utils.h"
+#include <algorithm>
+#include <cmath>
+#include <cstring>
 #include <fstream>
 #include <mutex>
 #include <sstream>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace
@@ -595,11 +599,78 @@ uint32_t Career::GoalRewardStars()
     return ScaledStars(GoalReward, GetConfig().CareerRewards().goalPercent);
 }
 
+// What an achievement pays follows how hard it is. Within one counter the reward climbs with the number to reach
+// (it can never be lower than the step before it), and each counter has its own range: a case opened is cheap and
+// common, a knife or a gold streak is rare. reward = min + (max - min) * (ln(1 + n) / ln(1 + the top n))^2, in 5s.
+// The literal numbers in the table above are only used for the counters that are not listed here.
+struct FamilyReward
+{
+    const char *stat;
+    uint32_t min;
+    uint32_t max;
+};
+
+constexpr FamilyReward FamilyRewards[] = {
+    { "cases_opened", 15, 800 }, { "custom_cases_opened", 30, 700 }, { "cases_distinct", 15, 700 }, { "other_opened", 10, 500 },
+    { "pulls_milspec", 10, 500 }, { "pulls_restricted", 15, 600 }, { "pulls_classified", 25, 700 }, { "pulls_covert", 50, 800 },
+    { "stattrak_pulls", 30, 700 },
+    { "gold_pulls", 150, 1000 }, { "gold_cases", 100, 900 }, { "gold_streak_best", 300, 1500 }, { "dry_streak_best", 15, 800 },
+    { "knives_pulled", 100, 800 }, { "gloves_pulled", 100, 800 }, { "knife_types", 50, 900 }, { "glove_types", 60, 900 },
+    { "gold_finishes", 60, 900 },
+    { "skins_found", 10, 700 }, { "goals_done", 150, 1000 }, { "tradeups", 20, 700 }, { "tradeup_golds", 150, 1000 },
+    { "kills", 5, 500 }, { "headshots", 10, 600 }, { "mvps", 15, 650 }, { "plants", 10, 600 }, { "defuses", 15, 650 },
+    { "matches", 15, 650 }, { "stars_earned", 10, 700 },
+};
+
+const std::unordered_map<std::string, uint32_t> &RebalancedStars()
+{
+    static const std::unordered_map<std::string, uint32_t> table = []
+    {
+        std::unordered_map<std::string, uint32_t> result;
+        for (const FamilyReward &family : FamilyRewards)
+        {
+            std::vector<const AchievementDef *> defs;
+            for (const AchievementDef &def : Achievements)
+            {
+                if (!strcmp(def.stat, family.stat))
+                {
+                    defs.push_back(&def);
+                }
+            }
+            std::sort(defs.begin(), defs.end(), [](const AchievementDef *a, const AchievementDef *b) { return a->threshold < b->threshold; });
+            if (defs.empty())
+            {
+                continue;
+            }
+
+            const double top = std::log1p(static_cast<double>(defs.back()->threshold));
+            uint32_t previous = 0;
+            for (const AchievementDef *def : defs)
+            {
+                const double fraction = std::log1p(static_cast<double>(def->threshold)) / top;
+                const double value = family.min + (family.max - family.min) * fraction * fraction;
+                uint32_t stars = std::max<uint32_t>(5, static_cast<uint32_t>(std::lround(value / 5.0)) * 5);
+                if (stars <= previous)
+                {
+                    stars = previous + 5;
+                }
+                previous = stars;
+                result[def->id] = stars;
+            }
+        }
+        return result;
+    }();
+    return table;
+}
+
 static uint32_t AchievementStars(const AchievementDef &def)
 {
+    const auto found = RebalancedStars().find(def.id);
+    const uint32_t base = found != RebalancedStars().end() ? found->second : def.stars;
+
     // the Matches and Stars categories are earned by playing; the rest by opening cases
     const CareerRewardsConfig &rewards = GetConfig().CareerRewards();
-    return ScaledStars(def.stars, def.category >= 6 ? rewards.matchAchievementsPercent : rewards.caseAchievementsPercent);
+    return ScaledStars(base, def.category >= 6 ? rewards.matchAchievementsPercent : rewards.caseAchievementsPercent);
 }
 
 std::vector<Career::Unlock> Career::CheckAchievements()

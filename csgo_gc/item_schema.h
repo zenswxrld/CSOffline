@@ -287,6 +287,7 @@ public:
         std::string nameToken;  // language token holding the title, empty when the tag is the plain title
         std::string kitText;    // the paint_kits block
         std::string rarityText; // the paint_kits_rarity line
+        std::string tint;       // "#rrggbb" of its most vivid colour (color0 to color3), empty when it has none
     };
     const std::vector<CustomPaintKit> &CustomPaintKits() const { return m_customPaintKits; }
     bool IsAddedCase(uint32_t crateDefIndex) const;

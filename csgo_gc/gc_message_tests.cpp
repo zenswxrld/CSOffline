@@ -4024,6 +4024,18 @@ static bool CasePopupLoadsTexturesForEveryTile()
     const size_t again = source.find("$.Schedule( delay");
     valid &= getItem < precache && precache < update && update < again && again != std::string::npos;
 
+    // custom finishes get a tinted plain weapon, in the popup and in the roll of the case opening
+    PanoramaHook::SetKitTints("{\"Palm Green Teal\":\"#42cfdc\"}");
+    std::string rolled =
+        "\t\t\tvar elTile = $.CreatePanel( 'Panel', elParent, tileId );\n"
+        "\t\t\telTile.FindChildInLayoutFile( 'ItemImage' ).itemid = itemId;\n"
+        "\t\t\telTile.FindChildInLayoutFile( 'JsRarity' ).style.washColor = x;\n";
+    std::string popup = source + rolled;
+    valid &= PanoramaHook::PatchCasePopup(popup) == 2
+        && popup.find("CsgoGcFallbackIcon( elTile.FindChildInLayoutFile( 'ItemImage' ), itemId )") != std::string::npos
+        && popup.find("var CsgoGcKitTints = {\"Palm Green Teal\":\"#42cfdc\"};") != std::string::npos
+        && popup.find("function CsgoGcFallbackIcon( image, id )") != std::string::npos;
+
     std::string other = "var x = 1;";
     valid &= PanoramaHook::PatchCasePopup(other) == 0 && other == "var x = 1;";
     return valid;
@@ -4415,7 +4427,7 @@ static bool CareerTracksGoalsAchievementsAndPersists()
 
         // first opening: a skin of the case and the "first case" achievement, no goal yet
         auto first = career.RecordCaseOpened(5001, info, pull(7, 100, ItemSchema::RarityMythical, false, false));
-        valid &= !first.empty() && first[0].stars == 2; // 15 stars at the default 15 percent
+        valid &= !first.empty() && first[0].stars == 3; // 20 stars at the default 15 percent
 
         // the same skin again finds nothing new
         valid &= career.RecordCaseOpened(5001, info, pull(7, 100, ItemSchema::RarityMythical, false, false)).empty();
@@ -4504,7 +4516,7 @@ static bool CareerTracksGoalsAchievementsAndPersists()
         // the SkinStop tabs' data: the case's 2/2 skins and gold, a finished achievement, a stat
         const std::string ui = career.UiData({ { 5001, info } });
         valid &= ui.find("cases: [[5001,'Test Case',2,2,1,1,1,5]]") != std::string::npos
-            && ui.find("['first_case','First Crack','Open your first case.',2,1,1,1,0]") != std::string::npos
+            && ui.find("['first_case','First Crack','Open your first case.',3,1,1,1,0]") != std::string::npos
             && ui.find("['Cases opened','6']") != std::string::npos
             && ui.find("goalReward: 150") != std::string::npos;
     }

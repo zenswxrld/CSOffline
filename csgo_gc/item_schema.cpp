@@ -1760,6 +1760,30 @@ void ItemSchema::ParseCustomPaintKits(const KeyValue &customKitsKey)
         WriteKitChildren(custom.kitText, entry, 3);
         custom.kitText += "\t\t}\n";
         custom.rarityText = "\t\t\"" + name + "\"\t\t\"" + rarityName + "\"\n";
+
+        // the colour the finish is mostly seen as: the most vivid of its four paint colours ("r g b" each)
+        int bestScore = -1;
+        for (const char *colorKey : { "color0", "color1", "color2", "color3" })
+        {
+            int r = 0, g = 0, b = 0;
+            const std::string color{ kitKey.GetString(colorKey) };
+            if (sscanf(color.c_str(), "%d %d %d", &r, &g, &b) != 3)
+            {
+                continue;
+            }
+            r = std::clamp(r, 0, 255);
+            g = std::clamp(g, 0, 255);
+            b = std::clamp(b, 0, 255);
+            const int high = std::max({ r, g, b });
+            const int score = (high - std::min({ r, g, b })) * 2 + high;
+            if (score > bestScore)
+            {
+                bestScore = score;
+                char hex[8];
+                snprintf(hex, sizeof(hex), "#%02x%02x%02x", r, g, b);
+                custom.tint = hex;
+            }
+        }
         m_customPaintKits.push_back(std::move(custom));
 
         Platform::Print("custom_paint_kits: %s is finish %u (%s)\n", name.c_str(), defIndex, rarityName.c_str());
