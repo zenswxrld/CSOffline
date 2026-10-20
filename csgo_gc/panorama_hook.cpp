@@ -22,6 +22,100 @@ void PanoramaHook::SetKitTints(std::string tintsJsObject)
     s_kitTints = std::move(tintsJsObject);
 }
 
+static std::string s_botFaces = "{}";
+
+void PanoramaHook::SetBotFaces(std::string facesJsObject)
+{
+    std::lock_guard lock{ s_kitTintsMutex };
+    s_botFaces = std::move(facesJsObject);
+}
+
+std::string PanoramaHook::BuildBotFaces(const ItemSchema &itemSchema)
+{
+    std::string ct, terrorist;
+    for (uint32_t def : itemSchema.GetAgentDefIndexes())
+    {
+        const ItemInfo *info = itemSchema.ItemInfoByDefIndex(def);
+        if (!info)
+        {
+            continue;
+        }
+
+        // official agents are named customplayer_tm_... and customplayer_ctm_...
+        std::string &list = info->m_name.find("_ctm_") != std::string::npos ? ct
+            : info->m_name.find("_tm_") != std::string::npos ? terrorist : ct;
+        const bool both = info->m_name.find("_ctm_") == std::string::npos && info->m_name.find("_tm_") == std::string::npos;
+        const std::string number = std::to_string(def);
+        list += (list.empty() ? "" : ",") + number;
+        if (both)
+        {
+            terrorist += (terrorist.empty() ? "" : ",") + number;
+        }
+    }
+    return "{ ct: [" + ct + "], t: [" + terrorist + "] }";
+}
+
+int PanoramaHook::PatchBotAvatars(std::string &source)
+{
+    // the avatar cell gives a player without a Steam id a default picture by team
+    static const std::regex defaultImage{
+        R"re(elAvatarImage\.SetDefaultImage\(\s*"file://\{images\}/icons/scoreboard/avatar-"\s*\+\s*team\s*\+\s*"\.png"\s*\)\s*;)re" };
+    if (!std::regex_search(source, defaultImage))
+    {
+        return 0;
+    }
+
+    source = std::regex_replace(source, defaultImage,
+        "elAvatarImage.SetDefaultImage( CsgoGcBotFace( oPlayer.m_xuid, team ) );", std::regex_constants::format_first_only);
+
+    std::string faces;
+    {
+        std::lock_guard lock{ s_kitTintsMutex };
+        faces = s_botFaces;
+    }
+
+    source += "\n\nvar CsgoGcAgentFaces = " + faces + R"js(;
+function CsgoGcBotFace( xuid, team )
+{
+	var fallback = "file://{images}/icons/scoreboard/avatar-" + team + ".png";
+	try
+	{
+		if ( !MockAdapter.IsFakePlayer( xuid ) )
+		{
+			return fallback;
+		}
+
+		var list = team === 'CT' ? CsgoGcAgentFaces.ct : ( team === 'TERRORIST' ? CsgoGcAgentFaces.t : [] );
+		if ( !list || !list.length )
+		{
+			return fallback;
+		}
+
+		// the same bot always gets the same face
+		var seed = String( xuid );
+		try { seed += MockAdapter.GetPlayerName( xuid ); } catch ( e ) {}
+		var hash = 0;
+		for ( var i = 0; i < seed.length; i++ )
+		{
+			hash = ( hash * 31 + seed.charCodeAt( i ) ) % 1000003;
+		}
+
+		var itemId = InventoryAPI.GetFauxItemIDFromDefAndPaintIndex( list[ hash % list.length ], 0 );
+		var image = itemId ? InventoryAPI.GetItemInventoryImage( itemId ) : '';
+		if ( image )
+		{
+			return 'file://{images_econ}/' + image + '.png';
+		}
+	}
+	catch ( e )
+	{
+	}
+	return fallback;
+}
+)js";
+    return 1;
+}
+
 std::string PanoramaHook::BuildKitTints(const ItemSchema &itemSchema)
 {
     std::string text = "{";
@@ -2061,11 +2155,22 @@ void __fastcall Hk_RunScript(void *engine, void *edx, void *panel, const char *s
         }
     }
 
-    if (GetConfig().BotPing() && PathIsFile(path, "scoreboard.js"))
+    if ((GetConfig().BotPing() || GetConfig().BotAvatars()) && PathIsFile(path, "scoreboard.js"))
     {
         std::string patched = source;
-        const bool changed = PanoramaHook::PatchBotPingLabel(patched) != 0;
-        Platform::Print("Panorama: scoreboard bot ping %s\n", changed ? "shown instead of the BOT label" : "not changed, scoreboard.js didn't match");
+        bool changed = false;
+        if (GetConfig().BotPing())
+        {
+            const bool ping = PanoramaHook::PatchBotPingLabel(patched) != 0;
+            Platform::Print("Panorama: scoreboard bot ping %s\n", ping ? "shown instead of the BOT label" : "not changed, scoreboard.js didn't match");
+            changed |= ping;
+        }
+        if (GetConfig().BotAvatars())
+        {
+            const bool faces = PanoramaHook::PatchBotAvatars(patched) != 0;
+            Platform::Print("Panorama: scoreboard bot faces %s\n", faces ? "added" : "not added, scoreboard.js didn't match");
+            changed |= faces;
+        }
         if (changed)
         {
             s_originalRunScript(engine, edx, panel, patched.c_str(), path, line, column, arg6, arg7);

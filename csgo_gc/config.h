@@ -188,6 +188,7 @@ public:
     bool HideBotTag() const { return m_hideBotTag; }
     bool MatchEndScreens() const { return m_matchEndScreens; }
     bool BotPing() const { return m_botPing; }
+    bool BotAvatars() const { return m_botAvatars; }
     bool BotClanTags() const { return m_botClanTags; }
     bool InventoryRefreshFix() const { return m_inventoryRefreshFix; }
     int MatchEndSeconds() const { return m_matchEndSeconds; }
@@ -258,6 +259,7 @@ private:
     bool m_hideBotTag{ true };
     bool m_matchEndScreens{ true };
     bool m_botPing{ true };
+    bool m_botAvatars{ true };
     bool m_botClanTags{ true };
     bool m_inventoryRefreshFix{ true };
     int m_matchEndSeconds{ 40 };

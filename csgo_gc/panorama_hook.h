@@ -113,6 +113,12 @@ namespace PanoramaHook
     int PatchBotPingAdapter(std::string &source);
     int PatchBotPingLabel(std::string &source);
 
+    // bots get a face on the scoreboard: an agent's picture of their team, picked by name (needs scoreboard.js)
+    int PatchBotAvatars(std::string &source);
+    // the agents by team as a JS object {ct:[def,..],t:[def,..]}
+    std::string BuildBotFaces(const ItemSchema &itemSchema);
+    void SetBotFaces(std::string facesJsObject);
+
     // bots get a clan tag on the scoreboard, the same for the bots of a team, new ones every match (the scoreboard
     // shows GetPlayerClanTag in front of the name). returns 1 when changed
     int PatchBotClanTags(std::string &source);

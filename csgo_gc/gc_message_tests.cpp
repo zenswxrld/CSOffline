@@ -4388,6 +4388,25 @@ static bool BotProfilesGetAggressionByPersonality()
     return ok;
 }
 
+static bool BotsGetFacesOnTheScoreboard()
+{
+    std::string script =
+        "var Scoreboard = (function(){\n"
+        "\t\t\t\t\t\t\telAvatarImage.SetDefaultImage( \"file://{images}/icons/scoreboard/avatar-\"+team+\".png\" );\n"
+        "})();\n";
+    bool valid = PanoramaHook::PatchBotAvatars(script) == 1;
+    valid &= script.find("avatar-\"+team") == std::string::npos
+        && script.find("elAvatarImage.SetDefaultImage( CsgoGcBotFace( oPlayer.m_xuid, team ) );") != std::string::npos
+        && script.find("function CsgoGcBotFace") != std::string::npos
+        && script.find("var CsgoGcAgentFaces = ") != std::string::npos;
+
+    // a scoreboard we don't know is left alone
+    std::string other = "var x = 1;\n";
+    valid &= PanoramaHook::PatchBotAvatars(other) == 0 && other == "var x = 1;\n";
+
+    return valid;
+}
+
 static bool HowlGoesBackInTheHuntsmanCase()
 {
     std::string text =
@@ -5806,6 +5825,7 @@ int main()
         { "BotSkinsPickThemedStableSkins", BotSkinsPickThemedStableSkins },
         { "StarShopEarnsStarsAndRedeemsARandomAgent", StarShopEarnsStarsAndRedeemsARandomAgent },
         { "BotPersonalitiesAndNemesisWork", BotPersonalitiesAndNemesisWork },
+        { "BotsGetFacesOnTheScoreboard", BotsGetFacesOnTheScoreboard },
         { "BotProfilesGetAggressionByPersonality", BotProfilesGetAggressionByPersonality },
         { "SchemaFindsPinsTrophiesAndCoinsButNotServiceMedals", SchemaFindsPinsTrophiesAndCoinsButNotServiceMedals },
         { "PityBoostsBetterRaritiesBeforeGold", PityBoostsBetterRaritiesBeforeGold },

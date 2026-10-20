@@ -132,6 +132,9 @@
 // bots show a made-up ping (12 to 68, wobbling a little) on the scoreboard instead of the "BOT" label
 "bot_ping"	"1"
 
+// gives bots a face on the scoreboard: a picture of an agent on their team (the same bot always gets the same one)
+"bot_avatars"	"1"
+
 // bots get a clan tag in front of their name on the scoreboard (FRZ, NYX, ...): the bots of a team share one, and every
 // match has new ones
 "bot_clan_tags"	"1"

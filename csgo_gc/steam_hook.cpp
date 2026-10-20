@@ -2153,6 +2153,7 @@ static void Hk_SteamAPI_RunCallbacks()
         PanoramaHook::SetCaseStoreData(PanoramaHook::BuildCaseStoreData(s_clientGC->m_gc.GetItemSchema()));
         PanoramaHook::SetSellData(StarShop::BuildSellTable(s_clientGC->m_gc.GetItemSchema(), GetConfig().StarShop()));
         PanoramaHook::SetKitTints(PanoramaHook::BuildKitTints(s_clientGC->m_gc.GetItemSchema()));
+        PanoramaHook::SetBotFaces(PanoramaHook::BuildBotFaces(s_clientGC->m_gc.GetItemSchema()));
     }
     PanoramaHook::Tick();
     BotChat::Tick();
