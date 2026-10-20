@@ -2917,6 +2917,61 @@ std::vector<uint32_t> ItemSchema::GetAgentDefIndexes() const
     return agents;
 }
 
+ItemSchema::CollectibleKind ItemSchema::GetCollectibleKind(uint32_t defIndex) const
+{
+    const auto found = m_itemInfo.find(defIndex);
+    if (found == m_itemInfo.end() || found->second.m_isCoupon || found->second.m_name.empty())
+    {
+        return CollectibleKind::None;
+    }
+
+    const ItemInfo &info = found->second;
+    bool pin = false, trophy = false, coin = false;
+    for (const std::string &prefab : info.m_prefabs)
+    {
+        if (EqualsInsensitive(prefab, "prestige_coin"))
+        {
+            return CollectibleKind::None; // service medals are earned, not bought
+        }
+
+        pin |= EqualsInsensitive(prefab, "attendance_pin") || EqualsInsensitive(prefab, "commodity_pin");
+        trophy |= EqualsInsensitive(prefab, "majors_trophy") || EqualsInsensitive(prefab, "pickem_trophy");
+        coin |= EqualsInsensitive(prefab, "collectible_untradable_coin")
+            || (prefab.size() > 10 && prefab.compare(0, 6, "season") == 0 && prefab.compare(prefab.size() - 5, 5, "_coin") == 0);
+    }
+
+    // service coins and the game license are not for sale either
+    if (ContainsInsensitive(info.m_name, "service") || ContainsInsensitive(info.m_name, "license"))
+    {
+        return CollectibleKind::None;
+    }
+
+    return pin ? CollectibleKind::Pin : trophy ? CollectibleKind::Trophy : coin ? CollectibleKind::Coin : CollectibleKind::None;
+}
+
+std::vector<uint32_t> ItemSchema::GetCollectibleDefIndexes() const
+{
+    std::vector<uint32_t> pins, trophies, coins;
+    for (const auto &pair : m_itemInfo)
+    {
+        switch (GetCollectibleKind(pair.first))
+        {
+        case CollectibleKind::Pin: pins.push_back(pair.first); break;
+        case CollectibleKind::Trophy: trophies.push_back(pair.first); break;
+        case CollectibleKind::Coin: coins.push_back(pair.first); break;
+        default: break;
+        }
+    }
+
+    std::vector<uint32_t> all;
+    for (std::vector<uint32_t> *list : { &pins, &trophies, &coins })
+    {
+        std::sort(list->begin(), list->end());
+        all.insert(all.end(), list->begin(), list->end());
+    }
+    return all;
+}
+
 std::vector<uint32_t> ItemSchema::GetContainerDefIndexes() const
 {
     std::vector<uint32_t> containers;

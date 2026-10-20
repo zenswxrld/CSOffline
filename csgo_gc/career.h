@@ -61,6 +61,8 @@ public:
         std::string title;
         std::string text;
         uint32_t stars{};
+        // a collectible the achievement also gives: 0 none, 1 pin, 2 coin, 3 trophy (the harder, the better)
+        uint32_t collectible{};
     };
 
     // what a completed collection pays before the career_rewards percent, and after it

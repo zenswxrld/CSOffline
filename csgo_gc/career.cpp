@@ -673,6 +673,15 @@ static uint32_t AchievementStars(const AchievementDef &def)
     return ScaledStars(base, def.category >= 6 ? rewards.matchAchievementsPercent : rewards.caseAchievementsPercent);
 }
 
+// The hardest achievements also give something for the profile. How hard one is comes from its base reward, so the
+// career_rewards percents don't change which achievements give what.
+static uint32_t AchievementCollectible(const AchievementDef &def)
+{
+    const auto found = RebalancedStars().find(def.id);
+    const uint32_t base = found != RebalancedStars().end() ? found->second : def.stars;
+    return base >= 700 ? 3 : base >= 400 ? 2 : base >= 200 ? 1 : 0;
+}
+
 std::vector<Career::Unlock> Career::CheckAchievements()
 {
     std::vector<Unlock> unlocked;
@@ -684,7 +693,7 @@ std::vector<Career::Unlock> Career::CheckAchievements()
         }
 
         m_achievements[def.id] = static_cast<uint32_t>(time(nullptr));
-        unlocked.push_back({ def.title, std::string{ "Achievement unlocked: " } + def.title, AchievementStars(def) });
+        unlocked.push_back({ def.title, std::string{ "Achievement unlocked: " } + def.title, AchievementStars(def), AchievementCollectible(def) });
     }
     return unlocked;
 }
